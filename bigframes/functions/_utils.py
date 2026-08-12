@@ -18,16 +18,16 @@ import inspect
 import json
 import sys
 import typing
-from typing import Any, cast, Optional, Sequence, Set
 import warnings
+from typing import Any, Optional, Sequence, Set, cast
 
 import cloudpickle
 import google.api_core.exceptions
-from google.cloud import bigquery, functions_v2
 import numpy
-from packaging.requirements import Requirement
 import pandas
 import pyarrow
+from google.cloud import bigquery, functions_v2
+from packaging.requirements import Requirement
 
 import bigframes.exceptions as bfe
 import bigframes.formatting_helpers as bf_formatting
@@ -43,25 +43,19 @@ _GCF_FUNCTION_NAME_SEPERATOR = "-"
 _pickle_protocol_version = 4
 
 
-def get_remote_function_locations(bq_location):
-    """Get BQ location and cloud functions region given a BQ client."""
-    # TODO(shobs, b/274647164): Find the best way to determine default location.
-    # For now let's assume that if no BQ location is set in the client then it
-    # defaults to US multi region
-    bq_location = bq_location.lower() if bq_location else "us"
-
-    # Cloud function should be in the same region as the bigquery remote function
-    cloud_function_region = bq_location
+def gcf_location_from_bq_location(bq_location: str) -> str:
+    """Get the cloud functions region that corresponds to a BQ location."""
+    bq_location = bq_location.lower()
 
     # BigQuery has multi region but cloud functions does not.
     # Any region in the multi region that supports cloud functions should work
     # https://cloud.google.com/functions/docs/locations
     if bq_location == "us":
-        cloud_function_region = "us-central1"
+        return "us-central1"
     elif bq_location == "eu":
-        cloud_function_region = "europe-west1"
+        return "europe-west1"
 
-    return bq_location, cloud_function_region
+    return bq_location
 
 
 def _package_existed(package_requirements: list[str], package: str) -> bool:
@@ -108,7 +102,7 @@ def get_updated_package_requirements(
             requirements.append(f"numpy=={numpy.__version__}")
 
     if not requirements:
-        return package_requirements
+        return list(package_requirements)
 
     result = list(package_requirements)
     for package in requirements:
@@ -164,7 +158,7 @@ def clean_up_by_session_id(
 
     # Now clean up the cloud functions
     bq_location = bqclient.get_dataset(dataset).location
-    bq_location, gcf_location = get_remote_function_locations(bq_location)
+    gcf_location = gcf_location_from_bq_location(bq_location)
     parent_path = gcfclient.common_location_path(
         project=dataset.project, location=gcf_location
     )
@@ -251,9 +245,9 @@ def get_bigframes_metadata(*, python_output_type: Optional[type] = None) -> str:
             python_output_array_type
             in function_typing.RF_SUPPORTED_ARRAY_OUTPUT_PYTHON_TYPES
         ):
-            inner_metadata[
-                "python_array_output_type"
-            ] = python_output_array_type.__name__
+            inner_metadata["python_array_output_type"] = (
+                python_output_array_type.__name__
+            )
 
     metadata = {"value": inner_metadata}
     metadata_ser = json.dumps(metadata)

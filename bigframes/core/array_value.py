@@ -13,15 +13,25 @@
 # limitations under the License.
 from __future__ import annotations
 
-from dataclasses import dataclass
 import datetime
 import functools
 import typing
+from dataclasses import dataclass
 from typing import Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 import pandas
 import pyarrow as pa
 
+import bigframes.core.expression as ex
+import bigframes.core.guid
+import bigframes.core.identifiers as ids
+import bigframes.core.nodes as nodes
+import bigframes.core.ordering as orderings
+import bigframes.core.schema as schemata
+import bigframes.core.tree_properties
+import bigframes.dtypes
+import bigframes.operations as ops
+import bigframes.operations.aggregations as agg_ops
 from bigframes.core import (
     agg_expressions,
     bq_data,
@@ -29,18 +39,8 @@ from bigframes.core import (
     join_def,
     local_data,
 )
-import bigframes.core.expression as ex
-import bigframes.core.guid
-import bigframes.core.identifiers as ids
-import bigframes.core.nodes as nodes
 from bigframes.core.ordering import OrderingExpression
-import bigframes.core.ordering as orderings
-import bigframes.core.schema as schemata
-import bigframes.core.tree_properties
 from bigframes.core.window_spec import WindowSpec
-import bigframes.dtypes
-import bigframes.operations as ops
-import bigframes.operations.aggregations as agg_ops
 
 if typing.TYPE_CHECKING:
     from bigframes.session import Session
@@ -212,11 +212,17 @@ class ArrayValue:
             return arr.drop_columns(filter_ids)
 
     def order_by(
-        self, by: Sequence[OrderingExpression], is_total_order: bool = False
+        self,
+        by: Sequence[OrderingExpression],
+        is_total_order: bool = False,
+        stable: bool = True,
     ) -> ArrayValue:
         return ArrayValue(
             nodes.OrderByNode(
-                child=self.node, by=tuple(by), is_total_order=is_total_order
+                child=self.node,
+                by=tuple(by),
+                is_total_order=is_total_order,
+                stable=stable,
             )
         )
 
@@ -541,6 +547,7 @@ class ArrayValue:
                 for l_col, r_col in conditions
             ),
             type=type,
+            nulls_equal=True,  # pandas semantics
             propogate_order=propogate_order or self.session._strictly_ordered,
         )
         return ArrayValue(join_node), (l_mapping, r_mapping)

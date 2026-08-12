@@ -17,19 +17,19 @@
 from __future__ import annotations
 
 import typing
-from typing import Iterable, Literal, Mapping, Optional, Union
 import warnings
+from typing import Iterable, Literal, Mapping, Optional, Union
 
 import bigframes_vendored.constants as constants
 from google.cloud import bigquery
 
-from bigframes import dtypes, exceptions
 import bigframes.bigquery as bbq
+import bigframes.dataframe
+import bigframes.series
+from bigframes import dtypes, exceptions
 from bigframes.core import blocks, global_session
 from bigframes.core.logging import log_adapter
-import bigframes.dataframe
 from bigframes.ml import base, core, globals, utils
-import bigframes.series
 
 _BQML_PARAMS_MAPPING = {
     "max_iterations": "maxIterations",
@@ -397,7 +397,7 @@ class MultimodalEmbeddingGenerator(base.RetriableRemotePredictor):
 
         # TODO(garrettwu): remove transform to ObjRefRuntime when BQML supports ObjRef as input
         if X["content"].dtype == dtypes.OBJ_REF_DTYPE:
-            X["content"] = X["content"].blob._get_runtime("R", with_metadata=True)
+            X["content"] = bbq.obj.get_access_url(X["content"], mode="r")
 
         options: dict = {}
 
@@ -731,7 +731,7 @@ class GeminiTextGenerator(base.RetriableRemotePredictor):
                     isinstance(item, bigframes.series.Series)
                     and item.dtype == dtypes.OBJ_REF_DTYPE
                 ):
-                    item = item.blob._get_runtime("R", with_metadata=True)
+                    item = bbq.obj.get_access_url(item, mode="r")
 
                 df_prompt[label] = item
             df_prompt = df_prompt.drop(columns="bigframes_placeholder_col")

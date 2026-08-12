@@ -38,7 +38,7 @@ dependencies = [
     "fsspec >=2023.3.0",
     "gcsfs >=2023.3.0, !=2025.5.0, !=2026.2.0, !=2026.3.0",
     "geopandas >=0.12.2",
-    "google-auth >=2.15.0,<3.0",
+    "google-auth[pyopenssl] >=2.15.0,<3.0",
     "google-cloud-bigquery[bqstorage,pandas] >=3.36.0",
     # 2.30 needed for arrow support.
     "google-cloud-bigquery-storage >= 2.30.0, < 3.0.0",
@@ -51,7 +51,7 @@ dependencies = [
     "numpy >=1.24.0",
     "pandas >=1.5.3",
     "pandas-gbq >=0.26.1",
-    "pyarrow >=15.0.2",
+    "pyarrow >=23.0.1",
     "pydata-google-auth >=1.8.2",
     "requests >=2.27.1",
     "shapely >=1.8.5",
@@ -75,6 +75,7 @@ extras = {
         "pytest-snapshot",
         "google-cloud-bigtable >=2.24.0",
         "google-cloud-pubsub >=2.21.4",
+        "tzdata",
     ],
     # used for local engine
     "polars": ["polars >= 1.21.0"],
@@ -123,7 +124,7 @@ setuptools.setup(
     name=name,
     version=version_id,
     description=description,
-    download_url="https://github.com/googleapis/python-bigquery-dataframes/releases",
+    download_url="https://github.com/googleapis/google-cloud-python/tree/main/packages/bigframes/releases",
     long_description=readme,
     long_description_content_type="text/x-rst",
     author="Google LLC",
@@ -131,9 +132,9 @@ setuptools.setup(
     license="Apache 2.0",
     url="https://dataframes.bigquery.dev",
     project_urls={
-        "Source": "https://github.com/googleapis/python-bigquery-dataframes",
+        "Source": "https://github.com/googleapis/google-cloud-python/tree/main/packages/bigframes",
         "Changelog": "https://dataframes.bigquery.dev/changelog.html",
-        "Issues": "https://github.com/googleapis/python-bigquery-dataframes/issues",
+        "Issues": "https://github.com/googleapis/google-cloud-python/tree/main/packages/bigframes/issues",
     },
     classifiers=[
         release_status,

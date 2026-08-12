@@ -15,8 +15,8 @@ import datetime
 import functools
 import re
 import typing
-from typing import Hashable, Iterable, List
 import warnings
+from typing import Hashable, Iterable, List
 
 import bigframes_vendored.pandas.io.common as vendored_pandas_io_common
 import numpy as np
@@ -234,7 +234,7 @@ def preview(*, name: str):
 
 
 def timedelta_to_micros(
-    timedelta: typing.Union[pd.Timedelta, datetime.timedelta, np.timedelta64]
+    timedelta: typing.Union[pd.Timedelta, datetime.timedelta, np.timedelta64],
 ) -> int:
     if isinstance(timedelta, pd.Timedelta):
         # pd.Timedelta.value returns total nanoseconds.
@@ -249,3 +249,16 @@ def timedelta_to_micros(
         ) * 1_000_000 + timedelta.microseconds
 
     raise TypeError(f"Unrecognized input type: {type(timedelta)}")
+
+
+def get_ipython_execution_count() -> typing.Optional[int]:
+    """Returns the current IPython cell execution count if running in a notebook, else None."""
+    try:
+        from IPython.core.interactiveshell import InteractiveShell
+
+        if InteractiveShell.initialized():
+            ipy = InteractiveShell.instance()
+            return getattr(ipy, "execution_count", None)
+    except (ImportError, NameError):
+        pass
+    return None

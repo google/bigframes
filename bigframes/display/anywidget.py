@@ -17,21 +17,21 @@
 from __future__ import annotations
 
 import dataclasses
-from importlib import resources
 import functools
 import math
 import threading
-from typing import Any, Iterator, Optional
 import uuid
 import warnings
+from importlib import resources
+from typing import Any, Iterator, Optional
 
 import pandas as pd
 
 import bigframes
-from bigframes.core import blocks
 import bigframes.dataframe
 import bigframes.display.html
 import bigframes.dtypes as dtypes
+from bigframes.core import blocks
 
 # anywidget and traitlets are optional dependencies. We don't want the import of
 # this module to fail if they aren't installed, though. Instead, we try to
@@ -91,6 +91,10 @@ class TableWidget(_WIDGET_BASE):
             )
 
         self._dataframe = dataframe
+
+        from bigframes.core.utils import get_ipython_execution_count
+
+        self._cell_execution_count = get_ipython_execution_count()
 
         super().__init__()
 
@@ -171,8 +175,8 @@ class TableWidget(_WIDGET_BASE):
 
     @functools.cached_property
     def _esm(self):
-        """Load JavaScript code from external file."""
-        return resources.read_text(bigframes.display, "table_widget.js")
+        """Load JavaScript code from the compiled Angular hybrid bundle."""
+        return resources.read_text(bigframes.display, "table_widget_angular.js")
 
     @functools.cached_property
     def _css(self):
@@ -286,20 +290,23 @@ class TableWidget(_WIDGET_BASE):
     def _reset_batches_for_new_page_size(self) -> None:
         """Reset the batch iterator when page size changes."""
         with bigframes.option_context("display.progress_bar", None):
-            self._batches = self._dataframe.to_pandas_batches(page_size=self.page_size)
+            self._batches = self._dataframe.to_pandas_batches(
+                page_size=self.page_size,
+                cell_execution_count=self._cell_execution_count,
+            )
 
         self._reset_batch_cache()
 
     def _set_table_html(self) -> None:
         """Sets the current html data based on the current page and page size."""
         new_page = None
-        with self._setting_html_lock, bigframes.option_context(
-            "display.progress_bar", None
+        with (
+            self._setting_html_lock,
+            bigframes.option_context("display.progress_bar", None),
         ):
             if self._error_message:
                 self.table_html = (
-                    f"<div class='bigframes-error-message'>"
-                    f"{self._error_message}</div>"
+                    f"<div class='bigframes-error-message'>{self._error_message}</div>"
                 )
                 return
 
@@ -318,7 +325,8 @@ class TableWidget(_WIDGET_BASE):
             current_sort_state = _SortState(tuple(sort_columns), tuple(sort_ascending))
             if self._last_sort_state != current_sort_state:
                 self._batches = df_to_display.to_pandas_batches(
-                    page_size=self.page_size
+                    page_size=self.page_size,
+                    cell_execution_count=self._cell_execution_count,
                 )
                 self._reset_batch_cache()
                 self._last_sort_state = current_sort_state

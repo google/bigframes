@@ -92,15 +92,33 @@ def test_progress_bar_load_jobs(
     while len(df) < MAX_INLINE_DF_BYTES:
         df = pd.DataFrame(np.repeat(df.values, 2, axis=0))
 
-    with bf.option_context(
-        "display.progress_bar", "terminal"
-    ), tempfile.TemporaryDirectory() as dir:
+    with (
+        bf.option_context("display.progress_bar", "terminal"),
+        tempfile.TemporaryDirectory() as dir,
+    ):
         path = dir + "/test_read_csv_progress_bar*.csv"
         df.to_csv(path, index=False)
         capsys.readouterr()  # clear output
         session.read_csv(path)
 
     assert_loading_msg_exist(capsys.readouterr().out, pattern="Load")
+
+
+def test_progress_bar_uniqueness_check(session: bf.Session, capsys):
+    # Ensure strictly_ordered is True (default) to trigger uniqueness check
+    assert session._strictly_ordered
+
+    capsys.readouterr()  # clear output
+
+    with bf.option_context("display.progress_bar", "terminal"):
+        # Read a table and specify a non-unique index_col to trigger the check.
+        # We use a public table to make it a "real" test.
+        session.read_gbq_table(
+            "bigquery-public-data.ml_datasets.penguins",
+            index_col="island",
+        )
+
+    assert_loading_msg_exist(capsys.readouterr().out)
 
 
 def assert_loading_msg_exist(capstdout: str, pattern=job_load_message_regex):

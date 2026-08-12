@@ -19,18 +19,18 @@ from typing import Iterable, Optional, Sequence, Set, TypeVar, Union
 
 import geopandas as gpd  # type: ignore
 import google.api_core.operation
-from google.cloud import bigquery, functions_v2
-from google.cloud.functions_v2.types import functions
 import numpy as np
 import pandas as pd
 import pandas.api.types as pd_types
 import pyarrow as pa  # type: ignore
 import pytest
+from google.cloud import bigquery, functions_v2
+from google.cloud.functions_v2.types import functions
 
-from bigframes import operations as ops
-from bigframes.core import expression as ex
 import bigframes.functions._utils as bff_utils
 import bigframes.pandas as bpd
+from bigframes import operations as ops
+from bigframes.core import expression as ex
 
 ML_REGRESSION_METRICS = [
     "mean_absolute_error",
@@ -93,6 +93,14 @@ def assert_series_equivalent(pd_series: pd.Series, bf_series: bpd.Series, **kwar
 def _normalize_all_nulls(col: pd.Series) -> pd.Series:
     if pd_types.is_float_dtype(col.dtype):
         col = col.astype("float64").astype("Float64")
+    elif col.dtype == "object":
+        if any(isinstance(x, decimal.Decimal) for x in col):
+            pass
+        else:
+            try:
+                col = col.astype("Float64")
+            except (TypeError, ValueError, SystemError):
+                pass
     return col
 
 
@@ -428,11 +436,11 @@ def get_cloud_functions(
 ) -> Iterable[functions.ListFunctionsResponse]:
     """Get the cloud functions in the given project and location."""
 
-    assert (
-        not name or not name_prefix
-    ), "Either 'name' or 'name_prefix' can be passed but not both."
+    assert not name or not name_prefix, (
+        "Either 'name' or 'name_prefix' can be passed but not both."
+    )
 
-    _, location = bff_utils.get_remote_function_locations(location)
+    location = bff_utils.gcf_location_from_bq_location(location)
     parent = f"projects/{project}/locations/{location}"
     request = functions_v2.ListFunctionsRequest(parent=parent)
     page_result = functions_client.list_functions(request=request)

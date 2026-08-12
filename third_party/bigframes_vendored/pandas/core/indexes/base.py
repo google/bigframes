@@ -1,8 +1,8 @@
 # Contains code from https://github.com/pandas-dev/pandas/blob/main/pandas/core/indexes/base.py
 from __future__ import annotations
 
-from collections.abc import Hashable
 import typing
+from collections.abc import Hashable
 
 import bigframes
 from bigframes import constants
@@ -828,7 +828,11 @@ class Index:
         raise NotImplementedError(constants.ABSTRACT_METHOD_ERROR_MESSAGE)
 
     def sort_values(
-        self, *, ascending: bool = True, na_position: str = "last"
+        self,
+        *,
+        ascending: bool = True,
+        kind: str | None = None,
+        na_position: str = "last",
     ) -> Index:
         """
         Return a sorted copy of the index.
@@ -851,6 +855,10 @@ class Index:
         Args:
             ascending (bool, default True):
                 Should the index values be sorted in an ascending order.
+            kind (str, default None):
+                Choice of sorting algorithm. Accepts 'quicksort', 'mergesort',
+                'heapsort', 'stable'. Ignored except when determining whether to
+                sort stably. 'mergesort' or 'stable' will result in stable reorder.
             na_position ({'first' or 'last'}, default 'last'):
                 Argument 'first' puts NaNs at the beginning, 'last' puts NaNs at
                 the end.

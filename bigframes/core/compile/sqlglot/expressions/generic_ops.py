@@ -17,10 +17,10 @@ from __future__ import annotations
 import bigframes_vendored.sqlglot as sg
 import bigframes_vendored.sqlglot.expressions as sge
 
+import bigframes.core.compile.sqlglot.expression_compiler as expression_compiler
 from bigframes import dtypes
 from bigframes import operations as ops
 from bigframes.core.compile.sqlglot import sql, sqlglot_types
-import bigframes.core.compile.sqlglot.expression_compiler as expression_compiler
 from bigframes.core.compile.sqlglot.expressions.typed_expr import TypedExpr
 
 register_unary_op = expression_compiler.expression_compiler.register_unary_op
@@ -80,6 +80,27 @@ def _(expr: TypedExpr) -> sge.Expression:
     if expr.dtype == dtypes.BOOL_DTYPE:
         return sge.Not(this=sge.paren(expr.expr))
     return sge.BitwiseNot(this=sge.paren(expr.expr))
+
+
+@register_nary_op(ops.GoogleSqlScalarOp, pass_op=True)
+def _(*operands: TypedExpr, op: ops.GoogleSqlScalarOp) -> sge.Expression:
+    args: list[sge.Expression] = []
+    for i, operand in enumerate(operands):
+        if i < len(op.args):
+            arg_spec = op.args[i]
+        else:
+            assert op.args[-1].is_vararg, (
+                f"Too many arguments, for {op.sql_name}, expected {len(op.args)}"
+            )
+            arg_spec = op.args[-1]
+        if operand.is_omitted:
+            assert arg_spec.optional, "Argument omitted, but not optional"
+            continue
+        elif arg_spec.arg_name:
+            args.append(sge.Kwarg(this=arg_spec.arg_name, expression=operand.expr))
+        else:
+            args.append(operand.expr)
+    return sg.func(op.sql_name, *args)
 
 
 @register_nary_op(ops.SqlScalarOp, pass_op=True)
@@ -165,33 +186,9 @@ def _get_remote_function_name(op):
     )
 
 
-@register_unary_op(ops.RemoteFunctionOp, pass_op=True)
-def _(expr: TypedExpr, op: ops.RemoteFunctionOp) -> sge.Expression:
-    func_name = _get_remote_function_name(op)
-    func = sge.func(func_name, expr.expr)
-
-    if not op.apply_on_null:
-        return sge.If(
-            this=sge.Is(this=expr.expr, expression=sge.Null()),
-            true=expr.expr,
-            false=func,
-        )
-
-    return func
-
-
-@register_binary_op(ops.BinaryRemoteFunctionOp, pass_op=True)
-def _(
-    left: TypedExpr, right: TypedExpr, op: ops.BinaryRemoteFunctionOp
-) -> sge.Expression:
-    func_name = _get_remote_function_name(op)
-    return sge.func(func_name, left.expr, right.expr)
-
-
-@register_nary_op(ops.NaryRemoteFunctionOp, pass_op=True)
-def _(*operands: TypedExpr, op: ops.NaryRemoteFunctionOp) -> sge.Expression:
-    func_name = _get_remote_function_name(op)
-    return sge.func(func_name, *(operand.expr for operand in operands))
+@register_nary_op(ops.RemoteFunctionOp, pass_op=True)
+def _(*values: TypedExpr, op: ops.RemoteFunctionOp) -> sge.Expression:
+    return sge.func(_get_remote_function_name(op), *(value.expr for value in values))
 
 
 @register_nary_op(ops.case_when_op)

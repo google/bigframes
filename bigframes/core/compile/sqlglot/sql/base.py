@@ -18,15 +18,15 @@ import typing
 
 import bigframes_vendored.sqlglot as sg
 import bigframes_vendored.sqlglot.expressions as sge
-from google.cloud import bigquery
 import numpy as np
 import pandas as pd
 import pyarrow as pa
+from google.cloud import bigquery
 
+import bigframes.core.compile.sqlglot.sqlglot_types as sgt
 from bigframes import dtypes
 from bigframes.core import utils
 from bigframes.core.compile.sqlglot.expressions import constants
-import bigframes.core.compile.sqlglot.sqlglot_types as sgt
 
 # shapely.wkt.dumps was moved to shapely.io.to_wkt in 2.0.
 try:
@@ -69,6 +69,8 @@ def literal(value: typing.Any, dtype: dtypes.Dtype | None = None) -> sge.Express
         return sge.Null()
 
     if value is None:
+        if str(sqlglot_type).upper() == "NULL":
+            return sge.Null()
         return cast(sge.Null(), sqlglot_type)
     if dtypes.is_struct_like(dtype):
         items = [

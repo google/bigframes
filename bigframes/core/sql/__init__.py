@@ -11,22 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from __future__ import annotations
 
 """
 Utility functions for SQL construction.
 """
 
+from __future__ import annotations
+
 import json
 from typing import (
+    TYPE_CHECKING,
     Any,
-    cast,
     Collection,
     Iterable,
     Mapping,
     Optional,
-    TYPE_CHECKING,
     Union,
+    cast,
 )
 
 import bigframes_vendored.sqlglot.expressions as sge

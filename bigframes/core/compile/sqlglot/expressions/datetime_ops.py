@@ -16,11 +16,11 @@ from __future__ import annotations
 
 import bigframes_vendored.sqlglot.expressions as sge
 
+import bigframes.core.compile.sqlglot.expression_compiler as expression_compiler
 from bigframes import dtypes
 from bigframes import operations as ops
 from bigframes.core.compile.constants import UNIT_TO_US_CONVERSION_FACTORS
 from bigframes.core.compile.sqlglot import sqlglot_types
-import bigframes.core.compile.sqlglot.expression_compiler as expression_compiler
 from bigframes.core.compile.sqlglot.expressions.typed_expr import TypedExpr
 
 register_unary_op = expression_compiler.expression_compiler.register_unary_op
@@ -364,12 +364,14 @@ def _(expr: TypedExpr) -> sge.Expression:
 def _(expr: TypedExpr, op: ops.ToDatetimeOp) -> sge.Expression:
     if op.format:
         result = expr.expr
-        if expr.dtype != dtypes.STRING_DTYPE:
+        if expr.dtype == dtypes.STRING_DTYPE:
+            return sge.TryCast(this=result, to="DATETIME")
+        else:
             result = sge.Cast(this=result, to="STRING")
-        result = sge.func(
-            "PARSE_TIMESTAMP", sge.convert(op.format), result, sge.convert("UTC")
-        )
-        return sge.Cast(this=result, to="DATETIME")
+            result = sge.func(
+                "PARSE_TIMESTAMP", sge.convert(op.format), result, sge.convert("UTC")
+            )
+            return sge.Cast(this=result, to="DATETIME")
 
     if expr.dtype in (
         dtypes.STRING_DTYPE,

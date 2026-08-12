@@ -14,15 +14,15 @@
 
 import copy
 import datetime
-from typing import Any, Dict, Literal, Optional, Sequence
 import unittest.mock as mock
+from typing import Any, Dict, Literal, Optional, Sequence
 
-from bigframes_vendored.google_cloud_bigquery import _pandas_helpers
 import google.auth.credentials
 import google.cloud.bigquery
 import google.cloud.bigquery.table
 import pyarrow
 import pytest
+from bigframes_vendored.google_cloud_bigquery import _pandas_helpers
 
 import bigframes
 import bigframes.clients
@@ -148,6 +148,7 @@ def create_bigquery_session(
     clients_provider = mock.create_autospec(bigframes.session.clients.ClientsProvider)
     type(clients_provider).bqclient = mock.PropertyMock(return_value=bqclient)
     clients_provider._credentials = credentials
+    clients_provider.project = anonymous_dataset.project
 
     bqoptions = bigframes.BigQueryOptions(
         credentials=credentials,

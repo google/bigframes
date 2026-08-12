@@ -23,10 +23,13 @@ from typing import Callable, Generator, Hashable, Mapping, TypeVar, Union
 
 import pandas as pd
 
-from bigframes import dtypes
-from bigframes.core import field
 import bigframes.core.identifiers as ids
 import bigframes.operations
+from bigframes import dtypes
+from bigframes.core import field
+
+if typing.TYPE_CHECKING:
+    import bigframes.operations
 
 
 def const(
@@ -71,8 +74,7 @@ class Expression(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def column_references(self) -> typing.Tuple[ids.ColumnId, ...]:
-        ...
+    def column_references(self) -> typing.Tuple[ids.ColumnId, ...]: ...
 
     def remap_column_refs(
         self: TExpression,
@@ -86,8 +88,7 @@ class Expression(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def is_const(self) -> bool:
-        ...
+    def is_const(self) -> bool: ...
 
     @property
     @abc.abstractmethod
@@ -99,8 +100,7 @@ class Expression(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def output_type(self) -> dtypes.ExpressionType:
-        ...
+    def output_type(self) -> dtypes.ExpressionType: ...
 
     @abc.abstractmethod
     def bind_refs(
@@ -145,8 +145,9 @@ class Expression(abc.ABC):
         return all(expr.is_scalar_expr for expr in self.children)
 
     @abc.abstractmethod
-    def transform_children(self, t: Callable[[Expression], Expression]) -> Expression:
-        ...
+    def transform_children(
+        self, t: Callable[[Expression], Expression]
+    ) -> Expression: ...
 
     def bottom_up(self, t: Callable[[Expression], Expression]) -> Expression:
         expr = self.transform_children(lambda child: child.bottom_up(t))
@@ -361,6 +362,56 @@ class ResolvedDerefOp(DerefOp):
     @property
     def output_type(self) -> dtypes.ExpressionType:
         return self.dtype
+
+
+@dataclasses.dataclass(frozen=True)
+class OmittedArg(Expression):
+    """Represents an omitted optional arg used calling a function."""
+
+    @property
+    def free_variables(self) -> typing.Tuple[Hashable, ...]:
+        return ()
+
+    @property
+    def is_const(self) -> bool:
+        return True
+
+    @property
+    def column_references(self) -> typing.Tuple[ids.ColumnId, ...]:
+        return ()
+
+    @property
+    def is_resolved(self):
+        return True  # vacuously
+
+    @property
+    def output_type(self) -> dtypes.ExpressionType:
+        return None
+
+    def bind_refs(
+        self,
+        bindings: Mapping[ids.ColumnId, Expression],
+        allow_partial_bindings: bool = False,
+    ) -> OmittedArg:
+        return self
+
+    def bind_variables(
+        self,
+        bindings: Mapping[Hashable, Expression],
+        allow_partial_bindings: bool = False,
+    ) -> Expression:
+        return self
+
+    @property
+    def is_bijective(self) -> bool:
+        return True
+
+    @property
+    def is_identity(self) -> bool:
+        return True
+
+    def transform_children(self, t: Callable[[Expression], Expression]) -> Expression:
+        return self
 
 
 @dataclasses.dataclass(frozen=True)

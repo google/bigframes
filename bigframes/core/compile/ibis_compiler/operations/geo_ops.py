@@ -16,11 +16,11 @@ from __future__ import annotations
 
 from typing import cast
 
-from bigframes_vendored import ibis
-from bigframes_vendored.ibis.expr import types as ibis_types
 import bigframes_vendored.ibis.expr.datatypes as ibis_dtypes
 import bigframes_vendored.ibis.expr.operations.geospatial as ibis_geo
 import bigframes_vendored.ibis.expr.operations.udf as ibis_udf
+from bigframes_vendored import ibis
+from bigframes_vendored.ibis.expr import types as ibis_types
 
 from bigframes.core.compile.ibis_compiler import scalar_op_compiler
 from bigframes.operations import geo_ops as ops
@@ -30,11 +30,6 @@ register_binary_op = scalar_op_compiler.scalar_op_compiler.register_binary_op
 
 
 # Geo Ops
-@register_unary_op(ops.geo_area_op)
-def geo_area_op_impl(x: ibis_types.Value):
-    return cast(ibis_types.GeoSpatialValue, x).area()
-
-
 @register_unary_op(ops.geo_st_astext_op)
 def geo_st_astext_op_impl(x: ibis_types.Value):
     return cast(ibis_types.GeoSpatialValue, x).as_text()
@@ -53,11 +48,6 @@ def geo_st_buffer_op_impl(x: ibis_types.Value, op: ops.GeoStBufferOp):
         op.num_seg_quarter_circle,
         op.use_spheroid,
     )
-
-
-@register_unary_op(ops.geo_st_centroid_op, pass_op=False)
-def geo_st_centroid_op_impl(x: ibis_types.Value):
-    return cast(ibis_types.GeoSpatialValue, x).centroid()
 
 
 @register_unary_op(ops.geo_st_convexhull_op, pass_op=False)
@@ -132,12 +122,6 @@ def geo_st_regionstats_op_impl(
     ).to_expr()
 
 
-@register_unary_op(ops.GeoStSimplifyOp, pass_op=True)
-def st_simplify_op_impl(x: ibis_types.Value, op: ops.GeoStSimplifyOp):
-    x = cast(ibis_types.GeoSpatialValue, x)
-    return st_simplify(x, op.tolerance_meters)
-
-
 @register_unary_op(ops.geo_x_op)
 def geo_x_op_impl(x: ibis_types.Value):
     return cast(ibis_types.GeoSpatialValue, x).x()
@@ -181,7 +165,11 @@ def st_buffer(
 
 
 @ibis_udf.scalar.builtin
-def st_distance(a: ibis_dtypes.geography, b: ibis_dtypes.geography, use_spheroid: bool) -> ibis_dtypes.float:  # type: ignore
+def st_distance(
+    a: ibis_dtypes.geography,  # type: ignore
+    b: ibis_dtypes.geography,  # type: ignore
+    use_spheroid: bool,  # type: ignore
+) -> ibis_dtypes.float:  # type: ignore
     """Convert string to geography."""
 
 

@@ -22,48 +22,45 @@ import itertools
 import numbers
 import textwrap
 import typing
+import warnings
 from typing import (
     Any,
     Callable,
-    cast,
     Iterable,
     List,
     Literal,
     Mapping,
     Optional,
-    overload,
     Sequence,
     Tuple,
     TypeVar,
     Union,
+    cast,
+    overload,
 )
-import warnings
 
 import bigframes_vendored.constants as constants
 import bigframes_vendored.pandas.core.series as vendored_pandas_series
-import google.cloud.bigquery as bigquery
+import google.cloud.bigquery.job
 import numpy
 import pandas
-from pandas.api import extensions as pd_ext
 import pyarrow as pa
 import typing_extensions
+from pandas.api import extensions as pd_ext
 
-from bigframes._tools import docs
 import bigframes.core
-from bigframes.core import agg_expressions, groupby
 import bigframes.core.block_transforms as block_ops
 import bigframes.core.blocks as blocks
+import bigframes.core.col
 import bigframes.core.expression as ex
 import bigframes.core.identifiers as ids
 import bigframes.core.indexers
 import bigframes.core.indexes as indexes
-from bigframes.core.logging import log_adapter
 import bigframes.core.ordering as order
 import bigframes.core.scalar as scalars
 import bigframes.core.utils as utils
 import bigframes.core.validations as validations
 import bigframes.core.window
-from bigframes.core.window import rolling
 import bigframes.core.window_spec as windows
 import bigframes.dataframe
 import bigframes.dtypes
@@ -72,14 +69,18 @@ import bigframes.formatting_helpers as formatter
 import bigframes.functions
 import bigframes.operations as ops
 import bigframes.operations.aggregations as agg_ops
-import bigframes.operations.blob as blob
 import bigframes.operations.lists as lists
 import bigframes.operations.plotting as plotting
 import bigframes.operations.python_op_maps as python_ops
 import bigframes.operations.structs as structs
 import bigframes.session
+from bigframes._tools import docs
+from bigframes.core import agg_expressions, groupby
+from bigframes.core.logging import log_adapter
+from bigframes.core.window import rolling
 
 if typing.TYPE_CHECKING:
+    import bigframes.extensions.bigframes.series_accessor as series_bigquery_accessor
     import bigframes.geopandas.geoseries
     import bigframes.operations.datetimes as datetimes
     import bigframes.operations.strings as strings
@@ -118,7 +119,7 @@ class Series:
         *,
         session: Optional[bigframes.session.Session] = None,
     ):
-        self._query_job: Optional[bigquery.QueryJob] = None
+        self._query_job: Optional[google.cloud.bigquery.job.QueryJob] = None
         import bigframes.pandas
 
         # Ignore object dtype if provided, as it provides no additional
@@ -301,7 +302,26 @@ class Series:
         return self.index
 
     @property
-    def query_job(self) -> Optional[bigquery.QueryJob]:
+    def bigquery(
+        self,
+    ) -> series_bigquery_accessor.BigframesBigQuerySeriesAccessor:
+        """
+        Accessor for BigQuery functionality.
+
+        Returns:
+            bigframes.extensions.core.series_accessor.BigQuerySeriesAccessor:
+                Accessor that exposes BigQuery functionality on a Series,
+                with method names closer to SQL.
+        """
+        # Import the accessor here to avoid circular imports.
+        import bigframes.extensions.bigframes.series_accessor
+
+        return bigframes.extensions.bigframes.series_accessor.BigframesBigQuerySeriesAccessor(
+            self
+        )
+
+    @property
+    def query_job(self) -> Optional[google.cloud.bigquery.job.QueryJob]:
         """BigQuery job metadata for the most recent query.
 
         Returns:
@@ -319,18 +339,6 @@ class Series:
     @property
     def list(self) -> lists.ListAccessor:
         return lists.ListAccessor(self)
-
-    @property
-    def blob(self) -> blob.BlobAccessor:
-        """
-        Accessor for Blob operations.
-        """
-        warnings.warn(
-            "The blob accessor is deprecated and will be removed in a future release. Use bigframes.bigquery.obj functions instead.",
-            category=bfe.ApiDeprecationWarning,
-            stacklevel=2,
-        )
-        return blob.BlobAccessor(self)
 
     @property
     @validations.requires_ordering()
@@ -353,11 +361,23 @@ class Series:
         struct_type = typing.cast(pa.StructType, self._dtype.pyarrow_dtype)
         return [struct_type.field(i).name for i in range(struct_type.num_fields)]
 
+    @property
+    def sql(self) -> str:
+        """Compiles this Series's expression tree to SQL.
+
+        Returns:
+            A string representing the compiled SQL.
+        """
+
+        return self.to_frame().sql
+
     @validations.requires_ordering()
     def transpose(self) -> Series:
         return self
 
-    def _set_internal_query_job(self, query_job: Optional[bigquery.QueryJob]):
+    def _set_internal_query_job(
+        self, query_job: Optional[google.cloud.bigquery.job.QueryJob]
+    ):
         self._query_job = query_job
 
     def __len__(self):
@@ -383,8 +403,7 @@ class Series:
     def rename(
         self,
         index: Union[blocks.Label, Mapping[Any, Any]] = None,
-    ) -> Series:
-        ...
+    ) -> Series: ...
 
     @overload
     def rename(
@@ -393,8 +412,7 @@ class Series:
         *,
         inplace: Literal[False],
         **kwargs,
-    ) -> Series:
-        ...
+    ) -> Series: ...
 
     @overload
     def rename(
@@ -403,8 +421,7 @@ class Series:
         *,
         inplace: Literal[True],
         **kwargs,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     def rename(
         self,
@@ -465,8 +482,7 @@ class Series:
     def rename_axis(
         self,
         mapper: typing.Union[blocks.Label, typing.Sequence[blocks.Label]],
-    ) -> Series:
-        ...
+    ) -> Series: ...
 
     @overload
     def rename_axis(
@@ -475,8 +491,7 @@ class Series:
         *,
         inplace: Literal[False],
         **kwargs,
-    ) -> Series:
-        ...
+    ) -> Series: ...
 
     @overload
     def rename_axis(
@@ -485,8 +500,7 @@ class Series:
         *,
         inplace: Literal[True],
         **kwargs,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @validations.requires_index
     def rename_axis(
@@ -530,8 +544,7 @@ class Series:
         drop: Literal[False] = ...,
         inplace: Literal[False] = ...,
         allow_duplicates: Optional[bool] = ...,
-    ) -> bigframes.dataframe.DataFrame:
-        ...
+    ) -> bigframes.dataframe.DataFrame: ...
 
     @overload
     def reset_index(
@@ -542,8 +555,7 @@ class Series:
         drop: Literal[True] = ...,
         inplace: Literal[False] = ...,
         allow_duplicates: Optional[bool] = ...,
-    ) -> Series:
-        ...
+    ) -> Series: ...
 
     @overload
     def reset_index(
@@ -554,8 +566,7 @@ class Series:
         drop: bool = ...,
         inplace: Literal[True] = ...,
         allow_duplicates: Optional[bool] = ...,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @validations.requires_ordering()
     def reset_index(
@@ -583,6 +594,9 @@ class Series:
             if name:
                 block = block.assign_label(self._value_column, name)
             return bigframes.dataframe.DataFrame(block)
+
+    def _prepare_display_df(self) -> bigframes.dataframe.DataFrame:
+        return self.to_frame()._prepare_display_df()
 
     def _repr_mimebundle_(self, include=None, exclude=None):
         """
@@ -768,6 +782,7 @@ class Series:
         max_results: Optional[int] = None,
         *,
         allow_large_results: Optional[bool] = None,
+        cell_execution_count: Optional[int] = None,
     ) -> Iterable[pandas.Series]:
         """Stream Series results to an iterable of pandas Series.
 
@@ -820,10 +835,11 @@ class Series:
             page_size=page_size,
             max_results=max_results,
             allow_large_results=allow_large_results,
+            cell_execution_count=cell_execution_count,
         )
         return map(lambda df: cast(pandas.Series, df.squeeze(1)), batches)
 
-    def _compute_dry_run(self) -> bigquery.QueryJob:
+    def _compute_dry_run(self) -> google.cloud.bigquery.job.QueryJob:
         _, query_job = self._block._compute_dry_run((self._value_column,))
         return query_job
 
@@ -1548,9 +1564,9 @@ class Series:
 
     def items(self):
         for batch_df in self._block.to_pandas_batches():
-            assert (
-                batch_df.shape[1] == 1
-            ), f"Expected 1 column in the dataframe, but got {batch_df.shape[1]}."
+            assert batch_df.shape[1] == 1, (
+                f"Expected 1 column in the dataframe, but got {batch_df.shape[1]}."
+            )
             for item in batch_df.squeeze(axis=1).items():
                 yield item
 
@@ -1558,7 +1574,7 @@ class Series:
         """ "Executes the possible callable condition as needed."""
         if callable(condition):
             # When it's a bigframes function.
-            if hasattr(condition, "bigframes_bigquery_function"):
+            if isinstance(condition, bigframes.functions.Udf):
                 return self.apply(condition)
             # When it's a plain Python function.
             else:
@@ -1778,10 +1794,9 @@ class Series:
         axis=...,
         inplace: Literal[True] = ...,
         ascending: bool | typing.Sequence[bool] = ...,
-        kind: str = ...,
+        kind: str | None = ...,
         na_position: typing.Literal["first", "last"] = ...,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @typing.overload
     def sort_values(
@@ -1790,10 +1805,9 @@ class Series:
         axis=...,
         inplace: Literal[False] = ...,
         ascending: bool | typing.Sequence[bool] = ...,
-        kind: str = ...,
+        kind: str | None = ...,
         na_position: typing.Literal["first", "last"] = ...,
-    ) -> Series:
-        ...
+    ) -> Series: ...
 
     def sort_values(
         self,
@@ -1801,19 +1815,21 @@ class Series:
         axis=0,
         inplace: bool = False,
         ascending=True,
-        kind: str = "quicksort",
+        kind: str | None = None,
         na_position: typing.Literal["first", "last"] = "last",
     ) -> Optional[Series]:
         if axis != 0 and axis != "index":
             raise ValueError(f"No axis named {axis} for object type Series")
         if na_position not in ["first", "last"]:
             raise ValueError("Param na_position must be one of 'first' or 'last'")
+        is_stable = (kind or constants.DEFAULT_SORT_KIND) in constants.STABLE_SORT_KINDS
         block = self._block.order_by(
             [
                 order.ascending_over(self._value_column, (na_position == "last"))
                 if ascending
                 else order.descending_over(self._value_column, (na_position == "last"))
             ],
+            stable=is_stable,
         )
         if inplace:
             self._set_block(block)
@@ -1823,19 +1839,35 @@ class Series:
 
     @typing.overload  # type: ignore[override]
     def sort_index(
-        self, *, axis=..., inplace: Literal[False] = ..., ascending=..., na_position=...
-    ) -> Series:
-        ...
+        self,
+        *,
+        axis=...,
+        inplace: Literal[False] = ...,
+        ascending=...,
+        kind: str | None = ...,
+        na_position=...,
+    ) -> Series: ...
 
     @typing.overload
     def sort_index(
-        self, *, axis=0, inplace: Literal[True] = ..., ascending=..., na_position=...
-    ) -> None:
-        ...
+        self,
+        *,
+        axis=0,
+        inplace: Literal[True] = ...,
+        ascending=...,
+        kind: str | None = ...,
+        na_position=...,
+    ) -> None: ...
 
     @validations.requires_index
     def sort_index(
-        self, *, axis=0, inplace: bool = False, ascending=True, na_position="last"
+        self,
+        *,
+        axis=0,
+        inplace: bool = False,
+        ascending=True,
+        kind: str | None = None,
+        na_position="last",
     ) -> Optional[Series]:
         # TODO(tbergeron): Support level parameter once multi-index introduced.
         if axis != 0 and axis != "index":
@@ -1850,7 +1882,8 @@ class Series:
             else order.descending_over(column, na_last)
             for column in block.index_columns
         ]
-        block = block.order_by(ordering)
+        is_stable = (kind or constants.DEFAULT_SORT_KIND) in constants.STABLE_SORT_KINDS
+        block = block.order_by(ordering, stable=is_stable)
         if inplace:
             self._set_block(block)
             return None
@@ -1972,9 +2005,12 @@ class Series:
         value_col = self._value_column
         for key in by:
             if isinstance(key, Series):
-                block, (
-                    get_column_left,
-                    get_column_right,
+                (
+                    block,
+                    (
+                        get_column_left,
+                        get_column_right,
+                    ),
                 ) = block.join(key._block, how="inner" if dropna else "left")
 
                 value_col = get_column_left[value_col]
@@ -2029,19 +2065,12 @@ class Series:
                 " are supported."
             )
 
-        if isinstance(func, bigframes.functions.BigqueryCallableRoutine):
+        if isinstance(func, bigframes.functions.Udf):
             # We are working with bigquery function at this point
-            if args:
-                result_series = self._apply_nary_op(
-                    ops.NaryRemoteFunctionOp(function_def=func.udf_def), args
-                )
-                # TODO(jialuo): Investigate why `_apply_nary_op` drops the series
-                # `name`. Manually reassigning it here as a temporary fix.
-                result_series.name = self.name
-            else:
-                result_series = self._apply_unary_op(
-                    ops.RemoteFunctionOp(function_def=func.udf_def, apply_on_null=True)
-                )
+            result_series = self._apply_nary_op(ops.func_to_op(func), args)
+            # TODO(jialuo): Investigate why `_apply_nary_op` drops the series
+            # `name`. Manually reassigning it here as a temporary fix.
+            result_series.name = self.name
 
             return result_series
 
@@ -2090,10 +2119,12 @@ class Series:
                 " are supported."
             )
 
-        if isinstance(func, bigframes.functions.BigqueryCallableRoutine):
-            result_series = self._apply_binary_op(
-                other, ops.BinaryRemoteFunctionOp(function_def=func.udf_def)
-            )
+        if isinstance(func, bigframes.functions.Udf):
+            result_series = self._apply_nary_op(ops.func_to_op(func), (other,))
+            if hasattr(other, "name") and other.name != self._name:  # type: ignore
+                result_series.name = None
+            else:
+                result_series.name = self.name
             return result_series
 
         bf_op = python_ops.python_callable_to_op(func)
@@ -2249,11 +2280,14 @@ class Series:
         return self.where(~cond, other)
 
     def to_frame(self, name: blocks.Label = None) -> bigframes.dataframe.DataFrame:
-        provided_name = name if name else self.name
+        provided_name = name if name is not None else self.name
         # To be consistent with Pandas, it assigns 0 as the column name if missing. 0 is the first element of RangeIndex.
-        block = self._block.with_column_labels(
-            [provided_name] if provided_name else [0]
-        )
+        column_names: List[blocks.Label]
+        if provided_name is None or pandas.isna([cast(Any, provided_name)])[0]:
+            column_names = [0]
+        else:
+            column_names = [provided_name]
+        block = self._block.with_column_labels(column_names)
         return bigframes.dataframe.DataFrame(block)
 
     def to_csv(
@@ -2285,7 +2319,10 @@ class Series:
         *,
         allow_large_results: Optional[bool] = None,
     ) -> typing.Mapping:
-        return typing.cast(dict, self.to_pandas(allow_large_results=allow_large_results).to_dict(into=into))  # type: ignore
+        return typing.cast(
+            dict,
+            self.to_pandas(allow_large_results=allow_large_results).to_dict(into=into),
+        )  # type: ignore
 
     def to_excel(
         self, excel_writer, sheet_name="Sheet1", *, allow_large_results=None, **kwargs
@@ -2315,8 +2352,12 @@ class Series:
             )
         else:
             pd_series = self.to_pandas(allow_large_results=allow_large_results)
+            # Pandas Series.to_json only supports a subset of orients, but bigframes Series.to_json allows all of them.
             return pd_series.to_json(
-                path_or_buf=path_or_buf, orient=orient, lines=lines, index=index  # type: ignore
+                path_or_buf=path_or_buf,
+                orient=orient,  # type: ignore[arg-type]
+                lines=lines,
+                index=index,  # type: ignore
             )
 
     def to_latex(
@@ -2351,7 +2392,9 @@ class Series:
         allow_large_results: Optional[bool] = None,
         **kwargs,
     ) -> typing.Optional[str]:
-        return self.to_pandas(allow_large_results=allow_large_results).to_markdown(buf, mode=mode, index=index, **kwargs)  # type: ignore
+        return self.to_pandas(allow_large_results=allow_large_results).to_markdown(
+            buf, mode=mode, index=index, **kwargs
+        )  # type: ignore
 
     def to_numpy(
         self,
@@ -2454,7 +2497,9 @@ class Series:
 
         self_df = self.to_frame(name="series")
         result_df = self_df.join(map_df, on="series")
-        return result_df[self.name]
+        result = cast(Series, result_df[self.name])
+        result.name = self.name
+        return result
 
     @validations.requires_ordering()
     def sample(
@@ -2680,7 +2725,7 @@ class Series:
             others, ignore_self=ignore_self, cast_scalars=False
         )
         block, result_id = block.project_expr(op.as_expr(*values))
-        return Series(block.select_column(result_id))
+        return Series(block.select_column(result_id).with_column_labels([None]))
 
     def _apply_binary_aggregation(
         self, other: Series, stat: agg_ops.BinaryAggregateOp
@@ -2690,23 +2735,33 @@ class Series:
         assert isinstance(right, ex.DerefOp)
         return block.get_binary_stat(left.id.name, right.id.name, stat)
 
-    AlignedExprT = Union[ex.ScalarConstantExpression, ex.DerefOp]
+    AlignedExprT = Union[ex.ScalarConstantExpression, ex.DerefOp, ex.OmittedArg]
 
     @typing.overload
     def _align(
         self, other: Series, how="outer"
-    ) -> tuple[ex.DerefOp, ex.DerefOp, blocks.Block,]:
-        ...
+    ) -> tuple[
+        ex.DerefOp,
+        ex.DerefOp,
+        blocks.Block,
+    ]: ...
 
     @typing.overload
     def _align(
         self, other: typing.Union[Series, scalars.Scalar], how="outer"
-    ) -> tuple[ex.DerefOp, AlignedExprT, blocks.Block,]:
-        ...
+    ) -> tuple[
+        ex.DerefOp,
+        AlignedExprT,
+        blocks.Block,
+    ]: ...
 
     def _align(
         self, other: typing.Union[Series, scalars.Scalar], how="outer"
-    ) -> tuple[ex.DerefOp, AlignedExprT, blocks.Block,]:
+    ) -> tuple[
+        ex.DerefOp,
+        AlignedExprT,
+        blocks.Block,
+    ]:
         """Aligns the series value with another scalar or series object. Returns new left column id, right column id and joined tabled expression."""
         values, block = self._align_n(
             [
@@ -2716,7 +2771,13 @@ class Series:
         )
         return (typing.cast(ex.DerefOp, values[0]), values[1], block)
 
-    def _align3(self, other1: Series | scalars.Scalar, other2: Series | scalars.Scalar, how="left", cast_scalars: bool = True) -> tuple[ex.DerefOp, AlignedExprT, AlignedExprT, blocks.Block]:  # type: ignore
+    def _align3(
+        self,
+        other1: Series | scalars.Scalar,
+        other2: Series | scalars.Scalar,
+        how="left",
+        cast_scalars: bool = True,
+    ) -> tuple[ex.DerefOp, AlignedExprT, AlignedExprT, blocks.Block]:  # type: ignore
         """Aligns the series value with 2 other scalars or series objects. Returns new values and joined tabled expression."""
         values, index = self._align_n([other1, other2], how, cast_scalars=cast_scalars)
         return (
@@ -2728,25 +2789,32 @@ class Series:
 
     def _align_n(
         self,
-        others: typing.Sequence[typing.Union[Series, scalars.Scalar]],
+        others: typing.Sequence[
+            typing.Union[Series, bigframes.core.col.Expression, scalars.Scalar]
+        ],
         how="outer",
         ignore_self=False,
         cast_scalars: bool = False,
     ) -> tuple[
-        typing.Sequence[Union[ex.ScalarConstantExpression, ex.DerefOp]],
+        typing.Sequence[Union[ex.ScalarConstantExpression, ex.DerefOp, ex.OmittedArg]],
         blocks.Block,
     ]:
         if ignore_self:
-            value_ids: List[Union[ex.ScalarConstantExpression, ex.DerefOp]] = []
+            value_ids: List[
+                Union[ex.ScalarConstantExpression, ex.DerefOp, ex.OmittedArg]
+            ] = []
         else:
             value_ids = [ex.deref(self._value_column)]
 
         block = self._block
         for other in others:
             if isinstance(other, Series):
-                block, (
-                    get_column_left,
-                    get_column_right,
+                (
+                    block,
+                    (
+                        get_column_left,
+                        get_column_right,
+                    ),
                 ) = block.join(other._block, how=how)
                 rebindings = {
                     ids.ColumnId(old): ids.ColumnId(new)
@@ -2759,6 +2827,17 @@ class Series:
                     *remapped_value_ids,  # type: ignore
                     ex.deref(get_column_right[other._value_column]),
                 ]
+            elif isinstance(other, bigframes.core.col.Expression):
+                if isinstance(other._value, ex.OmittedArg):
+                    value_ids = [*value_ids, other._value]
+                    continue
+
+                label_to_col_ref = {
+                    label: ex.deref(id) for id, label in block.col_id_to_label.items()
+                }
+                resolved_expr = other._value.bind_variables(label_to_col_ref)
+                block = block.project_block_exprs([resolved_expr], labels=[None])
+                value_ids = [*value_ids, ex.deref(block.value_columns[-1])]
             else:
                 # Will throw if can't interpret as scalar.
                 dtype = typing.cast(bigframes.dtypes.Dtype, self._dtype)

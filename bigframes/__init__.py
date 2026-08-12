@@ -24,18 +24,32 @@ warnings.filterwarnings(
     message=".*Google will stop supporting.*Python.*",
 )
 
-from bigframes._config import option_context, options  # noqa: E402
-from bigframes._config.bigquery_options import BigQueryOptions  # noqa: E402
-from bigframes.core.global_session import (  # noqa: E402
-    close_session,
-    get_global_session,
-)
+# import configuration and types.
+# This ensures that when the deeper 'core' modules ask for 'dtypes','options', et. al.,
+# they are already defined and available.
+import bigframes.dtypes  # noqa: E402 # isort: skip
+import bigframes._config  # noqa: E402 # isort: skip
+from bigframes._config import option_context, options  # noqa: E402 # isort: skip
+
 import bigframes.enums as enums  # noqa: E402
 import bigframes.exceptions as exceptions  # noqa: E402
 
+# We import operations early to resolve a circular dependency between
+# bigframes.core.expression and bigframes.operations.
+# This ensures the 'Expression' base class is defined before 'Aggregation'
+# subclasses attempt to inherit from it.
+import bigframes.operations  # noqa: E402 # isort: skip
+
 # Register pandas extensions
 import bigframes.extensions.pandas.dataframe_accessor  # noqa: F401, E402
-from bigframes.session import connect, Session  # noqa: E402
+import bigframes.extensions.pandas.series_accessor  # noqa: F401, E402
+from bigframes._config.bigquery_options import BigQueryOptions  # noqa: E402
+from bigframes.core.global_session import (  # noqa: E402
+    close_session,
+    execution_history,
+    get_global_session,
+)
+from bigframes.session import Session, connect  # noqa: E402
 from bigframes.version import __version__  # noqa: E402
 
 _MAGIC_NAMES = ["bqsql"]
@@ -57,6 +71,7 @@ __all__ = [
     "BigQueryOptions",
     "get_global_session",
     "close_session",
+    "execution_history",
     "enums",
     "exceptions",
     "connect",

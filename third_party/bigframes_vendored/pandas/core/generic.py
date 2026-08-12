@@ -1,7 +1,7 @@
 # Contains code from https://github.com/pandas-dev/pandas/blob/main/pandas/core/generic.py
 from __future__ import annotations
 
-from typing import Callable, Iterator, Literal, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Iterator, Literal, Optional
 
 import bigframes_vendored.constants as constants
 from bigframes_vendored.pandas.core import indexing
@@ -629,9 +629,9 @@ class NDFrame(indexing.IndexingMixin):
 
             >>> df = bpd.DataFrame({'float': [1.0], 'int': [1], 'string': ['foo']})
             >>> df.dtypes
-            float             Float64
-            int                 Int64
-            string    string[pyarrow]
+            float     Float64
+            int         Int64
+            string     string
             dtype: object
 
         Returns:

@@ -18,10 +18,10 @@ import dataclasses
 import functools
 from typing import Callable, Mapping, Optional, Sequence, Tuple
 
-from bigframes.core import bq_data, identifiers, nodes
 import bigframes.core.expression as ex
-from bigframes.core.ordering import OrderingExpression
 import bigframes.dtypes
+from bigframes.core import bq_data, identifiers, nodes
+from bigframes.core.ordering import OrderingExpression
 
 # SQL Nodes are generally terminal, so don't support rich transformation methods
 # like remap_vars, remap_refs, etc.
@@ -43,6 +43,12 @@ class SqlDataSource(nodes.LeafNode):
                 self.source.table.schema_by_id[source_id].is_nullable,
             )
             for source_id in self.source.schema.names
+        )
+
+    @property
+    def is_star_selection(self) -> bool:
+        return tuple(self.source.schema.names) == tuple(
+            field.name for field in self.source.table.physical_schema
         )
 
     @property
@@ -270,7 +276,14 @@ class SqlSelectNode(nodes.UnaryNode):
 
     @property
     def is_star_selection(self) -> bool:
-        return tuple(self.ids) == tuple(self.child.ids)
+        if tuple(self.ids) != tuple(self.child.ids):
+            return False
+        for cdef in self.selections:
+            if not isinstance(cdef.expression, ex.DerefOp):
+                return False
+            if cdef.expression.id != cdef.id:
+                return False
+        return True
 
     @functools.cache
     def get_id_mapping(self) -> dict[identifiers.ColumnId, ex.Expression]:

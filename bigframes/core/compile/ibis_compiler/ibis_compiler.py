@@ -16,23 +16,24 @@ from __future__ import annotations
 import dataclasses
 import functools
 import typing
-from typing import cast, Optional
+from typing import Optional, cast
 
 import bigframes_vendored.ibis.backends.bigquery as ibis_bigquery
 import bigframes_vendored.ibis.expr.api as ibis_api
 import bigframes_vendored.ibis.expr.datatypes as ibis_dtypes
 import bigframes_vendored.ibis.expr.types as ibis_types
 
-from bigframes import dtypes, operations
-from bigframes.core import bq_data, expression, pyarrow_utils
 import bigframes.core.compile.compiled as compiled
 import bigframes.core.compile.concat as concat_impl
 import bigframes.core.compile.configs as configs
 import bigframes.core.compile.explode
-from bigframes.core.logging import data_types as data_type_logger
 import bigframes.core.nodes as nodes
 import bigframes.core.ordering as bf_ordering
 import bigframes.core.rewrite as rewrites
+import bigframes.core.rewrite.schema_binding as schema_binding
+from bigframes import dtypes, operations
+from bigframes.core import bq_data, expression, pyarrow_utils
+from bigframes.core.logging import data_types as data_type_logger
 
 if typing.TYPE_CHECKING:
     import bigframes.core
@@ -49,7 +50,8 @@ def compile_sql(request: configs.CompileRequest) -> configs.CompileResult:
         # Can only pullup slice if we are doing ORDER BY in outermost SELECT
         # Need to do this before replacing unsupported ops, as that will rewrite slice ops
         result_node = rewrites.pull_up_limits(result_node)
-    result_node = _replace_unsupported_ops(result_node)
+    result_node = cast(nodes.ResultNode, _replace_unsupported_ops(result_node))
+    result_node = cast(nodes.ResultNode, result_node.bottom_up(rewrites.simplify_join))
     # prune before pulling up order to avoid unnnecessary row_number() ops
     result_node = cast(nodes.ResultNode, rewrites.column_pruning(result_node))
     result_node = rewrites.defer_order(
@@ -58,6 +60,11 @@ def compile_sql(request: configs.CompileRequest) -> configs.CompileResult:
     if request.sort_rows:
         result_node = cast(nodes.ResultNode, rewrites.column_pruning(result_node))
         encoded_type_refs = data_type_logger.encode_type_refs(result_node)
+        # Have to bind schema as the final step before compilation.
+        # Probably, should defer even further
+        result_node = typing.cast(
+            nodes.ResultNode, schema_binding.bind_schema_to_tree(result_node)
+        )
         sql = compile_result_node(result_node)
         return configs.CompileResult(
             sql,
@@ -71,6 +78,11 @@ def compile_sql(request: configs.CompileRequest) -> configs.CompileResult:
     result_node = cast(nodes.ResultNode, rewrites.column_pruning(result_node))
     result_node = cast(nodes.ResultNode, rewrites.defer_selection(result_node))
     encoded_type_refs = data_type_logger.encode_type_refs(result_node)
+    # Have to bind schema as the final step before compilation.
+    # Probably, should defer even further
+    result_node = typing.cast(
+        nodes.ResultNode, schema_binding.bind_schema_to_tree(result_node)
+    )
     sql = compile_result_node(result_node)
     # Return the ordering iff no extra columns are needed to define the row order
     if ordering is not None:

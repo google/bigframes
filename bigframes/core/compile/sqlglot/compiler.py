@@ -19,6 +19,9 @@ import typing
 
 import bigframes_vendored.sqlglot.expressions as sge
 
+import bigframes.core.compile.sqlglot.aggregate_compiler as aggregate_compiler
+import bigframes.core.compile.sqlglot.expression_compiler as expression_compiler
+import bigframes.core.ordering as bf_ordering
 from bigframes import dtypes
 from bigframes.core import (
     expression,
@@ -31,12 +34,9 @@ from bigframes.core import (
 )
 from bigframes.core.compile import configs
 from bigframes.core.compile.sqlglot import sql, sqlglot_ir
-import bigframes.core.compile.sqlglot.aggregate_compiler as aggregate_compiler
 from bigframes.core.compile.sqlglot.aggregations import windows
-import bigframes.core.compile.sqlglot.expression_compiler as expression_compiler
 from bigframes.core.compile.sqlglot.expressions import typed_expr
 from bigframes.core.logging import data_types as data_type_logger
-import bigframes.core.ordering as bf_ordering
 from bigframes.core.rewrite import schema_binding
 
 
@@ -53,7 +53,10 @@ def compile_sql(request: configs.CompileRequest) -> configs.CompileResult:
         # Can only pullup slice if we are doing ORDER BY in outermost SELECT
         # Need to do this before replacing unsupported ops, as that will rewrite slice ops
         result_node = rewrite.pull_up_limits(result_node)
-    result_node = _replace_unsupported_ops(result_node)
+    result_node = typing.cast(nodes.ResultNode, _replace_unsupported_ops(result_node))
+    result_node = typing.cast(
+        nodes.ResultNode, result_node.bottom_up(rewrite.simplify_join)
+    )
     # prune before pulling up order to avoid unnnecessary row_number() ops
     result_node = typing.cast(nodes.ResultNode, rewrite.column_pruning(result_node))
     result_node = rewrite.defer_order(
@@ -202,11 +205,13 @@ def compile_readlocal(
 @_compile_node.register
 def compile_readtable(node: sql_nodes.SqlDataSource, child: sqlglot_ir.SQLGlotIR):
     table_obj = node.source.table
+    columns = () if node.is_star_selection else node.source.schema.names
     return sqlglot_ir.SQLGlotIR.from_table(
         table_obj.project_id,
         table_obj.dataset_id,
         table_obj.table_id,
         uid_gen=child.uid_gen,
+        columns=columns,
         sql_predicate=node.source.sql_predicate,
         system_time=node.source.at_time,
     )

@@ -13,7 +13,6 @@
 # limitations under the License.
 import typing
 
-from bigframes.core import bq_data
 import bigframes.core as core
 import bigframes.core.agg_expressions as agg_ex
 import bigframes.core.expression as ex
@@ -21,6 +20,7 @@ import bigframes.core.identifiers as identifiers
 import bigframes.core.nodes as nodes
 import bigframes.core.rewrite.identifiers as id_rewrite
 import bigframes.operations.aggregations as agg_ops
+from bigframes.core import bq_data
 
 
 def test_remap_variables_single_node(leaf):
@@ -134,6 +134,7 @@ def test_remap_variables_nested_join_stability(leaf, fake_session, table):
         ),
         type="inner",
         propogate_order=False,
+        nulls_equal=True,
     )
     outer_join = nodes.JoinNode(
         left_child=inner_join,
@@ -146,6 +147,7 @@ def test_remap_variables_nested_join_stability(leaf, fake_session, table):
         ),
         type="inner",
         propogate_order=False,
+        nulls_equal=True,
     )
 
     # Run remap_variables twice and assert stability

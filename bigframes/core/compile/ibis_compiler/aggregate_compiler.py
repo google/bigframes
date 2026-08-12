@@ -16,27 +16,27 @@ from __future__ import annotations
 
 import functools
 import typing
-from typing import cast, List, Optional
+from typing import List, Optional, cast
 
 import bigframes_vendored.constants as constants
 import bigframes_vendored.ibis
-from bigframes_vendored.ibis.expr import builders as ibis_expr_builders
 import bigframes_vendored.ibis.expr.api as ibis_api
 import bigframes_vendored.ibis.expr.datatypes as ibis_dtypes
-from bigframes_vendored.ibis.expr.operations import window as ibis_expr_window
 import bigframes_vendored.ibis.expr.operations as ibis_ops
 import bigframes_vendored.ibis.expr.operations.udf as ibis_udf
 import bigframes_vendored.ibis.expr.types as ibis_types
 import pandas as pd
+from bigframes_vendored.ibis.expr import builders as ibis_expr_builders
+from bigframes_vendored.ibis.expr.operations import window as ibis_expr_window
 
-from bigframes.core import agg_expressions
-from bigframes.core.compile import constants as compiler_constants
 import bigframes.core.compile.ibis_compiler.scalar_op_compiler as scalar_compilers
 import bigframes.core.compile.ibis_types as compile_ibis_types
 import bigframes.core.utils
-from bigframes.core.window_spec import RangeWindowBounds, RowsWindowBounds, WindowSpec
 import bigframes.core.window_spec as window_spec
 import bigframes.operations.aggregations as agg_ops
+from bigframes.core import agg_expressions
+from bigframes.core.compile import constants as compiler_constants
+from bigframes.core.window_spec import RangeWindowBounds, RowsWindowBounds, WindowSpec
 
 scalar_compiler = scalar_compilers.scalar_op_compiler
 
@@ -528,8 +528,10 @@ def _(
     column: ibis_types.Column,
     window=None,
 ) -> ibis_types.Value:
+    # Ibis FirstNonNullValue expects Value[Any, Columnar], Mypy struggles to see Column as compatible.
     return _apply_window_if_present(
-        ibis_ops.FirstNonNullValue(column).to_expr(), window  # type: ignore
+        ibis_ops.FirstNonNullValue(column).to_expr(),  # type: ignore[arg-type]
+        window,  # type: ignore
     )
 
 
@@ -548,8 +550,10 @@ def _(
     column: ibis_types.Column,
     window=None,
 ) -> ibis_types.Value:
+    # Ibis LastNonNullValue expects Value[Any, Columnar], Mypy struggles to see Column as compatible.
     return _apply_window_if_present(
-        ibis_ops.LastNonNullValue(column).to_expr(), window  # type: ignore
+        ibis_ops.LastNonNullValue(column).to_expr(),  # type: ignore[arg-type]
+        window,  # type: ignore
     )
 
 
@@ -801,8 +805,10 @@ def _to_ibis_boundary(
 ) -> Optional[ibis_expr_window.WindowBoundary]:
     if boundary is None:
         return None
+    # WindowBoundary expects Value[Any, Any], ibis_types.literal returns Scalar which Mypy doesn't see as compatible.
     return ibis_expr_window.WindowBoundary(
-        abs(boundary), preceding=boundary <= 0  # type:ignore
+        ibis_types.literal(boundary if boundary >= 0 else -boundary),  # type: ignore[arg-type]
+        preceding=boundary <= 0,  # type:ignore
     )
 
 

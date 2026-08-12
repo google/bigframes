@@ -12,15 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from google.cloud import bigquery
 import pandas as pd
 import pytest
+from google.cloud import bigquery
 
+import bigframes.pandas as bpd
 from bigframes import dtypes
 from bigframes import operations as ops
 from bigframes.core import expression as ex
 from bigframes.functions import udf_def
-import bigframes.pandas as bpd
 from bigframes.testing import utils
 
 pytest.importorskip("pytest_snapshot")
@@ -60,7 +60,7 @@ def test_astype_float(scalar_types_df: bpd.DataFrame, snapshot):
         "bool_w_safe": ops.AsTypeOp(to_type=to_type, safe=True).as_expr("bool_col"),
     }
     sql = utils._apply_ops_to_sql(bf_df, list(ops_map.values()), list(ops_map.keys()))
-    snapshot.assert_match(sql, "out.sql")
+    snapshot.assert_match(sql + "\n", "out.sql")
 
 
 def test_astype_bool(scalar_types_df: bpd.DataFrame, snapshot):
@@ -107,7 +107,7 @@ def test_astype_string(scalar_types_df: bpd.DataFrame, snapshot):
         "bool_w_safe": ops.AsTypeOp(to_type=to_type, safe=True).as_expr("bool_col"),
     }
     sql = utils._apply_ops_to_sql(bf_df, list(ops_map.values()), list(ops_map.keys()))
-    snapshot.assert_match(sql, "out.sql")
+    snapshot.assert_match(sql + "\n", "out.sql")
 
 
 def test_astype_json(scalar_types_df: bpd.DataFrame, snapshot):
@@ -172,63 +172,8 @@ def test_astype_json_invalid(
 
 
 def test_remote_function_op(scalar_types_df: bpd.DataFrame, snapshot):
-    bf_df = scalar_types_df[["int64_col"]]
-    function_def = udf_def.BigqueryUdf(
-        routine_ref=bigquery.RoutineReference.from_string(
-            "my_project.my_dataset.my_routine"
-        ),
-        signature=udf_def.UdfSignature(
-            inputs=(
-                udf_def.UdfArg(
-                    "x",
-                    udf_def.DirectScalarType(int),
-                ),
-            ),
-            output=udf_def.DirectScalarType(float),
-        ),
-    )
-    ops_map = {
-        "apply_on_null_true": ops.RemoteFunctionOp(
-            function_def=function_def, apply_on_null=True
-        ).as_expr("int64_col"),
-        "apply_on_null_false": ops.RemoteFunctionOp(
-            function_def=function_def, apply_on_null=False
-        ).as_expr("int64_col"),
-    }
-    sql = utils._apply_ops_to_sql(bf_df, list(ops_map.values()), list(ops_map.keys()))
-    snapshot.assert_match(sql, "out.sql")
-
-
-def test_binary_remote_function_op(scalar_types_df: bpd.DataFrame, snapshot):
-    bf_df = scalar_types_df[["int64_col", "float64_col"]]
-    op = ops.BinaryRemoteFunctionOp(
-        function_def=udf_def.BigqueryUdf(
-            routine_ref=bigquery.RoutineReference.from_string(
-                "my_project.my_dataset.my_routine"
-            ),
-            signature=udf_def.UdfSignature(
-                inputs=(
-                    udf_def.UdfArg(
-                        "x",
-                        udf_def.DirectScalarType(int),
-                    ),
-                    udf_def.UdfArg(
-                        "y",
-                        udf_def.DirectScalarType(float),
-                    ),
-                ),
-                output=udf_def.DirectScalarType(float),
-            ),
-        )
-    )
-    sql = utils._apply_binary_op(bf_df, op, "int64_col", "float64_col")
-
-    snapshot.assert_match(sql, "out.sql")
-
-
-def test_nary_remote_function_op(scalar_types_df: bpd.DataFrame, snapshot):
     bf_df = scalar_types_df[["int64_col", "float64_col", "string_col"]]
-    op = ops.NaryRemoteFunctionOp(
+    op = ops.RemoteFunctionOp(
         function_def=udf_def.BigqueryUdf(
             routine_ref=bigquery.RoutineReference.from_string(
                 "my_project.my_dataset.my_routine"

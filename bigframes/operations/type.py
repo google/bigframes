@@ -34,11 +34,13 @@ class TypeSignature(abc.ABC):
         """Convert the signature into an object method. Convenience function for constructing ops that use the signature."""
         ...
 
+    def __call__(self, *args, **kwargs):
+        return self.as_method(*args, **kwargs)
+
 
 class UnaryTypeSignature(TypeSignature):
     @abc.abstractmethod
-    def output_type(self, input_type: ExpressionType) -> ExpressionType:
-        ...
+    def output_type(self, input_type: ExpressionType) -> ExpressionType: ...
 
     @property
     def as_method(self):
@@ -53,8 +55,7 @@ class BinaryTypeSignature(TypeSignature):
     @abc.abstractmethod
     def output_type(
         self, left_type: ExpressionType, right_type: ExpressionType
-    ) -> ExpressionType:
-        ...
+    ) -> ExpressionType: ...
 
     @property
     def as_method(self):

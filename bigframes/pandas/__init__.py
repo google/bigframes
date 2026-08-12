@@ -84,35 +84,36 @@ import bigframes_vendored.pandas.core.tools.datetimes as vendored_pandas_datetim
 import pandas
 
 import bigframes._config as config
-from bigframes.core.col import col
 import bigframes.core.global_session as global_session
 import bigframes.core.indexes
-from bigframes.core.logging import log_adapter
-from bigframes.core.reshape.api import concat, crosstab, cut, get_dummies, merge, qcut
 import bigframes.dataframe
 import bigframes.functions._utils as bff_utils
-from bigframes.pandas import api
-from bigframes.pandas.core.api import to_timedelta
-from bigframes.pandas.io.api import (
-    _read_gbq_colab,
-    from_glob_path,
-    read_arrow,
-    read_csv,
-    read_gbq,
-    read_gbq_function,
-    read_gbq_model,
-    read_gbq_object_table,
-    read_gbq_query,
-    read_gbq_table,
-    read_json,
-    read_pandas,
-    read_parquet,
-    read_pickle,
-)
 import bigframes.series
 import bigframes.session
 import bigframes.session._io.bigquery
 import bigframes.version
+from bigframes.core.col import col
+from bigframes.core.logging import log_adapter
+from bigframes.core.reshape.api import concat, crosstab, cut, get_dummies, merge, qcut
+from bigframes.pandas import api
+from bigframes.pandas.core.api import to_timedelta
+from bigframes.pandas.io.api import (
+    _from_glob_path,
+    _read_gbq_colab,
+    read_arrow,
+    read_avro,
+    read_csv,
+    read_gbq,
+    read_gbq_function,
+    read_gbq_model,
+    read_gbq_query,
+    read_gbq_table,
+    read_json,
+    read_orc,
+    read_pandas,
+    read_parquet,
+    read_pickle,
+)
 
 try:
     import resource
@@ -199,9 +200,9 @@ def udf(
     *,
     input_types: Union[None, type, Sequence[type]] = None,
     output_type: Optional[type] = None,
-    dataset: str,
+    dataset: Optional[str] = None,
     bigquery_connection: Optional[str] = None,
-    name: str,
+    name: Optional[str] = None,
     packages: Optional[Sequence[str]] = None,
     max_batching_rows: Optional[int] = None,
     container_cpu: Optional[float] = None,
@@ -249,8 +250,7 @@ def to_datetime(
     utc: bool = False,
     format: Optional[str] = None,
     unit: Optional[str] = None,
-) -> bigframes.series.Series:
-    ...
+) -> bigframes.series.Series: ...
 
 
 @typing.overload
@@ -260,8 +260,7 @@ def to_datetime(
     utc: bool = False,
     format: Optional[str] = None,
     unit: Optional[str] = None,
-) -> Union[pandas.Timestamp, datetime.datetime]:
-    ...
+) -> Union[pandas.Timestamp, datetime.datetime]: ...
 
 
 def to_datetime(
@@ -438,6 +437,7 @@ if resource is not None:
             pass
 
 _functions = [
+    _from_glob_path,
     clean_up_by_session_id,
     concat,
     crosstab,
@@ -448,23 +448,23 @@ _functions = [
     get_dummies,
     merge,
     qcut,
-    read_csv,
     read_arrow,
+    read_avro,
+    read_csv,
     read_gbq,
     _read_gbq_colab,
     read_gbq_function,
     read_gbq_model,
-    read_gbq_object_table,
     read_gbq_query,
     read_gbq_table,
     read_json,
+    read_orc,
     read_pandas,
     read_parquet,
     read_pickle,
     remote_function,
     to_datetime,
     to_timedelta,
-    from_glob_path,
 ]
 
 # Use __all__ to let type checkers know what is part of the public API.
@@ -483,23 +483,23 @@ __all__ = [
     "get_dummies",
     "merge",
     "qcut",
-    "read_csv",
     "read_arrow",
+    "read_avro",
+    "read_csv",
     "read_gbq",
     "_read_gbq_colab",
     "read_gbq_function",
     "read_gbq_model",
-    "read_gbq_object_table",
     "read_gbq_query",
     "read_gbq_table",
     "read_json",
+    "read_orc",
     "read_pandas",
     "read_parquet",
     "read_pickle",
     "remote_function",
     "to_datetime",
     "to_timedelta",
-    "from_glob_path",
     # Other names
     "api",
     # pandas dtype attributes

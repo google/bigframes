@@ -113,6 +113,12 @@ def literal(value: typing.Any, dtype: dtypes.Dtype | None = None) -> sge.Express
         return sge.func("ST_GEOGFROMTEXT", sge.convert(wkt))
     elif dtype == dtypes.TIMEDELTA_DTYPE:
         return sge.convert(utils.timedelta_to_micros(value))
+    elif dtype == dtypes.STRING_DTYPE:
+        if isinstance(value, np.generic):
+            value = value.item()
+        elif isinstance(value, pa.Scalar):
+            value = value.as_py()
+        return sge.convert(str(value))
     else:
         if isinstance(value, np.generic):
             value = value.item()

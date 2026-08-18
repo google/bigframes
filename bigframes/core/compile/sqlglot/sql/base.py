@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import datetime
 import typing
 
 import bigframes_vendored.sqlglot as sg
@@ -55,6 +56,19 @@ def to_sql(expr: sge.Expression) -> str:
 def identifier(id: str) -> sge.Identifier:
     """Return a string representing column reference in a SQL."""
     return sge.to_identifier(id, quoted=QUOTED)
+
+
+def _unwrap_scalar(value: typing.Any) -> typing.Any:
+    """Unwraps PyArrow scalars and NumPy generic types to native Python objects."""
+    if isinstance(value, pa.Scalar):
+        return value.as_py()
+    if isinstance(value, np.datetime64):
+        # Avoid calling .item() on np.datetime64 because sub-microsecond np.datetime64 objects
+        # are converted to integer epoch.
+        return pd.Timestamp(value).to_pydatetime()
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
 
 
 def literal(value: typing.Any, dtype: dtypes.Dtype | None = None) -> sge.Expression:
@@ -101,10 +115,19 @@ def literal(value: typing.Any, dtype: dtypes.Dtype | None = None) -> sge.Express
     elif dtype == dtypes.BYTES_DTYPE:
         return cast(str(value), sqlglot_type)
     elif dtypes.is_time_like(dtype):
+        value = _unwrap_scalar(value)
         if isinstance(value, str):
             return cast(sge.convert(value), sqlglot_type)
-        if isinstance(value, np.generic):
-            value = value.item()
+        elif isinstance(value, pd.Timestamp):
+            value = value.to_pydatetime()
+        return cast(sge.convert(value.isoformat()), sqlglot_type)
+    elif dtypes.is_date_like(dtype):
+        value = _unwrap_scalar(value)
+        if isinstance(value, str):
+            return cast(sge.convert(value), sqlglot_type)
+        elif isinstance(value, datetime.datetime):
+            # pd.Timestamp is a subclass of datatime.datetime.
+            value = value.date()
         return cast(sge.convert(value.isoformat()), sqlglot_type)
     elif dtype in (dtypes.NUMERIC_DTYPE, dtypes.BIGNUMERIC_DTYPE):
         return cast(sge.convert(value), sqlglot_type)
@@ -114,17 +137,9 @@ def literal(value: typing.Any, dtype: dtypes.Dtype | None = None) -> sge.Express
     elif dtype == dtypes.TIMEDELTA_DTYPE:
         return sge.convert(utils.timedelta_to_micros(value))
     elif dtype == dtypes.STRING_DTYPE:
-        if isinstance(value, np.generic):
-            value = value.item()
-        elif isinstance(value, pa.Scalar):
-            value = value.as_py()
-        return sge.convert(str(value))
+        return sge.convert(str(_unwrap_scalar(value)))
     else:
-        if isinstance(value, np.generic):
-            value = value.item()
-        if isinstance(value, pa.Scalar):
-            value = value.as_py()
-        return sge.convert(value)
+        return sge.convert(_unwrap_scalar(value))
 
 
 def cast(arg: typing.Any, to: str, safe: bool = False) -> sge.Cast | sge.TryCast:

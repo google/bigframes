@@ -284,10 +284,6 @@ def run_unit(session, install_test_extra):
 @nox.session(python=ALL_PYTHON)
 @nox.parametrize("test_extra", [True, False])
 def unit(session, test_extra):
-    if session.python == "3.15":
-        session.skip(
-            "Skipping 3.15 until wheels are available for pyarrow. Also pyproj wheels are needed for dependency geopandas."
-        )
     if test_extra:
         run_unit(session, install_test_extra=test_extra)
     else:

@@ -13,7 +13,6 @@
 # limitations under the License.
 import io
 import json
-import random
 import re
 import tempfile
 import textwrap
@@ -1250,12 +1249,12 @@ def test_read_csv_for_gcs_file_w_write_engine(session, df_and_gcs_csv, write_eng
         pytest.param("\t", id="custom_sep"),
     ],
 )
-def test_read_csv_for_local_file_w_sep(session, df_and_local_csv, sep):
+def test_write_then_read_csv_for_local_file_w_sep(session, df_and_local_csv, sep):
     scalars_df, _ = df_and_local_csv
 
     with tempfile.TemporaryDirectory() as dir:
         # Prepares local CSV file for reading
-        path = dir + "/test_read_csv_for_local_file_w_sep.csv"
+        path = dir + "/test_write_then_read_csv_for_local_file_w_sep.csv"
         scalars_df.to_csv(path, index=True, sep=sep)
 
         # Compares results for pandas and bigframes engines
@@ -1793,9 +1792,11 @@ def test_read_csv_for_others_files(session, engine):
     assert len(df.columns) == 3
 
 
-def test_read_csv_local_w_encoding(session, penguins_pandas_df_default_index):
+def test_write_then_read_csv_local_w_encoding(
+    session, penguins_pandas_df_default_index
+):
     with tempfile.TemporaryDirectory() as dir:
-        path = dir + "/test_read_csv_local_w_encoding.csv"
+        path = dir + "/test_write_then_read_csv_local_w_encoding.csv"
         # Using the pandas to_csv method because the BQ one does not support local write.
         penguins_pandas_df_default_index.index.name = "rowindex"
         penguins_pandas_df_default_index.to_csv(path, index=True, encoding="ISO-8859-1")
@@ -1817,8 +1818,10 @@ def test_read_csv_local_w_encoding(session, penguins_pandas_df_default_index):
         bigframes.testing.utils.assert_frame_equal(bf_df.to_pandas(), pd_df.to_pandas())
 
 
-def test_read_pickle_local(session, penguins_pandas_df_default_index, tmp_path):
-    path = tmp_path / "test_read_csv_local_w_encoding.pkl"
+def test_write_then_read_pickle_local(
+    session, penguins_pandas_df_default_index, tmp_path
+):
+    path = tmp_path / "test_write_then_read_pickle_local.pkl"
 
     penguins_pandas_df_default_index.to_pickle(path)
     df = session.read_pickle(path)
@@ -1828,7 +1831,7 @@ def test_read_pickle_local(session, penguins_pandas_df_default_index, tmp_path):
     )
 
 
-def test_read_pickle_buffer(session, penguins_pandas_df_default_index):
+def test_write_then_read_pickle_buffer(session, penguins_pandas_df_default_index):
     buffer = io.BytesIO()
     penguins_pandas_df_default_index.to_pickle(buffer)
     buffer.seek(0)
@@ -1839,7 +1842,7 @@ def test_read_pickle_buffer(session, penguins_pandas_df_default_index):
     )
 
 
-def test_read_pickle_series_buffer(session):
+def test_write_then_read_pickle_series_buffer(session):
     pd_series = pd.Series([1, 2, 3, 4, 5], dtype="Int64")
     buffer = io.BytesIO()
     pd_series.to_pickle(buffer)
@@ -1850,8 +1853,10 @@ def test_read_pickle_series_buffer(session):
     assert (pd_series == bf_series).all()
 
 
-def test_read_pickle_gcs(session, penguins_pandas_df_default_index, gcs_folder):
-    path = gcs_folder + "test_read_pickle_gcs.pkl"
+def test_write_then_read_pickle_gcs(
+    session, penguins_pandas_df_default_index, gcs_folder
+):
+    path = gcs_folder + "test_write_then_read_pickle_gcs.pkl"
     penguins_pandas_df_default_index.to_pickle(path)
     df = session.read_pickle(path)
 
@@ -1893,21 +1898,27 @@ def test_read_pickle_gcs(session, penguins_pandas_df_default_index, gcs_folder):
         ),
     ),
 )
-def test_read_parquet_gcs(
-    session: bigframes.Session, scalars_dfs, gcs_folder, engine, filename
+def test_write_then_read_parquet_gcs(
+    session: bigframes.Session,
+    scalars_dfs,
+    gcs_folder,
+    engine,
+    filename,
+    request: pytest.FixtureRequest,
 ):
     scalars_df, _ = scalars_dfs
     # Include wildcard so that multiple files can be written/read if > 1 GB.
     # https://cloud.google.com/bigquery/docs/exporting-data#exporting_data_into_one_or_more_files
-    write_path = gcs_folder + test_read_parquet_gcs.__name__ + "*.parquet"
-    read_path = gcs_folder + test_read_parquet_gcs.__name__ + filename
+    test_id = f"{test_write_then_read_parquet_gcs.__name__}/{request.node.callspec.id}"
+    write_path = gcs_folder + test_id + "/*.parquet"
+    read_path = gcs_folder + test_id + "/" + filename
 
     df_in: bigframes.dataframe.DataFrame = scalars_df.copy()
     # GEOGRAPHY not supported in parquet export.
     df_in = df_in.drop(columns="geography_col")
     # Make sure we can also serialize the order.
     df_write = df_in.reset_index(drop=False)
-    df_write.index.name = f"ordering_id_{random.randrange(1_000_000)}"
+    df_write.index.name = f"ordering_id_{request.node.callspec.id}"
     df_write.to_parquet(write_path, index=True)
 
     df_out = (
@@ -1967,8 +1978,13 @@ def test_read_parquet_gcs(
         ),
     ),
 )
-def test_read_orc_gcs(
-    session: bigframes.Session, scalars_dfs, gcs_folder, engine, filename
+def test_write_then_read_orc_gcs(
+    session: bigframes.Session,
+    scalars_dfs,
+    gcs_folder,
+    engine,
+    filename,
+    request: pytest.FixtureRequest,
 ):
     pytest.importorskip(
         "pandas",
@@ -1976,8 +1992,9 @@ def test_read_orc_gcs(
         reason="pandas<2 does not handle nullable int columns well",
     )
     scalars_df, _ = scalars_dfs
-    write_path = gcs_folder + test_read_orc_gcs.__name__ + "000000000000.orc"
-    read_path = gcs_folder + test_read_orc_gcs.__name__ + filename
+    test_id = f"{test_write_then_read_orc_gcs.__name__}/{request.node.callspec.id}"
+    write_path = gcs_folder + test_id + "/000000000000.orc"
+    read_path = gcs_folder + test_id + "/" + filename
 
     df_in: bigframes.dataframe.DataFrame = scalars_df.copy()
     df_in = df_in.drop(
@@ -1990,7 +2007,7 @@ def test_read_orc_gcs(
         ]
     )
     df_write = df_in.reset_index(drop=False)
-    df_write.index.name = f"ordering_id_{random.randrange(1_000_000)}"
+    df_write.index.name = f"ordering_id_{request.node.callspec.id}"
     df_write.to_orc(write_path)
 
     df_out = (
@@ -2021,18 +2038,24 @@ def test_read_orc_gcs(
         ),
     ),
 )
-def test_read_avro_gcs(
-    session: bigframes.Session, scalars_dfs, gcs_folder, engine, filename
+def test_write_then_read_avro_gcs(
+    session: bigframes.Session,
+    scalars_dfs,
+    gcs_folder,
+    engine,
+    filename,
+    request: pytest.FixtureRequest,
 ):
     scalars_df, _ = scalars_dfs
-    write_uri = gcs_folder + test_read_avro_gcs.__name__ + "*.avro"
-    read_uri = gcs_folder + test_read_avro_gcs.__name__ + filename
+    test_id = f"{test_write_then_read_avro_gcs.__name__}/{request.node.callspec.id}"
+    write_uri = gcs_folder + test_id + "/*.avro"
+    read_uri = gcs_folder + test_id + "/" + filename
 
     df_in: bigframes.dataframe.DataFrame = scalars_df.copy()
     # datetime round-trips back as str in avro
     df_in = df_in.drop(columns=["geography_col", "duration_col", "datetime_col"])
     df_write = df_in.reset_index(drop=False)
-    index_name = f"ordering_id_{random.randrange(1_000_000)}"
+    index_name = f"ordering_id_{request.node.callspec.id}"
     df_write.index.name = index_name
 
     # Create a BigQuery table
@@ -2062,29 +2085,29 @@ def test_read_avro_gcs(
 @pytest.mark.parametrize(
     "compression",
     [
-        None,
-        "gzip",
-        "snappy",
+        pytest.param(None, id="none"),
+        pytest.param("gzip", id="gzip"),
+        pytest.param("snappy", id="snappy"),
     ],
 )
-def test_read_parquet_gcs_compressed(
-    session: bigframes.Session, scalars_dfs, gcs_folder, compression
+def test_write_then_read_parquet_gcs_compressed(
+    session: bigframes.Session,
+    scalars_dfs,
+    gcs_folder,
+    compression,
+    request: pytest.FixtureRequest,
 ):
     scalars_df, _ = scalars_dfs
     # Include wildcard so that multiple files can be written/read if > 1 GB.
     # https://cloud.google.com/bigquery/docs/exporting-data#exporting_data_into_one_or_more_files
-    path = (
-        gcs_folder
-        + test_read_parquet_gcs_compressed.__name__
-        + (f"_{compression}" if compression else "")
-        + "*.parquet"
-    )
+    test_id = f"{test_write_then_read_parquet_gcs_compressed.__name__}/{request.node.callspec.id}"
+    path = gcs_folder + test_id + "/*.parquet"
     df_in: bigframes.dataframe.DataFrame = scalars_df.copy()
     # GEOGRAPHY not supported in parquet export.
     df_in = df_in.drop(columns="geography_col")
     # Make sure we can also serialize the order.
     df_write = df_in.reset_index(drop=False)
-    df_write.index.name = f"ordering_id_{random.randrange(1_000_000)}"
+    df_write.index.name = f"ordering_id_{request.node.callspec.id}"
     df_write.to_parquet(path, compression=compression, index=True)
 
     df_out = (
@@ -2113,30 +2136,30 @@ def test_read_parquet_gcs_compressed(
 @pytest.mark.parametrize(
     "compression",
     [
-        "brotli",
-        "lz4",
-        "zstd",
-        "unknown",
+        pytest.param("brotli", id="brotli"),
+        pytest.param("lz4", id="lz4"),
+        pytest.param("zstd", id="zstd"),
+        pytest.param("unknown", id="unknown"),
     ],
 )
-def test_read_parquet_gcs_compression_not_supported(
-    session: bigframes.Session, scalars_dfs, gcs_folder, compression
+def test_write_parquet_gcs_compression_not_supported(
+    session: bigframes.Session,
+    scalars_dfs,
+    gcs_folder,
+    compression,
+    request: pytest.FixtureRequest,
 ):
     scalars_df, _ = scalars_dfs
     # Include wildcard so that multiple files can be written/read if > 1 GB.
     # https://cloud.google.com/bigquery/docs/exporting-data#exporting_data_into_one_or_more_files
-    path = (
-        gcs_folder
-        + test_read_parquet_gcs_compression_not_supported.__name__
-        + (f"_{compression}" if compression else "")
-        + "*.parquet"
-    )
+    test_id = f"{test_write_parquet_gcs_compression_not_supported.__name__}/{request.node.callspec.id}"
+    path = gcs_folder + test_id + "/*.parquet"
     df_in: bigframes.dataframe.DataFrame = scalars_df.copy()
     # GEOGRAPHY not supported in parquet export.
     df_in = df_in.drop(columns="geography_col")
     # Make sure we can also serialize the order.
     df_write = df_in.reset_index(drop=False)
-    df_write.index.name = f"ordering_id_{random.randrange(1_000_000)}"
+    df_write.index.name = f"ordering_id_{request.node.callspec.id}"
 
     with pytest.raises(
         ValueError, match=f"'{compression}' is not valid for compression"
@@ -2144,9 +2167,9 @@ def test_read_parquet_gcs_compression_not_supported(
         df_write.to_parquet(path, compression=compression, index=True)
 
 
-def test_read_json_gcs_bq_engine(session, scalars_dfs, gcs_folder):
+def test_write_then_read_json_gcs_bq_engine(session, scalars_dfs, gcs_folder):
     scalars_df, _ = scalars_dfs
-    path = gcs_folder + "test_read_json_gcs_bq_engine_w_index*.json"
+    path = f"{gcs_folder}{test_write_then_read_json_gcs_bq_engine.__name__}/*.json"
     read_path = utils.get_first_file_from_wildcard(path)
     scalars_df.to_json(path, index=False, lines=True, orient="records")
     df = session.read_json(read_path, lines=True, orient="records", engine="bigquery")
@@ -2182,9 +2205,9 @@ def test_read_json_gcs_bq_engine(session, scalars_dfs, gcs_folder):
     )
 
 
-def test_read_json_gcs_default_engine(session, scalars_dfs, gcs_folder):
+def test_write_then_read_json_gcs_default_engine(session, scalars_dfs, gcs_folder):
     scalars_df, _ = scalars_dfs
-    path = gcs_folder + "test_read_json_gcs_default_engine_w_index*.json"
+    path = f"{gcs_folder}{test_write_then_read_json_gcs_default_engine.__name__}/*.json"
     read_path = utils.get_first_file_from_wildcard(path)
     scalars_df.to_json(
         path,

@@ -23,7 +23,8 @@ from bigframes.session.proxy_executor import DualCompilerProxyExecutor
 
 
 @pytest.fixture
-def mock_executor():
+def proxy_executor():
+    """Creates a DualCompilerProxyExecutor instance with mocked dependencies."""
     bqclient = mock.create_autospec(bigquery.Client)
     bqclient.project = "test-project"
     storage_manager = mock.Mock()
@@ -41,69 +42,69 @@ def mock_executor():
     )
 
 
-def test_execute_legacy_routes_to_ibis(mock_executor, monkeypatch):
+def test_execute_legacy_routes_to_ibis(proxy_executor, monkeypatch):
     array_value = mock.Mock(spec=bigframes.core.ArrayValue)
     execution_spec = mock.Mock(spec=bigframes.session.execution_spec.ExecutionSpec)
     execution_spec.with_bq_labels.return_value = execution_spec
 
-    mock_executor._ibis_executor = mock.Mock()
-    mock_executor._sqlglot_executor = mock.Mock()
+    proxy_executor._ibis_executor = mock.Mock()
+    proxy_executor._sqlglot_executor = mock.Mock()
 
     monkeypatch.setattr(bigframes.options.experiments, "sql_compiler", "legacy")
-    mock_executor.execute(array_value, execution_spec)
+    proxy_executor.execute(array_value, execution_spec)
 
     execution_spec.with_bq_labels.assert_called_once_with(
         {"bigframes-compiler": "ibis"}
     )
-    mock_executor._ibis_executor.execute.assert_called_once_with(
+    proxy_executor._ibis_executor.execute.assert_called_once_with(
         array_value, execution_spec
     )
-    mock_executor._sqlglot_executor.execute.assert_not_called()
+    proxy_executor._sqlglot_executor.execute.assert_not_called()
 
 
-def test_execute_experimental_routes_to_sqlglot(mock_executor, monkeypatch):
+def test_execute_experimental_routes_to_sqlglot(proxy_executor, monkeypatch):
     array_value = mock.Mock(spec=bigframes.core.ArrayValue)
     execution_spec = mock.Mock(spec=bigframes.session.execution_spec.ExecutionSpec)
     execution_spec.with_bq_labels.return_value = execution_spec
 
-    mock_executor._ibis_executor = mock.Mock()
-    mock_executor._sqlglot_executor = mock.Mock()
+    proxy_executor._ibis_executor = mock.Mock()
+    proxy_executor._sqlglot_executor = mock.Mock()
 
     monkeypatch.setattr(bigframes.options.experiments, "sql_compiler", "experimental")
-    mock_executor.execute(array_value, execution_spec)
+    proxy_executor.execute(array_value, execution_spec)
 
     execution_spec.with_bq_labels.assert_called_once_with(
         {"bigframes-compiler": "sqlglot"}
     )
-    mock_executor._sqlglot_executor.execute.assert_called_once_with(
+    proxy_executor._sqlglot_executor.execute.assert_called_once_with(
         array_value, execution_spec
     )
-    mock_executor._ibis_executor.execute.assert_not_called()
+    proxy_executor._ibis_executor.execute.assert_not_called()
 
 
-def test_execute_stable_routes_to_sqlglot_success(mock_executor, monkeypatch):
+def test_execute_stable_routes_to_sqlglot_success(proxy_executor, monkeypatch):
     array_value = mock.Mock(spec=bigframes.core.ArrayValue)
     execution_spec = mock.Mock(spec=bigframes.session.execution_spec.ExecutionSpec)
     execution_spec.with_bq_labels.return_value = execution_spec
 
-    mock_executor._ibis_executor = mock.Mock()
-    mock_executor._sqlglot_executor = mock.Mock()
+    proxy_executor._ibis_executor = mock.Mock()
+    proxy_executor._sqlglot_executor = mock.Mock()
 
     monkeypatch.setattr(bigframes.options.experiments, "sql_compiler", "stable")
     with mock.patch("uuid.uuid1") as mock_uuid:
         mock_uuid.return_value.hex = "1234567890123456"
-        mock_executor.execute(array_value, execution_spec)
+        proxy_executor.execute(array_value, execution_spec)
 
     execution_spec.with_bq_labels.assert_called_once_with(
         {"bigframes-compiler": "sqlglot-123456789012"}
     )
-    mock_executor._sqlglot_executor.execute.assert_called_once_with(
+    proxy_executor._sqlglot_executor.execute.assert_called_once_with(
         array_value, execution_spec
     )
-    mock_executor._ibis_executor.execute.assert_not_called()
+    proxy_executor._ibis_executor.execute.assert_not_called()
 
 
-def test_execute_stable_routes_to_sqlglot_fallback_to_ibis(mock_executor, monkeypatch):
+def test_execute_stable_routes_to_sqlglot_fallback_to_ibis(proxy_executor, monkeypatch):
     array_value = mock.Mock(spec=bigframes.core.ArrayValue)
     execution_spec = mock.Mock(spec=bigframes.session.execution_spec.ExecutionSpec)
 
@@ -111,10 +112,10 @@ def test_execute_stable_routes_to_sqlglot_fallback_to_ibis(mock_executor, monkey
     spec_ibis = mock.Mock(spec=bigframes.session.execution_spec.ExecutionSpec)
     execution_spec.with_bq_labels.side_effect = [spec_sqlglot, spec_ibis]
 
-    mock_executor._ibis_executor = mock.Mock()
-    mock_executor._sqlglot_executor = mock.Mock()
+    proxy_executor._ibis_executor = mock.Mock()
+    proxy_executor._sqlglot_executor = mock.Mock()
 
-    mock_executor._sqlglot_executor.execute.side_effect = (
+    proxy_executor._sqlglot_executor.execute.side_effect = (
         google.cloud.exceptions.BadRequest("test error")
     )
 
@@ -124,7 +125,7 @@ def test_execute_stable_routes_to_sqlglot_fallback_to_ibis(mock_executor, monkey
         with pytest.warns(
             UserWarning, match="Compiler ID 123456789012: Exception on sqlglot"
         ):
-            mock_executor.execute(array_value, execution_spec)
+            proxy_executor.execute(array_value, execution_spec)
 
     execution_spec.with_bq_labels.assert_has_calls(
         [
@@ -133,52 +134,54 @@ def test_execute_stable_routes_to_sqlglot_fallback_to_ibis(mock_executor, monkey
         ]
     )
 
-    mock_executor._sqlglot_executor.execute.assert_called_once_with(
+    proxy_executor._sqlglot_executor.execute.assert_called_once_with(
         array_value, spec_sqlglot
     )
-    mock_executor._ibis_executor.execute.assert_called_once_with(array_value, spec_ibis)
+    proxy_executor._ibis_executor.execute.assert_called_once_with(
+        array_value, spec_ibis
+    )
 
 
-def test_cached_legacy_routes_to_ibis(mock_executor, monkeypatch):
+def test_cached_legacy_routes_to_ibis(proxy_executor, monkeypatch):
     array_value = mock.Mock(spec=bigframes.core.ArrayValue)
     config = mock.Mock()
 
-    mock_executor._ibis_executor = mock.Mock()
-    mock_executor._sqlglot_executor = mock.Mock()
+    proxy_executor._ibis_executor = mock.Mock()
+    proxy_executor._sqlglot_executor = mock.Mock()
 
     monkeypatch.setattr(bigframes.options.experiments, "sql_compiler", "legacy")
-    mock_executor.cached(array_value, config=config)
+    proxy_executor.cached(array_value, config=config)
 
-    mock_executor._ibis_executor.cached.assert_called_once_with(
+    proxy_executor._ibis_executor.cached.assert_called_once_with(
         array_value, config=config
     )
-    mock_executor._sqlglot_executor.cached.assert_not_called()
+    proxy_executor._sqlglot_executor.cached.assert_not_called()
 
 
-def test_cached_experimental_routes_to_sqlglot(mock_executor, monkeypatch):
+def test_cached_experimental_routes_to_sqlglot(proxy_executor, monkeypatch):
     array_value = mock.Mock(spec=bigframes.core.ArrayValue)
     config = mock.Mock()
 
-    mock_executor._ibis_executor = mock.Mock()
-    mock_executor._sqlglot_executor = mock.Mock()
+    proxy_executor._ibis_executor = mock.Mock()
+    proxy_executor._sqlglot_executor = mock.Mock()
 
     monkeypatch.setattr(bigframes.options.experiments, "sql_compiler", "experimental")
-    mock_executor.cached(array_value, config=config)
+    proxy_executor.cached(array_value, config=config)
 
-    mock_executor._sqlglot_executor.cached.assert_called_once_with(
+    proxy_executor._sqlglot_executor.cached.assert_called_once_with(
         array_value, config=config
     )
-    mock_executor._ibis_executor.cached.assert_not_called()
+    proxy_executor._ibis_executor.cached.assert_not_called()
 
 
-def test_cached_stable_routes_to_sqlglot_fallback_to_ibis(mock_executor, monkeypatch):
+def test_cached_stable_routes_to_sqlglot_fallback_to_ibis(proxy_executor, monkeypatch):
     array_value = mock.Mock(spec=bigframes.core.ArrayValue)
     config = mock.Mock()
 
-    mock_executor._ibis_executor = mock.Mock()
-    mock_executor._sqlglot_executor = mock.Mock()
+    proxy_executor._ibis_executor = mock.Mock()
+    proxy_executor._sqlglot_executor = mock.Mock()
 
-    mock_executor._sqlglot_executor.cached.side_effect = (
+    proxy_executor._sqlglot_executor.cached.side_effect = (
         google.cloud.exceptions.BadRequest("test error")
     )
 
@@ -188,11 +191,90 @@ def test_cached_stable_routes_to_sqlglot_fallback_to_ibis(mock_executor, monkeyp
         with pytest.warns(
             UserWarning, match="Compiler ID 123456789012: Exception on sqlglot"
         ):
-            mock_executor.cached(array_value, config=config)
+            proxy_executor.cached(array_value, config=config)
 
-    mock_executor._sqlglot_executor.cached.assert_called_once_with(
+    proxy_executor._sqlglot_executor.cached.assert_called_once_with(
         array_value, config=config
     )
-    mock_executor._ibis_executor.cached.assert_called_once_with(
+    proxy_executor._ibis_executor.cached.assert_called_once_with(
         array_value, config=config
+    )
+
+
+def test_dry_run_legacy_routes_to_ibis(proxy_executor, monkeypatch):
+    array_value = mock.Mock(spec=bigframes.core.ArrayValue)
+
+    proxy_executor._ibis_executor = mock.Mock()
+    proxy_executor._sqlglot_executor = mock.Mock()
+
+    monkeypatch.setattr(bigframes.options.experiments, "sql_compiler", "legacy")
+    proxy_executor.dry_run(array_value, ordered=True)
+
+    proxy_executor._ibis_executor.dry_run.assert_called_once_with(
+        array_value, ordered=True, labels={"bigframes-compiler": "ibis"}
+    )
+    proxy_executor._sqlglot_executor.dry_run.assert_not_called()
+
+
+def test_dry_run_experimental_routes_to_sqlglot(proxy_executor, monkeypatch):
+    array_value = mock.Mock(spec=bigframes.core.ArrayValue)
+
+    proxy_executor._ibis_executor = mock.Mock()
+    proxy_executor._sqlglot_executor = mock.Mock()
+
+    monkeypatch.setattr(bigframes.options.experiments, "sql_compiler", "experimental")
+    proxy_executor.dry_run(array_value, ordered=False)
+
+    proxy_executor._sqlglot_executor.dry_run.assert_called_once_with(
+        array_value, ordered=False, labels={"bigframes-compiler": "sqlglot"}
+    )
+    proxy_executor._ibis_executor.dry_run.assert_not_called()
+
+
+def test_dry_run_stable_routes_to_sqlglot_success(proxy_executor, monkeypatch):
+    array_value = mock.Mock(spec=bigframes.core.ArrayValue)
+
+    proxy_executor._ibis_executor = mock.Mock()
+    proxy_executor._sqlglot_executor = mock.Mock()
+
+    monkeypatch.setattr(bigframes.options.experiments, "sql_compiler", "stable")
+    with mock.patch("uuid.uuid1") as mock_uuid:
+        mock_uuid.return_value.hex = "1234567890123456"
+        proxy_executor.dry_run(array_value)
+
+    proxy_executor._sqlglot_executor.dry_run.assert_called_once_with(
+        array_value,
+        ordered=True,
+        labels={"bigframes-compiler": "sqlglot-123456789012"},
+    )
+    proxy_executor._ibis_executor.dry_run.assert_not_called()
+
+
+def test_dry_run_stable_routes_to_sqlglot_fallback_to_ibis(proxy_executor, monkeypatch):
+    array_value = mock.Mock(spec=bigframes.core.ArrayValue)
+
+    proxy_executor._ibis_executor = mock.Mock()
+    proxy_executor._sqlglot_executor = mock.Mock()
+
+    proxy_executor._sqlglot_executor.dry_run.side_effect = (
+        google.cloud.exceptions.BadRequest("test error")
+    )
+
+    monkeypatch.setattr(bigframes.options.experiments, "sql_compiler", "stable")
+    with mock.patch("uuid.uuid1") as mock_uuid:
+        mock_uuid.return_value.hex = "1234567890123456"
+        with pytest.warns(
+            UserWarning, match="Compiler ID 123456789012: Exception on sqlglot"
+        ):
+            proxy_executor.dry_run(array_value)
+
+    proxy_executor._sqlglot_executor.dry_run.assert_called_once_with(
+        array_value,
+        ordered=True,
+        labels={"bigframes-compiler": "sqlglot-123456789012"},
+    )
+    proxy_executor._ibis_executor.dry_run.assert_called_once_with(
+        array_value,
+        ordered=True,
+        labels={"bigframes-compiler": "ibis-123456789012"},
     )

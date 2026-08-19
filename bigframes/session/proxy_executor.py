@@ -158,8 +158,38 @@ class DualCompilerProxyExecutor(executor.Executor):
 
         Does not actually execute the data but will get stats and indicate any invalid query errors.
         """
-        # TODO(b/510408650): Use sqlglot for dry runs when sqlglot has been validated.
-        return self._ibis_executor.dry_run(array_value, ordered=ordered)
+        compiler_option = bigframes.options.experiments.sql_compiler
+        if compiler_option == "legacy":
+            return self._ibis_executor.dry_run(
+                array_value,
+                ordered=ordered,
+                labels={_COMPILER_LABEL_KEY: "ibis"},
+            )
+        elif compiler_option == "experimental":
+            return self._sqlglot_executor.dry_run(
+                array_value,
+                ordered=ordered,
+                labels={_COMPILER_LABEL_KEY: "sqlglot"},
+            )
+        else:  # stable
+            correlation_id = f"{uuid.uuid1().hex[:12]}"
+            try:
+                return self._sqlglot_executor.dry_run(
+                    array_value,
+                    ordered=ordered,
+                    labels={_COMPILER_LABEL_KEY: f"sqlglot-{correlation_id}"},
+                )
+            except Exception as e:
+                msg = bfe.format_message(
+                    f"Compiler ID {correlation_id}: Exception on sqlglot. "
+                    f"Falling back to ibis. Details: {e}"
+                )
+                warnings.warn(msg, category=UserWarning)
+                return self._ibis_executor.dry_run(
+                    array_value,
+                    ordered=ordered,
+                    labels={_COMPILER_LABEL_KEY: f"ibis-{correlation_id}"},
+                )
 
     def cached(
         self,

@@ -699,9 +699,9 @@ def test_read_gbq_with_custom_global_labels(
 
         query_job = session.read_gbq(scalars_table_id).query_job
 
-        # No real job created from read_gbq, so we should expect 0 labels
+        # No real job created from read_gbq, so we should only expect the compiler label that is always present.
         assert query_job is not None
-        assert query_job.labels == {}
+        assert query_job.labels == {"bigframes-compiler": "sqlglot"}
     # No labels outside of the option_context.
     assert len(bigframes.options.compute.extra_query_labels) == 0
 

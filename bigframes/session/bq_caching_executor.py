@@ -19,7 +19,7 @@ import concurrent.futures
 import dataclasses
 import math
 import threading
-from typing import Literal, Optional, Sequence, Tuple
+from typing import Literal, Mapping, Optional, Sequence, Tuple
 
 import google.api_core.exceptions
 import google.cloud.bigquery_storage_v1
@@ -404,10 +404,16 @@ class BigQueryCachingExecutor(executor.Executor):
         )
 
     def dry_run(
-        self, array_value: bigframes.core.ArrayValue, ordered: bool = True
+        self,
+        array_value: bigframes.core.ArrayValue,
+        ordered: bool = True,
+        *,
+        labels: Optional[Mapping[str, str]] = None,
     ) -> bigquery.QueryJob:
         sql = self.to_sql(array_value, ordered=ordered)
         job_config = bigquery.QueryJobConfig(dry_run=True)
+        if labels:
+            job_config.labels.update(labels)
         query_job = self.bqclient.query(sql, job_config=job_config)
         return query_job
 

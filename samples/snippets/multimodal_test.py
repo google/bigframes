@@ -25,7 +25,7 @@ def test_multimodal_dataframe(gcs_bucket_snippets: str) -> None:
     import bigframes.pandas as bpd
 
     # Create blob columns from wildcard path.
-    df_image = bpd.from_glob_path(
+    df_image = bpd._from_glob_path(
         "gs://cloud-samples-data/bigquery/tutorials/cymbal-pets/images/*", name="image"
     )
     # Other ways are: from string uri column
@@ -111,7 +111,7 @@ def test_multimodal_dataframe(gcs_bucket_snippets: str) -> None:
 
     # [START bigquery_dataframes_multimodal_dataframe_pdf_chunk]
     # PDF chunking
-    df_pdf = bpd.from_glob_path(
+    df_pdf = bpd._from_glob_path(
         "gs://cloud-samples-data/bigquery/tutorials/cymbal-pets/documents/*", name="pdf"
     )
     df_pdf["chunked"] = df_pdf["pdf"].blob.pdf_chunk(engine="pypdf")
@@ -176,7 +176,7 @@ def test_multimodal_example(gcs_bucket_snippets: str) -> None:
         "cymbal_pets.gemini",
         replace=True,
         connection_name="us.cymbal_conn",
-        options={"endpoint": "gemini-2.5-flash"},
+        options={"endpoint": "gemini-3.5-flash"},
     )
     # [END bigquery_dataframes_multimodal_create_gemini]
 
@@ -185,7 +185,7 @@ def test_multimodal_example(gcs_bucket_snippets: str) -> None:
         "cymbal_pets.embedding_model",
         replace=True,
         connection_name="us.cymbal_conn",
-        options={"endpoint": "multimodalembedding@001"},
+        options={"endpoint": "gemini-embedding-2"},
     )
     # [END bigquery_dataframes_multimodal_create_embedding]
 

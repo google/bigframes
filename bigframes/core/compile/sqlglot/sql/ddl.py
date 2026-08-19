@@ -149,8 +149,10 @@ def _loaddata_sql(self: sg.Generator, expression: sge.LoadData) -> str:
     out = ["LOAD DATA"]
     if expression.args.get("overwrite"):
         out.append("OVERWRITE")
+    else:
+        out.append("INTO")
 
-    out.append(f"INTO {self.sql(expression, 'this').strip()}")
+    out.append(self.sql(expression, "this").strip())
 
     # We ignore inpath as it's just a dummy to satisfy sqlglot requirements
     # but BigQuery uses FROM FILES instead.

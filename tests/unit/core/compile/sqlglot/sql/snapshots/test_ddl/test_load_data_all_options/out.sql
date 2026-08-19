@@ -1,4 +1,4 @@
-LOAD DATA OVERWRITE INTO `my-project.my_dataset.my_table` (
+LOAD DATA OVERWRITE `my-project.my_dataset.my_table` (
   `col1` INT64,
   `col2` STRING
 ) PARTITION BY `date_col` CLUSTER BY

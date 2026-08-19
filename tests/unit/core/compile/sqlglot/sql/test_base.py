@@ -60,6 +60,16 @@ import bigframes.core.compile.sqlglot.sql.base as sql
             "CAST('2025-01-02T03:45:06.789123+00:00' AS TIMESTAMP)",
             id="timestamp",
         ),
+        pytest.param(
+            pd.Timestamp("2026-03-01T09:52:10.799999952+00:00"),
+            "CAST('2026-03-01T09:52:10.799999+00:00' AS TIMESTAMP)",
+            id="timestamp_truncate_nanoseconds",
+        ),
+        pytest.param(
+            pd.Timestamp("2026-03-01T09:52:10.799999952"),
+            "CAST('2026-03-01T09:52:10.799999' AS DATETIME)",
+            id="datetime_truncate_nanoseconds",
+        ),
         pytest.param(np.int64(123), "123", id="np_int64"),
         pytest.param(np.float64(123.75), "123.75", id="np_float64"),
         pytest.param(float("inf"), "CAST('Infinity' AS FLOAT64)", id="inf"),
@@ -71,8 +81,7 @@ import bigframes.core.compile.sqlglot.sql.base as sql
     ),
 )
 def test_literal(value, expected_pattern):
-    got = sql.to_sql(sql.literal(value))
-    assert got == expected_pattern
+    assert sql.to_sql(sql.literal(value)) == expected_pattern
 
 
 def test_literal_for_geo():
@@ -145,11 +154,34 @@ def test_literal_for_geo():
             "'True'",
             id="string_from_bool",
         ),
+        pytest.param(
+            pd.Timestamp("2026-03-01 09:52:10.799999952+00:00"),
+            sql.dtypes.TIMESTAMP_DTYPE,
+            "CAST('2026-03-01T09:52:10.799999+00:00' AS TIMESTAMP)",
+            id="timestamp_with_explicit_dtype",
+        ),
+        pytest.param(
+            datetime.datetime(2025, 1, 2, 3, 45, 6),
+            sql.dtypes.DATE_DTYPE,
+            "CAST('2025-01-02' AS DATE)",
+            id="date_from_datetime",
+        ),
+        pytest.param(
+            pd.Timestamp("2026-03-01 09:52:10.799999952"),
+            sql.dtypes.DATE_DTYPE,
+            "CAST('2026-03-01' AS DATE)",
+            id="date_from_timestamp",
+        ),
+        pytest.param(
+            np.datetime64("2026-03-01T09:52:10.799999952"),
+            sql.dtypes.DATETIME_DTYPE,
+            "CAST('2026-03-01T09:52:10.799999' AS DATETIME)",
+            id="np_datetime64_nanoseconds",
+        ),
     ),
 )
 def test_literal_explicit_dtype(value, dtype, expected):
-    got = sql.to_sql(sql.literal(value, dtype=dtype))
-    assert got == expected
+    assert sql.to_sql(sql.literal(value, dtype=dtype)) == expected
 
 
 @pytest.mark.parametrize(

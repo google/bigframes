@@ -145,7 +145,7 @@ def test_iloc_setitem_columns_pyarrow_array(sample_df):
     pd_df = sample_df.to_pandas()
 
     bf_df.iloc[:, pa.array([0, 2], type=pa.int64())] = [99, 88]
-    pd_df.iloc[:, pa.array([0, 2], type=pa.int64())] = [99, 88]
+    pd_df.iloc[:, [0, 2]] = [99, 88]
 
     assert_frame_equal(bf_df.to_pandas(), pd_df)
 
@@ -240,6 +240,6 @@ def test_iloc_setitem_duplicate_columns_pyarrow_array(duplicate_columns_df):
     pd_df = duplicate_columns_df.to_pandas()
 
     bf_df.iloc[:, pa.array([0, 2], type=pa.int64())] = [99, 88]
-    pd_df.iloc[:, pa.array([0, 2], type=pa.int64())] = [99, 88]
+    pd_df.iloc[:, [0, 2]] = [99, 88]
 
     assert_frame_equal(bf_df.to_pandas(), pd_df)

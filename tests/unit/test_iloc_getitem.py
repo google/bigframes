@@ -37,21 +37,23 @@ def session() -> Generator[bigframes.Session, None, None]:
 
 
 @pytest.fixture
-def sample_df() -> bpd.DataFrame:
-    pd_df = pd.DataFrame(
+def pd_df() -> pd.DataFrame:
+    # Explicitly use "Int64" dtype for testing convenience to match BigFrames default integer dtype.
+    return pd.DataFrame(
         {
             "A": [1, 2, 3],
             "B": [4, 5, 6],
             "C": [7, 8, 9],
-        }
+        },
+        dtype="Int64",
     )
-    return bpd.read_pandas(pd_df)
 
 
 @pytest.fixture
 def unordered_sample_df(
-    sample_df: bpd.DataFrame,
+    pd_df: pd.DataFrame,
 ) -> Generator[bpd.DataFrame, None, None]:
+    sample_df = bpd.read_pandas(pd_df)
     session = sample_df._session
     original_strictly_ordered = session._strictly_ordered
     original_allow_ambiguity = session._allow_ambiguity
@@ -83,102 +85,94 @@ def unordered_sample_df(
 
 
 @pytest.fixture
-def duplicate_columns_df() -> bpd.DataFrame:
-    pd_df = pd.DataFrame(
+def duplicate_columns_pd_df() -> pd.DataFrame:
+    # Explicitly use "Int64" dtype for testing convenience to match BigFrames default integer dtype.
+    return pd.DataFrame(
         [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
         columns=["A", "B", "A"],
+        dtype="Int64",
     )
-    return bpd.read_pandas(pd_df)
 
 
-def test_iloc_getitem_column_single_integer(sample_df):
-    bf_df = sample_df
-    pd_df = sample_df.to_pandas()
+def test_iloc_getitem_column_single_integer(pd_df):
+    bf_df = bpd.read_pandas(pd_df)
 
     bf_result = bf_df.iloc[:, 1].to_pandas()
     pd_result = pd_df.iloc[:, 1]
 
-    assert_series_equal(bf_result, pd_result)
+    assert_series_equal(bf_result, pd_result, check_index_type=False)
 
 
-def test_iloc_getitem_column_numpy_scalar(sample_df):
-    bf_df = sample_df
-    pd_df = sample_df.to_pandas()
+def test_iloc_getitem_column_numpy_scalar(pd_df):
+    bf_df = bpd.read_pandas(pd_df)
 
     bf_result = bf_df.iloc[:, np.int64(1)].to_pandas()
     pd_result = pd_df.iloc[:, np.int64(1)]
 
-    assert_series_equal(bf_result, pd_result)
+    assert_series_equal(bf_result, pd_result, check_index_type=False)
 
 
-def test_iloc_getitem_columns_numpy_array(sample_df):
-    bf_df = sample_df
-    pd_df = sample_df.to_pandas()
+def test_iloc_getitem_columns_numpy_array(pd_df):
+    bf_df = bpd.read_pandas(pd_df)
 
     bf_result = bf_df.iloc[:, np.array([0, 2], dtype=np.int64)].to_pandas()
     pd_result = pd_df.iloc[:, np.array([0, 2], dtype=np.int64)]
 
-    assert_frame_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result, check_index_type=False)
 
 
-def test_iloc_getitem_column_pyarrow_scalar(sample_df):
-    bf_df = sample_df
-    pd_df = sample_df.to_pandas()
+def test_iloc_getitem_column_pyarrow_scalar(pd_df):
+    bf_df = bpd.read_pandas(pd_df)
 
     bf_result = bf_df.iloc[:, pa.scalar(1, type=pa.int64())].to_pandas()
     pd_result = pd_df.iloc[:, 1]
 
-    assert_series_equal(bf_result, pd_result)
+    assert_series_equal(bf_result, pd_result, check_index_type=False)
 
 
-def test_iloc_getitem_columns_pyarrow_array(sample_df):
-    bf_df = sample_df
-    pd_df = sample_df.to_pandas()
+def test_iloc_getitem_columns_pyarrow_array(pd_df):
+    bf_df = bpd.read_pandas(pd_df)
 
     bf_result = bf_df.iloc[:, pa.array([0, 2], type=pa.int64())].to_pandas()
     pd_result = pd_df.iloc[:, pa.array([0, 2], type=pa.int64())]
 
-    assert_frame_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result, check_index_type=False)
 
 
-def test_iloc_getitem_row_numpy_scalar(sample_df):
-    bf_df = sample_df
-    pd_df = sample_df.to_pandas()
+def test_iloc_getitem_row_numpy_scalar(pd_df):
+    bf_df = bpd.read_pandas(pd_df)
 
     bf_result = bf_df.iloc[np.int64(1)]
     pd_result = pd_df.iloc[np.int64(1)]
 
-    assert_series_equal(bf_result, pd_result)
+    assert_series_equal(bf_result, pd_result, check_index_type=False)
 
 
-def test_iloc_getitem_rows_numpy_array(sample_df):
-    bf_df = sample_df
-    pd_df = sample_df.to_pandas()
+def test_iloc_getitem_rows_numpy_array(pd_df):
+    bf_df = bpd.read_pandas(pd_df)
 
     bf_result = bf_df.iloc[np.array([0, 2], dtype=np.int64)].to_pandas()
     pd_result = pd_df.iloc[np.array([0, 2], dtype=np.int64)]
 
-    assert_frame_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result, check_index_type=False)
 
 
-def test_iloc_getitem_row_pyarrow_scalar(sample_df):
-    bf_df = sample_df
-    pd_df = sample_df.to_pandas()
+def test_iloc_getitem_row_pyarrow_scalar(pd_df):
+    bf_df = bpd.read_pandas(pd_df)
 
     bf_result = bf_df.iloc[pa.scalar(1, type=pa.int64())]
     pd_result = pd_df.iloc[1]
 
-    assert_series_equal(bf_result, pd_result)
+    assert_series_equal(bf_result, pd_result, check_index_type=False)
 
 
-def test_iloc_getitem_rows_pyarrow_array(sample_df):
-    bf_df = sample_df
-    pd_df = sample_df.to_pandas()
+def test_iloc_getitem_rows_pyarrow_array(pd_df):
+    bf_df = bpd.read_pandas(pd_df)
 
     bf_result = bf_df.iloc[pa.array([0, 2], type=pa.int64())].to_pandas()
     pd_result = pd_df.iloc[pa.array([0, 2], type=pa.int64())]
 
-    assert_frame_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result, check_index_type=False)
 
 
 @pytest.mark.parametrize(
@@ -227,71 +221,71 @@ def test_iloc_getitem_unordered(unordered_sample_df, key, value, expected_error)
         unordered_sample_df.iloc[key]
 
 
-def test_iloc_getitem_duplicate_columns_single_integer(duplicate_columns_df):
-    bf_df = duplicate_columns_df
-    pd_df = duplicate_columns_df.to_pandas()
+def test_iloc_getitem_duplicate_columns_single_integer(duplicate_columns_pd_df):
+    bf_df = bpd.read_pandas(duplicate_columns_pd_df)
+    pd_df = duplicate_columns_pd_df
 
     bf_result = bf_df.iloc[:, 2].to_pandas()
     pd_result = pd_df.iloc[:, 2]
 
-    assert_series_equal(bf_result, pd_result)
+    assert_series_equal(bf_result, pd_result, check_index_type=False)
 
 
-def test_iloc_getitem_duplicate_columns_list_integer(duplicate_columns_df):
-    bf_df = duplicate_columns_df
-    pd_df = duplicate_columns_df.to_pandas()
+def test_iloc_getitem_duplicate_columns_list_integer(duplicate_columns_pd_df):
+    bf_df = bpd.read_pandas(duplicate_columns_pd_df)
+    pd_df = duplicate_columns_pd_df
 
     bf_result = bf_df.iloc[:, [0, 2]].to_pandas()
     pd_result = pd_df.iloc[:, [0, 2]]
 
-    assert_frame_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result, check_index_type=False)
 
 
-def test_iloc_getitem_duplicate_columns_slice(duplicate_columns_df):
-    bf_df = duplicate_columns_df
-    pd_df = duplicate_columns_df.to_pandas()
+def test_iloc_getitem_duplicate_columns_slice(duplicate_columns_pd_df):
+    bf_df = bpd.read_pandas(duplicate_columns_pd_df)
+    pd_df = duplicate_columns_pd_df
 
     bf_result = bf_df.iloc[:, 1:3].to_pandas()
     pd_result = pd_df.iloc[:, 1:3]
 
-    assert_frame_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result, check_index_type=False)
 
 
-def test_iloc_getitem_duplicate_columns_numpy_scalar(duplicate_columns_df):
-    bf_df = duplicate_columns_df
-    pd_df = duplicate_columns_df.to_pandas()
+def test_iloc_getitem_duplicate_columns_numpy_scalar(duplicate_columns_pd_df):
+    bf_df = bpd.read_pandas(duplicate_columns_pd_df)
+    pd_df = duplicate_columns_pd_df
 
     bf_result = bf_df.iloc[:, np.int64(2)].to_pandas()
     pd_result = pd_df.iloc[:, np.int64(2)]
 
-    assert_series_equal(bf_result, pd_result)
+    assert_series_equal(bf_result, pd_result, check_index_type=False)
 
 
-def test_iloc_getitem_duplicate_columns_numpy_array(duplicate_columns_df):
-    bf_df = duplicate_columns_df
-    pd_df = duplicate_columns_df.to_pandas()
+def test_iloc_getitem_duplicate_columns_numpy_array(duplicate_columns_pd_df):
+    bf_df = bpd.read_pandas(duplicate_columns_pd_df)
+    pd_df = duplicate_columns_pd_df
 
     bf_result = bf_df.iloc[:, np.array([0, 2], dtype=np.int64)].to_pandas()
     pd_result = pd_df.iloc[:, np.array([0, 2], dtype=np.int64)]
 
-    assert_frame_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result, check_index_type=False)
 
 
-def test_iloc_getitem_duplicate_columns_pyarrow_scalar(duplicate_columns_df):
-    bf_df = duplicate_columns_df
-    pd_df = duplicate_columns_df.to_pandas()
+def test_iloc_getitem_duplicate_columns_pyarrow_scalar(duplicate_columns_pd_df):
+    bf_df = bpd.read_pandas(duplicate_columns_pd_df)
+    pd_df = duplicate_columns_pd_df
 
     bf_result = bf_df.iloc[:, pa.scalar(2, type=pa.int64())].to_pandas()
     pd_result = pd_df.iloc[:, 2]
 
-    assert_series_equal(bf_result, pd_result)
+    assert_series_equal(bf_result, pd_result, check_index_type=False)
 
 
-def test_iloc_getitem_duplicate_columns_pyarrow_array(duplicate_columns_df):
-    bf_df = duplicate_columns_df
-    pd_df = duplicate_columns_df.to_pandas()
+def test_iloc_getitem_duplicate_columns_pyarrow_array(duplicate_columns_pd_df):
+    bf_df = bpd.read_pandas(duplicate_columns_pd_df)
+    pd_df = duplicate_columns_pd_df
 
     bf_result = bf_df.iloc[:, pa.array([0, 2], type=pa.int64())].to_pandas()
     pd_result = pd_df.iloc[:, pa.array([0, 2], type=pa.int64())]
 
-    assert_frame_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result, check_index_type=False)

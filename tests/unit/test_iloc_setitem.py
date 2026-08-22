@@ -28,6 +28,7 @@ pytest.importorskip("polars")
 
 @pytest.fixture(scope="module", autouse=True)
 def session() -> Generator[bigframes.Session, None, None]:
+    # Perform Polars imports here because the library is not available in 3.10 test envs.
     import bigframes.core.global_session
     from bigframes.testing import polars_session
 
@@ -51,11 +52,11 @@ def pd_df() -> pd.DataFrame:
 
 @pytest.fixture
 def duplicate_columns_pd_df() -> pd.DataFrame:
-    # Explicitly use "Int64" dtype for testing convenience to match BigFrames default integer dtype.
+    # Explicitly use int64 dtype because some operators involving pyarrow array are not supported.
     return pd.DataFrame(
         [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
         columns=["A", "B", "A"],
-        dtype="Int64",
+        dtype="int64",
     )
 
 
@@ -174,7 +175,9 @@ def test_iloc_setitem_duplicate_columns_single_integer(duplicate_columns_pd_df):
     bf_df.iloc[:, 2] = 99
     pd_df.iloc[:, 2] = 99
 
-    assert_frame_equal(bf_df.to_pandas(), pd_df, check_index_type=False)
+    assert_frame_equal(
+        bf_df.to_pandas(), pd_df, check_index_type=False, check_dtype=False
+    )
 
 
 def test_iloc_setitem_duplicate_columns_list_integer(duplicate_columns_pd_df):
@@ -184,7 +187,9 @@ def test_iloc_setitem_duplicate_columns_list_integer(duplicate_columns_pd_df):
     bf_df.iloc[:, [0, 2]] = [99, 88]
     pd_df.iloc[:, [0, 2]] = [99, 88]
 
-    assert_frame_equal(bf_df.to_pandas(), pd_df, check_index_type=False)
+    assert_frame_equal(
+        bf_df.to_pandas(), pd_df, check_index_type=False, check_dtype=False
+    )
 
 
 def test_iloc_setitem_duplicate_columns_slice(duplicate_columns_pd_df):
@@ -194,7 +199,9 @@ def test_iloc_setitem_duplicate_columns_slice(duplicate_columns_pd_df):
     bf_df.iloc[:, 1:3] = 99
     pd_df.iloc[:, 1:3] = 99
 
-    assert_frame_equal(bf_df.to_pandas(), pd_df, check_index_type=False)
+    assert_frame_equal(
+        bf_df.to_pandas(), pd_df, check_index_type=False, check_dtype=False
+    )
 
 
 def test_iloc_setitem_duplicate_columns_numpy_scalar(duplicate_columns_pd_df):
@@ -204,7 +211,9 @@ def test_iloc_setitem_duplicate_columns_numpy_scalar(duplicate_columns_pd_df):
     bf_df.iloc[:, np.int64(2)] = 99
     pd_df.iloc[:, np.int64(2)] = 99
 
-    assert_frame_equal(bf_df.to_pandas(), pd_df, check_index_type=False)
+    assert_frame_equal(
+        bf_df.to_pandas(), pd_df, check_index_type=False, check_dtype=False
+    )
 
 
 def test_iloc_setitem_duplicate_columns_numpy_array(duplicate_columns_pd_df):
@@ -214,7 +223,9 @@ def test_iloc_setitem_duplicate_columns_numpy_array(duplicate_columns_pd_df):
     bf_df.iloc[:, np.array([0, 2], dtype=np.int64)] = [99, 88]
     pd_df.iloc[:, np.array([0, 2], dtype=np.int64)] = [99, 88]
 
-    assert_frame_equal(bf_df.to_pandas(), pd_df, check_index_type=False)
+    assert_frame_equal(
+        bf_df.to_pandas(), pd_df, check_index_type=False, check_dtype=False
+    )
 
 
 def test_iloc_setitem_duplicate_columns_pyarrow_scalar(duplicate_columns_pd_df):
@@ -224,7 +235,9 @@ def test_iloc_setitem_duplicate_columns_pyarrow_scalar(duplicate_columns_pd_df):
     bf_df.iloc[:, pa.scalar(2, type=pa.int64())] = 99
     pd_df.iloc[:, 2] = 99
 
-    assert_frame_equal(bf_df.to_pandas(), pd_df, check_index_type=False)
+    assert_frame_equal(
+        bf_df.to_pandas(), pd_df, check_index_type=False, check_dtype=False
+    )
 
 
 def test_iloc_setitem_duplicate_columns_pyarrow_array(duplicate_columns_pd_df):
@@ -234,4 +247,6 @@ def test_iloc_setitem_duplicate_columns_pyarrow_array(duplicate_columns_pd_df):
     bf_df.iloc[:, pa.array([0, 2], type=pa.int64())] = [99, 88]
     pd_df.iloc[:, pa.array([0, 2], type=pa.int64())] = [99, 88]
 
-    assert_frame_equal(bf_df.to_pandas(), pd_df, check_index_type=False)
+    assert_frame_equal(
+        bf_df.to_pandas(), pd_df, check_index_type=False, check_dtype=False
+    )

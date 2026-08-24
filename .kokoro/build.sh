@@ -33,4 +33,4 @@ NOX_FILE_ARG=""
 
 [[ -z "${NOX_FILE}" ]] || NOX_FILE_ARG="-f ${NOX_FILE}"
 
-python3 -m nox ${NOX_SESSION_ARG} $NOX_FILE_ARG
+python3 -m nox --parallel auto ${NOX_SESSION_ARG} $NOX_FILE_ARG

@@ -281,7 +281,7 @@ def run_unit(session, install_test_extra):
     )
 
 
-@nox.session(python=ALL_PYTHON)
+@nox.session(python=ALL_PYTHON, allow_parallel=True)
 @nox.parametrize("test_extra", [True, False])
 def unit(session, test_extra):
     if test_extra:
@@ -290,7 +290,7 @@ def unit(session, test_extra):
         unit_noextras(session)
 
 
-@nox.session(python=ALL_PYTHON[-1])
+@nox.session(python=ALL_PYTHON[-1], allow_parallel=True)
 def unit_noextras(session):
     run_unit(session, install_test_extra=False)
 
@@ -381,7 +381,7 @@ def run_system(
     session.run(*pytest_cmd, *session.posargs, test_folder, env=ENV_OVERRIDES)
 
 
-@nox.session(python="3.12")
+@nox.session(python="3.12", allow_parallel=True)
 def system(session: nox.sessions.Session):
     """Run the system test suite."""
     run_system(
@@ -392,7 +392,7 @@ def system(session: nox.sessions.Session):
     )
 
 
-@nox.session(python=DEFAULT_PYTHON_VERSION)
+@nox.session(python=DEFAULT_PYTHON_VERSION, allow_parallel=True)
 def system_noextras(session: nox.sessions.Session):
     """Run the system test suite."""
     run_system(

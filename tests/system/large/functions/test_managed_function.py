@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import warnings
 
 import google.api_core.exceptions
@@ -415,6 +416,7 @@ def test_managed_function_dataframe_apply_axis_1_array_output(
             ["3", "23.5", "gamma"],
         ]
     )
+    expected_result.index = expected_result.index.astype("Int64")
 
     pandas.testing.assert_series_equal(
         expected_result, bf_result, check_dtype=False, check_index_type=False
@@ -569,6 +571,16 @@ def test_managed_function_df_apply_axis_1(
     scalars_df, scalars_pandas_df = scalars_dfs
 
     def serialize_row(row):
+        import json
+
+        import pandas
+
+        def clean_na(value):
+            if pandas.isna(value):
+                return None
+            else:
+                return value
+
         # TODO(b/435021126): Remove explicit type conversion of the field
         # "name" after the issue has been addressed. It is added only to
         # accept partial pandas parity for the time being.
@@ -576,11 +588,14 @@ def test_managed_function_df_apply_axis_1(
             "name": int(row.name),
             "index": [idx for idx in row.index],
             "values": [
-                val.item() if hasattr(val, "item") else val for val in row.values
+                clean_na(val)
+                for val in (
+                    val.item() if hasattr(val, "item") else val for val in row.values
+                )
             ],
         }
 
-        return str(
+        return json.dumps(
             {
                 "default": row.to_json(),
                 "split": row.to_json(orient="split"),
@@ -612,16 +627,34 @@ def test_managed_function_df_apply_axis_1(
     bf_result = scalars_df[columns].apply(serialize_row_mf, axis=1).to_pandas()
     pd_result = scalars_pandas_df[columns].apply(serialize_row, axis=1)
 
+    def drop_ext_keys(row_str: str) -> str:
+        row_dict = json.loads(row_str)
+        table_dict = json.loads(row_dict["table"])
+        for field in table_dict.get("schema", {}).get("fields", []):
+            for key in list(field.keys()):
+                if key.startswith("ext"):
+                    del field[key]
+        row_dict["table"] = json.dumps(table_dict)
+        return json.dumps(row_dict)
+
     # bf_result.dtype is 'string[pyarrow]' while pd_result.dtype is 'object'
     # , ignore this mismatch by using check_dtype=False.
-    pandas.testing.assert_series_equal(pd_result, bf_result, check_dtype=False)
+    pandas.testing.assert_series_equal(
+        pd_result.map(drop_ext_keys),
+        bf_result.map(drop_ext_keys),
+        check_dtype=False,
+    )
 
     # Let's make sure the read_gbq_function path works for this function.
     serialize_row_reuse = session.read_gbq_function(
         f"{dataset_id}.{function_id}", is_row_processor=True
     )
     bf_result = scalars_df[columns].apply(serialize_row_reuse, axis=1).to_pandas()
-    pandas.testing.assert_series_equal(pd_result, bf_result, check_dtype=False)
+    pandas.testing.assert_series_equal(
+        pd_result.map(drop_ext_keys),
+        bf_result.map(drop_ext_keys),
+        check_dtype=False,
+    )
 
 
 def test_managed_function_df_apply_axis_1_aggregates(

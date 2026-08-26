@@ -12,16 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import bigframes.pandas as bpd
+
 from . import load_table_dataframe
 
 
-def test_load_table_dataframe(project_id: str, dataset_id: str) -> None:
-    table_id = f"{project_id}.{dataset_id}.load_table_dataframe"
-    import bigframes.pandas as bpd
+def test_load_table_dataframe_bigframes(project_id: str, dataset_id: str) -> None:
+    table_id = f"{project_id}.{dataset_id}.load_table_df_bigframes"
 
-    bq_df = load_table_dataframe.load_table_dataframe(table_id=table_id)
-    assert bq_df is not None
+    load_table_dataframe.load_table_dataframe_bigframes(table_id=table_id)
 
-    # Verify that the rows were actually written to BigQuery
+    df_loaded = bpd.read_gbq(table_id)
+    assert len(df_loaded) == 4
+
+
+def test_load_table_dataframe_pandas_gbq(project_id: str, dataset_id: str) -> None:
+    table_id = f"{project_id}.{dataset_id}.load_table_df_pandas"
+
+    load_table_dataframe.load_table_dataframe_pandas_gbq(table_id=table_id)
+
     df_loaded = bpd.read_gbq(table_id)
     assert len(df_loaded) == 4

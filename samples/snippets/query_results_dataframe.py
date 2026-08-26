@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# [START bigquery_bigframes_query_results_dataframe]
+# [START bigquery_query_results_dataframe]
 import bigframes.pandas as bpd
+import pandas as pd
+import pandas_gbq
 
 # Set partial ordering mode for BigQuery DataFrames.
 bpd.options.bigquery.ordering_mode = "partial"
 
 
-def query_results_dataframe() -> bpd.DataFrame:
+def query_results_dataframe_bigframes() -> bpd.DataFrame:
+    """Queries BigQuery using BigQuery DataFrames and returns a distributed DataFrame."""
     sql = """
     SELECT name, SUM(number) as total_people
     FROM `bigquery-public-data.usa_names.usa_1910_2013`
@@ -28,13 +31,31 @@ def query_results_dataframe() -> bpd.DataFrame:
     ORDER BY total_people DESC
     LIMIT 20
     """
-
-    # Run query and load results directly into a BigQuery DataFrame.
-    df = bpd.read_gbq(sql)
-    return df
-# [END bigquery_bigframes_query_results_dataframe]
+    df_bigframes = bpd.read_gbq(sql)
+    print("Retrieved query results using BigQuery DataFrames.")
+    return df_bigframes
 
 
-if __name__ == "__main__":
-    df = query_results_dataframe()
-    print(df.head())
+def query_results_dataframe_pandas_gbq() -> pd.DataFrame:
+    """Queries BigQuery using pandas-gbq directly and returns an in-memory DataFrame."""
+    sql = """
+    SELECT name, SUM(number) as total_people
+    FROM `bigquery-public-data.usa_names.usa_1910_2013`
+    WHERE state = 'TX'
+    GROUP BY name
+    ORDER BY total_people DESC
+    LIMIT 20
+    """
+    df_pandas = pandas_gbq.read_gbq(sql)
+    print("Retrieved query results using pandas-gbq.")
+    return df_pandas
+
+
+# [Preferred] Run using BigQuery DataFrames:
+# df_bigframes = query_results_dataframe_bigframes()
+# print(df_bigframes.head())
+
+# Alternatively, run using pandas-gbq:
+# df_pandas = query_results_dataframe_pandas_gbq()
+# print(df_pandas.head())
+# [END bigquery_query_results_dataframe]

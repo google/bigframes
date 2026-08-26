@@ -15,9 +15,17 @@
 from . import query_results_dataframe
 
 
-def test_query_results_dataframe() -> None:
-    df = query_results_dataframe.query_results_dataframe()
+def test_query_results_dataframe_bigframes() -> None:
+    df_bf = query_results_dataframe.query_results_dataframe_bigframes()
 
-    assert df is not None
-    assert len(df) == 20
-    assert "total_people" in df.columns
+    assert df_bf is not None
+    assert len(df_bf) == 20
+    assert "total_people" in df_bf.columns
+
+
+def test_query_results_dataframe_pandas_gbq() -> None:
+    df_pandas = query_results_dataframe.query_results_dataframe_pandas_gbq()
+
+    assert df_pandas is not None
+    assert len(df_pandas) == 20
+    assert "total_people" in df_pandas.columns

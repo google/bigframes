@@ -997,8 +997,41 @@ class Series:
             block_ops.rank(self._block, method, na_option, ascending, pct=pct)
         )
 
-    def fillna(self, value=None) -> Series:
-        return self._apply_binary_op(value, ops.fillna_op)
+    @overload  # type: ignore[override]
+    def fillna(
+        self,
+        value: Any = ...,
+        *,
+        inplace: Literal[False] = ...,
+    ) -> Series: ...
+
+    @overload
+    def fillna(
+        self,
+        value: Any = ...,
+        *,
+        inplace: Literal[True] = ...,
+    ) -> None: ...
+
+    @overload
+    def fillna(
+        self,
+        value: Any = ...,
+        *,
+        inplace: bool = ...,
+    ) -> Series | None: ...
+
+    def fillna(
+        self,
+        value: Any = None,
+        *,
+        inplace: bool = False,
+    ) -> Series | None:
+        result = self._apply_binary_op(value, ops.fillna_op)
+        if inplace:
+            self._set_block(result._block)
+            return None
+        return result
 
     def replace(
         self, to_replace: typing.Any, value: typing.Any = None, *, regex: bool = False

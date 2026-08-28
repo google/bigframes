@@ -62,3 +62,146 @@ def test_series_repr_with_uninitialized_object():
     series = bigframes.series.Series.__new__(bigframes.series.Series)
     got = repr(series)
     assert "Series" in got
+
+
+def test_series_fillna_inplace_false(monkeypatch: pytest.MonkeyPatch):
+    series = cast(
+        bigframes.series.Series,
+        mocks.create_dataframe(
+            monkeypatch, data={"idx": [1, 2], "col": [10.0, None]}
+        ).set_index("idx")["col"],
+    )
+    original_block = series._block
+    original_name = series.name
+    original_index_names = list(series.index.names)
+
+    result = series.fillna(0.0, inplace=False)
+    assert result is not None
+    assert result is not series
+    assert series._block is original_block
+    assert result._block is not original_block
+    assert series.name == original_name
+    assert list(series.index.names) == original_index_names
+
+
+def test_series_fillna_inplace_true(monkeypatch: pytest.MonkeyPatch):
+    series = cast(
+        bigframes.series.Series,
+        mocks.create_dataframe(
+            monkeypatch, data={"idx": [1, 2], "col": [10.0, None]}
+        ).set_index("idx")["col"],
+    )
+    original_block = series._block
+    original_name = series.name
+    original_index_names = list(series.index.names)
+
+    inplace_result = series.fillna(0.0, inplace=True)
+    assert inplace_result is None
+    assert series._block is not original_block
+    assert series.name == original_name
+    assert list(series.index.names) == original_index_names
+
+
+def test_series_fillna_series_inplace_false(monkeypatch: pytest.MonkeyPatch):
+    series = cast(
+        bigframes.series.Series,
+        mocks.create_dataframe(
+            monkeypatch, data={"idx": [1, 2], "col": [10.0, None]}
+        ).set_index("idx")["col"],
+    )
+    fill_series = cast(
+        bigframes.series.Series,
+        mocks.create_dataframe(
+            monkeypatch,
+            session=series._session,
+            data={"idx": [1, 2], "col": [0.0, 99.0]},
+        ).set_index("idx")["col"],
+    )
+    original_block = series._block
+    original_name = series.name
+    original_index_names = list(series.index.names)
+
+    result = series.fillna(fill_series, inplace=False)
+    assert result is not None
+    assert result is not series
+    assert series._block is original_block
+    assert result._block is not original_block
+    assert series.name == original_name
+    assert list(series.index.names) == original_index_names
+    assert result.name == original_name
+    assert list(result.index.names) == original_index_names
+
+
+def test_series_fillna_series_inplace_true(monkeypatch: pytest.MonkeyPatch):
+    series = cast(
+        bigframes.series.Series,
+        mocks.create_dataframe(
+            monkeypatch, data={"idx": [1, 2], "col": [10.0, None]}
+        ).set_index("idx")["col"],
+    )
+    fill_series = cast(
+        bigframes.series.Series,
+        mocks.create_dataframe(
+            monkeypatch,
+            session=series._session,
+            data={"idx": [1, 2], "col": [0.0, 99.0]},
+        ).set_index("idx")["col"],
+    )
+    original_block = series._block
+    original_name = series.name
+    original_index_names = list(series.index.names)
+
+    inplace_result = series.fillna(fill_series, inplace=True)
+    assert inplace_result is None
+    assert series._block is not original_block
+    assert series.name == original_name
+    assert list(series.index.names) == original_index_names
+
+
+def test_series_fillna_dict_inplace_false(monkeypatch: pytest.MonkeyPatch):
+    series = cast(
+        bigframes.series.Series,
+        mocks.create_dataframe(monkeypatch, data={"col": [10.0, None]})["col"],
+    )
+    original_block = series._block
+    original_name = series.name
+    original_index_names = list(series.index.names)
+
+    result = series.fillna({1: 99.0}, inplace=False)
+    assert result is not None
+    assert result is not series
+    assert series._block is original_block
+    assert result._block is not original_block
+    assert series.name == original_name
+    assert list(series.index.names) == original_index_names
+    assert result.name == original_name
+    assert list(result.index.names) == original_index_names
+
+
+def test_series_fillna_dict_inplace_true(monkeypatch: pytest.MonkeyPatch):
+    series = cast(
+        bigframes.series.Series,
+        mocks.create_dataframe(monkeypatch, data={"col": [10.0, None]})["col"],
+    )
+    original_block = series._block
+    original_name = series.name
+    original_index_names = list(series.index.names)
+
+    inplace_result = series.fillna({1: 99.0}, inplace=True)
+    assert inplace_result is None
+    assert series._block is not original_block
+    assert series.name == original_name
+    assert list(series.index.names) == original_index_names
+
+
+def test_series_fillna_positional_inplace_raises_type_error(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    series = cast(
+        bigframes.series.Series,
+        mocks.create_dataframe(
+            monkeypatch, data={"idx": [1, 2], "col": [10.0, None]}
+        ).set_index("idx")["col"],
+    )
+    with pytest.raises(TypeError):
+        series.fillna(0.0, True)  # type: ignore[call-overload]

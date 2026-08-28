@@ -735,6 +735,48 @@ def test_fillna(scalars_dfs):
     )
 
 
+@pytest.mark.parametrize(
+    ("col_name", "fill_value"),
+    [
+        ("float64_col", 0.0),
+        ("int64_col", 0),
+        ("string_col", "Missing"),
+        ("datetime_col", pd.Timestamp("2023-01-01")),
+    ],
+)
+def test_fillna_inplace_false(scalars_dfs, col_name, fill_value):
+    scalars_df, scalars_pandas_df = scalars_dfs
+    bf_series = scalars_df[col_name].copy()
+    pd_result = scalars_pandas_df[col_name].fillna(fill_value)
+
+    # Inplace=False should return new Series and leave original untouched
+    bf_copy = bf_series.fillna(fill_value, inplace=False)
+    assert bf_copy is not None
+    assert_series_equal(pd_result, bf_copy.to_pandas(), check_dtype=False)
+
+
+@pytest.mark.parametrize(
+    ("col_name", "fill_value"),
+    [
+        ("float64_col", 0.0),
+        ("int64_col", 0),
+        ("string_col", "Missing"),
+        ("datetime_col", pd.Timestamp("2023-01-01")),
+    ],
+)
+def test_fillna_inplace_true(scalars_dfs, col_name, fill_value):
+    scalars_df, scalars_pandas_df = scalars_dfs
+    bf_series = scalars_df[col_name].copy()
+    pd_result = scalars_pandas_df[col_name].fillna(fill_value)
+
+    assert bf_series.fillna(fill_value, inplace=True) is None
+    assert_series_equal(
+        pd_result,
+        bf_series.to_pandas(),
+        check_dtype=False,
+    )
+
+
 def test_series_replace_scalar_scalar(scalars_dfs):
     scalars_df, scalars_pandas_df = scalars_dfs
     col_name = "string_col"

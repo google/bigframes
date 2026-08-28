@@ -2907,8 +2907,41 @@ class DataFrame:
         result = block_ops.interpolate(self._block, method)
         return DataFrame(result)
 
-    def fillna(self, value=None) -> DataFrame:
-        return self._apply_binop(value, ops.fillna_op, how="left")
+    @overload  # type: ignore[override]
+    def fillna(
+        self,
+        value: Any = ...,
+        *,
+        inplace: Literal[False] = ...,
+    ) -> DataFrame: ...
+
+    @overload
+    def fillna(
+        self,
+        value: Any = ...,
+        *,
+        inplace: Literal[True] = ...,
+    ) -> None: ...
+
+    @overload
+    def fillna(
+        self,
+        value: Any = ...,
+        *,
+        inplace: bool = ...,
+    ) -> DataFrame | None: ...
+
+    def fillna(
+        self,
+        value: Any = None,
+        *,
+        inplace: bool = False,
+    ) -> DataFrame | None:
+        result = self._apply_binop(value, ops.fillna_op, how="left")
+        if inplace:
+            self._set_block(result._block)
+            return None
+        return result
 
     def replace(
         self, to_replace: typing.Any, value: typing.Any = None, *, regex: bool = False

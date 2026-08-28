@@ -1606,6 +1606,25 @@ def test_df_fillna(scalars_dfs, col, fill_value):
     bigframes.testing.utils.assert_frame_equal(bf_result, pd_result, check_dtype=False)
 
 
+@pytest.mark.parametrize(
+    "col, fill_value",
+    [
+        (["int64_col", "float64_col"], 3),
+        (["string_col"], "A"),
+        (["datetime_col"], pd.Timestamp("2023-01-01")),
+    ],
+)
+def test_df_fillna_inplace(scalars_dfs, col, fill_value):
+    scalars_df, scalars_pandas_df = scalars_dfs
+    bf_df = scalars_df[col].copy()
+    pd_result = scalars_pandas_df[col].fillna(fill_value)
+
+    assert bf_df.fillna(fill_value, inplace=True) is None
+    bigframes.testing.utils.assert_frame_equal(
+        bf_df.to_pandas(), pd_result, check_dtype=False
+    )
+
+
 def test_df_replace_scalar_scalar(scalars_dfs):
     scalars_df, scalars_pandas_df = scalars_dfs
     bf_result = scalars_df.replace(555.555, 3).to_pandas()

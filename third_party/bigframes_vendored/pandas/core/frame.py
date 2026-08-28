@@ -6959,7 +6959,12 @@ class DataFrame(generic.NDFrame):
         """
         raise NotImplementedError(constants.ABSTRACT_METHOD_ERROR_MESSAGE)
 
-    def fillna(self, value):
+    def fillna(
+        self,
+        value=None,
+        *,
+        inplace: bool = False,
+    ) -> DataFrame | None:
         """
         Fill NA (NULL in BigQuery) values using the specified method.
 
@@ -7024,9 +7029,12 @@ class DataFrame(generic.NDFrame):
                 each index (for a Series) or column (for a DataFrame).  Values not
                 in the Series will not be filled. This value cannot
                 be a list.
+            inplace (bool, default False):
+                If True, perform operation in-place.
 
         Returns:
-            bigframes.pandas.DataFrame: Object with missing values filled
+            bigframes.pandas.DataFrame or None:
+                Object with missing values filled or None if inplace=True.
         """
         raise NotImplementedError(constants.ABSTRACT_METHOD_ERROR_MESSAGE)
 

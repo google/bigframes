@@ -223,3 +223,161 @@ def test_dataframe_drop_columns_returns_new_dataframe(monkeypatch: pytest.Monkey
     new_dataframe = dataframe.drop(columns=["col1", "col3"])
     assert dataframe.columns.to_list() == ["col1", "col2", "col3"]
     assert new_dataframe.columns.to_list() == ["col2"]
+
+
+def test_dataframe_fillna_inplace_false(monkeypatch: pytest.MonkeyPatch):
+    dataframe = mocks.create_dataframe(
+        monkeypatch, data={"col1": [1.0, None], "col2": [None, 2.0]}
+    )
+    original_block = dataframe._block
+    original_columns = dataframe.columns.to_list()
+    original_index_names = list(dataframe.index.names)
+
+    result = dataframe.fillna(0, inplace=False)
+    assert result is not None
+    assert result is not dataframe
+    assert dataframe._block is original_block
+    assert result._block is not original_block
+    assert dataframe.columns.to_list() == original_columns
+    assert list(dataframe.index.names) == original_index_names
+    assert result.columns.to_list() == original_columns
+    assert list(result.index.names) == original_index_names
+
+
+def test_dataframe_fillna_inplace_true(monkeypatch: pytest.MonkeyPatch):
+    dataframe = mocks.create_dataframe(
+        monkeypatch, data={"col1": [1.0, None], "col2": [None, 2.0]}
+    )
+    original_block = dataframe._block
+    original_columns = dataframe.columns.to_list()
+    original_index_names = list(dataframe.index.names)
+
+    inplace_result = dataframe.fillna(0, inplace=True)
+    assert inplace_result is None
+    assert dataframe._block is not original_block
+    assert dataframe.columns.to_list() == original_columns
+    assert list(dataframe.index.names) == original_index_names
+
+
+def test_dataframe_fillna_dict_inplace_false(monkeypatch: pytest.MonkeyPatch):
+    dataframe = mocks.create_dataframe(
+        monkeypatch, data={"col1": [1.0, None], "col2": [None, 2.0]}
+    )
+    original_block = dataframe._block
+    original_columns = dataframe.columns.to_list()
+    original_index_names = list(dataframe.index.names)
+
+    result = dataframe.fillna({"col1": 0.0, "col2": -1.0}, inplace=False)
+    assert result is not None
+    assert result is not dataframe
+    assert dataframe._block is original_block
+    assert result._block is not original_block
+    assert dataframe.columns.to_list() == original_columns
+    assert list(dataframe.index.names) == original_index_names
+    assert result.columns.to_list() == original_columns
+    assert list(result.index.names) == original_index_names
+
+
+def test_dataframe_fillna_dict_inplace_true(monkeypatch: pytest.MonkeyPatch):
+    dataframe = mocks.create_dataframe(
+        monkeypatch, data={"col1": [1.0, None], "col2": [None, 2.0]}
+    )
+    original_block = dataframe._block
+    original_columns = dataframe.columns.to_list()
+    original_index_names = list(dataframe.index.names)
+
+    inplace_result = dataframe.fillna({"col1": 0.0, "col2": -1.0}, inplace=True)
+    assert inplace_result is None
+    assert dataframe._block is not original_block
+    assert dataframe.columns.to_list() == original_columns
+    assert list(dataframe.index.names) == original_index_names
+
+
+def test_dataframe_fillna_series_inplace_false(monkeypatch: pytest.MonkeyPatch):
+    dataframe = mocks.create_dataframe(
+        monkeypatch, data={"col1": [1.0, None], "col2": [None, 2.0]}
+    )
+    fill_series = pd.Series({"col1": 0.0, "col2": -1.0})
+    original_block = dataframe._block
+    original_columns = dataframe.columns.to_list()
+    original_index_names = list(dataframe.index.names)
+
+    result = dataframe.fillna(fill_series, inplace=False)
+    assert result is not None
+    assert result is not dataframe
+    assert dataframe._block is original_block
+    assert result._block is not original_block
+    assert dataframe.columns.to_list() == original_columns
+    assert list(dataframe.index.names) == original_index_names
+    assert result.columns.to_list() == original_columns
+    assert list(result.index.names) == original_index_names
+
+
+def test_dataframe_fillna_series_inplace_true(monkeypatch: pytest.MonkeyPatch):
+    dataframe = mocks.create_dataframe(
+        monkeypatch, data={"col1": [1.0, None], "col2": [None, 2.0]}
+    )
+    fill_series = pd.Series({"col1": 0.0, "col2": -1.0})
+    original_block = dataframe._block
+    original_columns = dataframe.columns.to_list()
+    original_index_names = list(dataframe.index.names)
+
+    inplace_result = dataframe.fillna(fill_series, inplace=True)
+    assert inplace_result is None
+    assert dataframe._block is not original_block
+    assert dataframe.columns.to_list() == original_columns
+    assert list(dataframe.index.names) == original_index_names
+
+
+def test_dataframe_fillna_dataframe_inplace_false(monkeypatch: pytest.MonkeyPatch):
+    dataframe = mocks.create_dataframe(
+        monkeypatch, data={"col1": [1.0, None], "col2": [None, 2.0]}
+    )
+    other_df = mocks.create_dataframe(
+        monkeypatch,
+        session=dataframe._session,
+        data={"col1": [0.0, 0.0], "col2": [-1.0, -1.0]},
+    )
+    original_block = dataframe._block
+    original_columns = dataframe.columns.to_list()
+    original_index_names = list(dataframe.index.names)
+
+    result = dataframe.fillna(other_df, inplace=False)
+    assert result is not None
+    assert result is not dataframe
+    assert dataframe._block is original_block
+    assert result._block is not original_block
+    assert dataframe.columns.to_list() == original_columns
+    assert list(dataframe.index.names) == original_index_names
+    assert result.columns.to_list() == original_columns
+    assert list(result.index.names) == original_index_names
+
+
+def test_dataframe_fillna_dataframe_inplace_true(monkeypatch: pytest.MonkeyPatch):
+    dataframe = mocks.create_dataframe(
+        monkeypatch, data={"col1": [1.0, None], "col2": [None, 2.0]}
+    )
+    other_df = mocks.create_dataframe(
+        monkeypatch,
+        session=dataframe._session,
+        data={"col1": [0.0, 0.0], "col2": [-1.0, -1.0]},
+    )
+    original_block = dataframe._block
+    original_columns = dataframe.columns.to_list()
+    original_index_names = list(dataframe.index.names)
+
+    inplace_result = dataframe.fillna(other_df, inplace=True)
+    assert inplace_result is None
+    assert dataframe._block is not original_block
+    assert dataframe.columns.to_list() == original_columns
+    assert list(dataframe.index.names) == original_index_names
+
+
+def test_dataframe_fillna_positional_inplace_raises_type_error(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    dataframe = mocks.create_dataframe(
+        monkeypatch, data={"col1": [1.0, None], "col2": [None, 2.0]}
+    )
+    with pytest.raises(TypeError):
+        dataframe.fillna(0, True)  # type: ignore[call-overload]

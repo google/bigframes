@@ -1219,6 +1219,46 @@ def test_df_fillna(scalars_dfs, col, fill_value):
     pd.testing.assert_frame_equal(bf_result, pd_result, check_dtype=False)
 
 
+@pytest.mark.parametrize(
+    ("col", "fill_value"),
+    [
+        (["float64_col"], 0.0),
+        (["int64_col"], 0),
+        (["string_col"], "A"),
+        (["datetime_col"], pd.Timestamp("2023-01-01")),
+        (["float64_col", "int64_col"], 0),
+    ],
+)
+def test_df_fillna_inplace_false(scalars_dfs, col, fill_value):
+    scalars_df, scalars_pandas_df = scalars_dfs
+    bf_df = scalars_df[col].copy()
+    pd_result = scalars_pandas_df[col].fillna(fill_value)
+
+    # Inplace=False should return new DataFrame and leave original untouched
+    bf_copy = bf_df.fillna(fill_value, inplace=False)
+    assert bf_copy is not None
+    pd.testing.assert_frame_equal(bf_copy.to_pandas(), pd_result, check_dtype=False)
+
+
+@pytest.mark.parametrize(
+    ("col", "fill_value"),
+    [
+        (["float64_col"], 0.0),
+        (["int64_col"], 0),
+        (["string_col"], "A"),
+        (["datetime_col"], pd.Timestamp("2023-01-01")),
+        (["float64_col", "int64_col"], 0),
+    ],
+)
+def test_df_fillna_inplace_true(scalars_dfs, col, fill_value):
+    scalars_df, scalars_pandas_df = scalars_dfs
+    bf_df = scalars_df[col].copy()
+    pd_result = scalars_pandas_df[col].fillna(fill_value)
+
+    assert bf_df.fillna(fill_value, inplace=True) is None
+    pd.testing.assert_frame_equal(bf_df.to_pandas(), pd_result, check_dtype=False)
+
+
 @pytest.mark.skip("b/436316698 unit test failed for python 3.12")
 def test_df_ffill(scalars_dfs):
     scalars_df, scalars_pandas_df = scalars_dfs

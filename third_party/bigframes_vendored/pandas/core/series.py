@@ -2373,6 +2373,8 @@ class Series(NDFrame):  # type: ignore[misc]
     def fillna(
         self,
         value=None,
+        *,
+        inplace: bool = False,
     ) -> Series | None:
         """
         Fill NA (NULL in BigQuery) values using the specified method.
@@ -2417,10 +2419,12 @@ class Series(NDFrame):  # type: ignore[misc]
         Args:
             value (scalar, dict, Series, or DataFrame, default None):
                 Value to use to fill holes (e.g. 0).
+            inplace (bool, default False):
+                If True, perform operation in-place.
 
         Returns:
             bigframes.pandas.Series or None:
-                Object with missing values filled or None.
+                Object with missing values filled or None if inplace=True.
         """
         raise NotImplementedError(constants.ABSTRACT_METHOD_ERROR_MESSAGE)
 

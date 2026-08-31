@@ -311,7 +311,6 @@ class EqCmpAllDataFrame(bpd.DataFrame):
         return self.equals(other)
 
 
-@pytest.mark.skip("b/436340035 test failed")
 @pytest.mark.parametrize(
     (
         "model_class",
@@ -325,14 +324,6 @@ class EqCmpAllDataFrame(bpd.DataFrame):
                 "max_output_tokens": 8192,
                 "top_p": 1.0,
                 "ground_with_google_search": False,
-            },
-        ),
-        (
-            llm.Claude3TextGenerator,
-            {
-                "max_output_tokens": 128,
-                "top_k": 40,
-                "top_p": 0.95,
             },
         ),
     ],
@@ -454,7 +445,6 @@ def test_text_generator_retry_success(
         )
 
 
-@pytest.mark.skip("b/436340035 test failed")
 @pytest.mark.parametrize(
     (
         "model_class",
@@ -468,14 +458,6 @@ def test_text_generator_retry_success(
                 "max_output_tokens": 8192,
                 "top_p": 1.0,
                 "ground_with_google_search": False,
-            },
-        ),
-        (
-            llm.Claude3TextGenerator,
-            {
-                "max_output_tokens": 128,
-                "top_k": 40,
-                "top_p": 0.95,
             },
         ),
     ],
@@ -787,14 +769,12 @@ def test_text_embedding_generator_retry_no_progress(session, bq_connection):
         )
 
 
-# b/436340035 temp disable the test to unblock presumbit
 @pytest.mark.parametrize(
     "model_class",
     [
         llm.TextEmbeddingGenerator,
         llm.MultimodalEmbeddingGenerator,
         llm.GeminiTextGenerator,
-        # llm.Claude3TextGenerator,
     ],
 )
 def test_text_embedding_generator_no_default_model_warning(model_class):

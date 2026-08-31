@@ -2423,7 +2423,8 @@ def test_df_apply_axis_1_multiple_params(session):
                 "I got 1, 22.5 and alpha",
                 "I got 2, 23 and beta",
                 "I got 3, 23.5 and gamma",
-            ]
+            ],
+            index=[0, 1, 2],
         )
 
         pandas.testing.assert_series_equal(
@@ -2508,7 +2509,8 @@ def test_df_apply_axis_1_multiple_params_array_output(session):
                 ["1", "22.5", "alpha"],
                 ["2", "23", "beta"],
                 ["3", "23.5", "gamma"],
-            ]
+            ],
+            index=[0, 1, 2],
         )
 
         pandas.testing.assert_series_equal(
@@ -2583,7 +2585,8 @@ def test_df_apply_axis_1_single_param_non_series(session):
                 "I got 1",
                 "I got 2",
                 "I got 3",
-            ]
+            ],
+            index=[0, 1, 2],
         )
 
         pandas.testing.assert_series_equal(

@@ -1185,8 +1185,7 @@ WHERE
             "penguins_linear_model fixture was not found in the permanent dataset, regenerating it..."
         )
         session.bqclient.query(sql).result()
-    finally:
-        return model_name
+    return model_name
 
 
 @pytest.fixture(scope="session")
@@ -1217,8 +1216,7 @@ WHERE
             "penguins_logistic_model fixture was not found in the permanent dataset, regenerating it..."
         )
         session.bqclient.query(sql).result()
-    finally:
-        return model_name
+    return model_name
 
 
 @pytest.fixture(scope="session")
@@ -1249,8 +1247,7 @@ FROM `{penguins_table_id}`"""
             "penguins_logistic_model fixture was not found in the permanent dataset, regenerating it..."
         )
         session.bqclient.query(sql).result()
-    finally:
-        return model_name
+    return model_name
 
 
 @pytest.fixture(scope="session")
@@ -1275,14 +1272,13 @@ FROM `{penguins_table_id}`"""
     sql = sql.replace("$model_name", model_name)
 
     try:
-        return session.read_gbq_model(model_name)
+        session.bqclient.get_model(model_name)
     except google.cloud.exceptions.NotFound:
         logging.info(
             "penguins_pca_model fixture was not found in the permanent dataset, regenerating it..."
         )
         session.bqclient.query(sql).result()
-    finally:
-        return model_name
+    return model_name
 
 
 @pytest.fixture(scope="session")
@@ -1317,8 +1313,7 @@ WHERE
             "penguins_xgbregressor_model fixture was not found in the permanent dataset, regenerating it..."
         )
         session.bqclient.query(sql).result()
-    finally:
-        return model_name
+    return model_name
 
 
 def _get_or_create_arima_plus_model(
@@ -1338,8 +1333,7 @@ def _get_or_create_arima_plus_model(
             "time_series_arima_plus_model fixture was not found in the permanent dataset, regenerating it..."
         )
         session.bqclient.query(sql).result()
-    finally:
-        return model_name
+    return model_name
 
 
 @pytest.fixture(scope="session")
@@ -1414,8 +1408,7 @@ WHERE
             "penguins_classifier_model fixture was not found in the permanent dataset, regenerating it..."
         )
         session.bqclient.query(sql).result()
-    finally:
-        return model_name
+    return model_name
 
 
 @pytest.fixture(scope="session")
@@ -1449,8 +1442,7 @@ WHERE
             "penguins_randomforest_regressor_model fixture was not found in the permanent dataset, regenerating it..."
         )
         session.bqclient.query(sql).result()
-    finally:
-        return model_name
+    return model_name
 
 
 @pytest.fixture(scope="session")
@@ -1484,8 +1476,7 @@ WHERE
             "penguins_randomforest_classifier_model fixture was not found in the permanent dataset, regenerating it..."
         )
         session.bqclient.query(sql).result()
-    finally:
-        return model_name
+    return model_name
 
 
 @pytest.fixture(scope="session")

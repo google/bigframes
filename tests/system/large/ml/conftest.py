@@ -83,5 +83,4 @@ WHERE
             "penguins_linear_model fixture was not found in the permanent dataset, regenerating it..."
         )
         session.bqclient.query(sql).result()
-    finally:
-        return model_name
+    return model_name

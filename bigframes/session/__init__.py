@@ -576,10 +576,10 @@ class Session(
             remote_function_session.clean_up()
 
         publisher_session = getattr(self, "_publisher", None)
-        if publisher_session:
-            publisher_session.publish(
-                bigframes.core.events.SessionClosed(self.session_id)
-            )
+        session_id = getattr(self, "_session_id", None)
+        # Only publish SessionClosed if session_id and publisher are initialized.
+        if publisher_session and session_id:
+            publisher_session.publish(bigframes.core.events.SessionClosed(session_id))
 
     @overload
     def read_gbq(  # type: ignore[overload-overlap]

@@ -449,14 +449,13 @@ def _to_bigtable(
 
     # override continuous http parameter
     job_config = bigquery.job.QueryJobConfig()
-
-    job_config_dict: dict = {"query": {"continuous": True}}
+    job_config_filled = job_config.from_api_repr({"query": {"continuous": True}})
     if service_account_email is not None:
-        job_config_dict["query"]["connectionProperties"] = {
-            "key": "service_account",
-            "value": service_account_email,
-        }
-    job_config_filled = job_config.from_api_repr(job_config_dict)
+        job_config_filled.connection_properties = [
+            bigquery.ConnectionProperty(
+                key="service_account", value=service_account_email
+            )
+        ]
     job_config_filled.labels = {"bigframes-api": "streaming_to_bigtable"}
 
     # begin the query job
@@ -547,17 +546,13 @@ def _to_pubsub(
 
     # override continuous http parameter
     job_config = bigquery.job.QueryJobConfig()
-    job_config_filled = job_config.from_api_repr(
-        {
-            "query": {
-                "continuous": True,
-                "connectionProperties": {
-                    "key": "service_account",
-                    "value": service_account_email,
-                },
-            }
-        }
-    )
+    job_config_filled = job_config.from_api_repr({"query": {"continuous": True}})
+    if service_account_email is not None:
+        job_config_filled.connection_properties = [
+            bigquery.ConnectionProperty(
+                key="service_account", value=service_account_email
+            )
+        ]
     job_config_filled.labels = {"bigframes-api": "streaming_to_pubsub"}
 
     # begin the query job

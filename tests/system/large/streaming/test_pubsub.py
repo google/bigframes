@@ -108,8 +108,10 @@ def test_streaming_df_to_pubsub(
             future.result(timeout=200)
         except futures.TimeoutError:
             future.cancel()
+        assert query_job.error_result is None, (
+            f"Continuous query job failed with error: {query_job.error_result}"
+        )
         assert query_job.running()
-        assert query_job.error_result is None
         assert str(query_job.job_id).startswith(job_id_prefix)
         assert callback.count > 0  # type: ignore
     finally:

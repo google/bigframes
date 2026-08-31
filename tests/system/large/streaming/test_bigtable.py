@@ -98,8 +98,10 @@ def test_streaming_df_to_bigtable(
         # wait 200 seconds in order to ensure the query doesn't stop
         # (i.e. it is continuous)
         time.sleep(200)
+        assert query_job.error_result is None, (
+            f"Continuous query job failed with error: {query_job.error_result}"
+        )
         assert query_job.running()
-        assert query_job.error_result is None
         assert str(query_job.job_id).startswith(job_id_prefix)
         assert len(list(bigtable_table.read_rows())) > 0
     finally:

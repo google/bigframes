@@ -84,3 +84,9 @@ WHERE
         )
         session.bqclient.query(sql).result()
     return model_name
+
+
+@pytest.fixture()
+def llm_text_df(session, llm_text_pandas_df):
+    """Function-scoped fixture to prevent stale session tables in test_llm."""
+    return session.read_pandas(llm_text_pandas_df)

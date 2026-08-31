@@ -25,6 +25,7 @@ def embedding_model(bq_connection, dataset_id):
         model_name=model_name,
         options={"endpoint": "gemini-embedding-001"},
         connection_name=bq_connection,
+        replace=True,
     )
 
 
@@ -35,6 +36,7 @@ def text_model(bq_connection, dataset_id):
         model_name=model_name,
         options={"endpoint": "gemini-2.5-flash"},
         connection_name=bq_connection,
+        replace=True,
     )
 
 

@@ -25,6 +25,7 @@ def embedding_model(bq_connection, dataset_id):
         model_name=model_name,
         options={"endpoint": "gemini-embedding-001"},
         connection_name=bq_connection,
+        replace=True,
     )
 
 
@@ -83,6 +84,7 @@ def test_get_insights(dataset_id):
             "is_test_col": "is_test",
         },
         training_data=df,
+        replace=True,
     )
 
     result = ml.get_insights(model_name)
@@ -98,6 +100,7 @@ def test_create_model_linear_regression(dataset_id):
         model_name=model_name,
         options={"model_type": "LINEAR_REG", "input_label_cols": ["y"]},
         training_data=df,
+        replace=True,
     )
 
     assert result["modelType"] == "LINEAR_REGRESSION"
@@ -112,6 +115,7 @@ def test_create_model_with_transform(dataset_id):
         options={"model_type": "LINEAR_REG", "input_label_cols": ["y"]},
         training_data=df,
         transform=["x * 2 AS x_doubled", "y"],
+        replace=True,
     )
 
     assert result["modelType"] == "LINEAR_REGRESSION"

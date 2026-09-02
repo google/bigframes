@@ -137,7 +137,7 @@ class BQModule:
     def namespace(self) -> tuple[str, ...]:
         parts = self.module_path.parts
         if "global_namespace" in parts:
-            return tuple()
+            return ()
         return parts
 
     @property
@@ -185,6 +185,81 @@ class BigFramesFuncArg:
         if self.optional:
             return "sentinels.Sentinel.ARGUMENT_DEFAULT"
         return None
+
+    @property
+    def test_value(self) -> str:
+        name = self.name
+        types = self.types
+
+        if name == "year":
+            return "2025"
+        if name == "month":
+            return "1"
+        if name == "day":
+            return "1"
+        if name == "hour":
+            return "12"
+        if name == "minute":
+            return "0"
+        if name == "second":
+            return "0"
+        if name in ("granularity", "date_part", "part"):
+            return '"DAY"'
+        if name in ("time_zone", "time_zone_expression"):
+            return '"UTC"'
+        if "format" in name:
+            return '"%Y-%m-%d"'
+        if "date_string" in name:
+            return '"2025-01-01"'
+        if "datetime_string" in name:
+            return '"2025-01-01 12:00:00"'
+        if name == "delimiter":
+            return '", "'
+        if name in ("depth", "end_offset"):
+            return "1"
+        if name == "keyset":
+            return 'b"keyset"'
+        if name == "ciphertext":
+            return 'b"ciphertext"'
+        if name == "plaintext":
+            return '"plaintext"'
+        if name == "additional_data":
+            if "binary" in types and "string" not in types:
+                return 'b"additional_data"'
+            return '"additional_data"'
+        if name == "array_to_flatten":
+            return "[[1, 2], [3, 4]]"
+        if "date" in types:
+            return "dt.date(2025, 1, 1)"
+        if "time" in types:
+            return "dt.time(12, 0, 0)"
+        if "datetime" in types or "timestamp" in types:
+            return "dt.datetime(2025, 1, 1, 12, 0, 0, tzinfo=dt.timezone.utc)"
+        if "i64" in types or "i32" in types or "int64" in types:
+            return "1"
+        if "fp64" in types or "float64" in types:
+            return "1.0"
+        if "decimal<38,9>" in types or "decimal<76,38>" in types:
+            return 'decimal.Decimal("1.5")'
+        if "bool" in types or "boolean" in types:
+            return "True"
+        if "binary" in types and "string" not in types:
+            return 'b"test"'
+        if "string" in types:
+            return '"test"'
+        if "list<string>" in types:
+            return '["a", "b"]'
+        if "list<binary>" in types:
+            return '[b"a", b"b"]'
+        if any(t.startswith("list<") for t in types):
+            return "[1, 2]"
+        if "any1" in types:
+            return "1"
+        return f'bpd.col("{self.name}")'
+
+    @property
+    def test_is_literal(self) -> bool:
+        return not self.test_value.startswith("bpd.col(")
 
 
 @dataclasses.dataclass

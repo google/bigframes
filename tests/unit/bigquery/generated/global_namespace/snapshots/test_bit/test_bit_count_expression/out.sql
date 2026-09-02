@@ -1,0 +1,1 @@
+BIT_COUNT(1)

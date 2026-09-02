@@ -1,0 +1,1 @@
+ARRAY_FIRST([1, 2])

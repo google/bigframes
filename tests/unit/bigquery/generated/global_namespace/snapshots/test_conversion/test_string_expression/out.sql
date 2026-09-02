@@ -1,0 +1,1 @@
+STRING(CAST('2025-01-01' AS DATE), 'test')

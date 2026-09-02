@@ -1,0 +1,1 @@
+ARRAY_INCLUDES_ANY([1, 2], [1, 2])

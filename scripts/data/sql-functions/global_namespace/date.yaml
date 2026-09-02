@@ -145,58 +145,6 @@ scalar_functions:
             optional: false
             keyword_only: false
         return: date
-  - name: "extract"
-    description: "Returns the value corresponding to the specified date part."
-    series_accessor_arg: date_expression
-    impls:
-      # Signature: extract:date_any
-      - args:
-          - name: "date_expression"
-            value: date
-            optional: false
-            keyword_only: false
-          - name: "part"
-            value: any1
-            optional: false
-            keyword_only: false
-        return: i64
-      # Signature: extract:pts_any_str
-      - args:
-          - name: "date_expression"
-            value: timestamp
-            optional: false
-            keyword_only: false
-          - name: "part"
-            value: any1
-            optional: false
-            keyword_only: false
-          - name: "time_zone"
-            value: string
-            optional: true
-            keyword_only: false
-        return: i64
-      # Signature: extract:pts_any
-      - args:
-          - name: "date_expression"
-            value: timestamp
-            optional: false
-            keyword_only: false
-          - name: "part"
-            value: any1
-            optional: false
-            keyword_only: false
-        return: i64
-      # Signature: extract:pt_any
-      - args:
-          - name: "date_expression"
-            value: time
-            optional: false
-            keyword_only: false
-          - name: "part"
-            value: any1
-            optional: false
-            keyword_only: false
-        return: i64
   - name: "format_date"
     description: "Formats a DATE value according to a specified format string."
     series_accessor_arg: date_expr
@@ -212,28 +160,6 @@ scalar_functions:
             optional: false
             keyword_only: false
         return: string
-  - name: "generate_date_array"
-    description: "Generates an array of dates in a range."
-    impls:
-      # Signature: generate_date_array:date_date_i64_any
-      - args:
-          - name: "start_date"
-            value: date
-            optional: false
-            keyword_only: false
-          - name: "end_date"
-            value: date
-            optional: false
-            keyword_only: false
-          - name: "int64_expression"
-            value: i64
-            optional: true
-            keyword_only: false
-          - name: "date_part"
-            value: any1
-            optional: true
-            keyword_only: false
-        return: list<date>
   - name: "last_day"
     description: "Returns the last day from a date expression. This is commonly used to return the last day of the month."
     series_accessor_arg: date_expression

@@ -16,17 +16,23 @@
 # This file was generated from: scripts/data/sql-functions/global_namespace/conversion.yaml
 # by the script: scripts/generate_bigframes_bigquery.py
 
+import datetime as dt
+
+import pytest
+
 import bigframes.bigquery as bbq
 import bigframes.core.col
+import bigframes.core.compile.sqlglot.testing
 import bigframes.core.expression as ex
 import bigframes.operations.googlesql.global_namespace.conversion as conversion_op
-import bigframes.pandas as bpd
+
+pytest.importorskip("pytest_snapshot")
 
 
-def test_bool__expression():
-    # Call the function with col() expressions
+def test_bool__expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.bool_(
-        bpd.col("json_string_expression"),
+        "test",
     )
 
     # Verify result is a col Expression
@@ -37,17 +43,19 @@ def test_bool__expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == conversion_op._BOOL_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 1
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "json_string_expression"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_double_expression():
-    # Call the function with col() expressions
+def test_double_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.double(
-        bpd.col("json_string_expression"),
-        bpd.col("wide_number_mode"),
+        "test",
+        "test",
     )
 
     # Verify result is a col Expression
@@ -58,19 +66,20 @@ def test_double_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == conversion_op._DOUBLE_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 2
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "json_string_expression"
-    assert isinstance(expr.inputs[1], ex.UnboundVariableExpression)
-    assert expr.inputs[1].id == "wide_number_mode"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_float64_expression():
-    # Call the function with col() expressions
+def test_float64_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.float64(
-        bpd.col("json_string_expression"),
-        bpd.col("wide_number_mode"),
+        "test",
+        "test",
     )
 
     # Verify result is a col Expression
@@ -81,18 +90,19 @@ def test_float64_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == conversion_op._FLOAT64_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 2
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "json_string_expression"
-    assert isinstance(expr.inputs[1], ex.UnboundVariableExpression)
-    assert expr.inputs[1].id == "wide_number_mode"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_int64_expression():
-    # Call the function with col() expressions
+def test_int64_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.int64(
-        bpd.col("json_string_expression"),
+        "test",
     )
 
     # Verify result is a col Expression
@@ -103,16 +113,18 @@ def test_int64_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == conversion_op._INT64_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 1
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "json_string_expression"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_parse_bignumeric_expression():
-    # Call the function with col() expressions
+def test_parse_bignumeric_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.parse_bignumeric(
-        bpd.col("string_expression"),
+        "test",
     )
 
     # Verify result is a col Expression
@@ -123,16 +135,18 @@ def test_parse_bignumeric_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == conversion_op._PARSE_BIGNUMERIC_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 1
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "string_expression"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_parse_numeric_expression():
-    # Call the function with col() expressions
+def test_parse_numeric_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.parse_numeric(
-        bpd.col("string_expression"),
+        "test",
     )
 
     # Verify result is a col Expression
@@ -143,17 +157,19 @@ def test_parse_numeric_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == conversion_op._PARSE_NUMERIC_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 1
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "string_expression"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_string_expression():
-    # Call the function with col() expressions
+def test_string_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.string(
-        bpd.col("expression"),
-        bpd.col("timezone"),
+        dt.date(2025, 1, 1),
+        "test",
     )
 
     # Verify result is a col Expression
@@ -164,9 +180,10 @@ def test_string_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == conversion_op._STRING_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 2
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "expression"
-    assert isinstance(expr.inputs[1], ex.UnboundVariableExpression)
-    assert expr.inputs[1].id == "timezone"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")

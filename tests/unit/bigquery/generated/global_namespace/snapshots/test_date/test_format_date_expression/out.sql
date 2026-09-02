@@ -1,0 +1,1 @@
+FORMAT_DATE('%Y-%m-%d', CAST('2025-01-01' AS DATE))

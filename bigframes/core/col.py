@@ -157,6 +157,8 @@ class Expression:
 
     @property
     def dt(self) -> datetimes.DatetimeSimpleMethods:
+        # datetimes depends on bigframes.core.col, so import here to break the
+        # circular import.
         import bigframes.operations.datetimes as datetimes
 
         return datetimes.DatetimeSimpleMethods(self)
@@ -186,6 +188,8 @@ class Expression:
     # keep this last as str declaration can shadow builtins.str
     @property
     def str(self) -> strings.StringMethods:
+        # strings depends on bigframes.core.col, so import here to break the
+        # circular import.
         import bigframes.operations.strings as strings
 
         return strings.StringMethods(self)

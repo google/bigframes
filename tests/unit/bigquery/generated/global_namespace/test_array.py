@@ -16,18 +16,22 @@
 # This file was generated from: scripts/data/sql-functions/global_namespace/array.yaml
 # by the script: scripts/generate_bigframes_bigquery.py
 
+import pytest
+
 import bigframes.bigquery as bbq
 import bigframes.core.col
+import bigframes.core.compile.sqlglot.testing
 import bigframes.core.expression as ex
 import bigframes.operations.googlesql.global_namespace.array as array_op
-import bigframes.pandas as bpd
+
+pytest.importorskip("pytest_snapshot")
 
 
-def test_array_concat_expression():
-    # Call the function with col() expressions
+def test_array_concat_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.array_concat(
-        bpd.col("array_expression_1"),
-        bpd.col("array_expression_2"),
+        [1, 2],
+        [1, 2],
     )
 
     # Verify result is a col Expression
@@ -38,18 +42,19 @@ def test_array_concat_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == array_op._ARRAY_CONCAT_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 2
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "array_expression_1"
-    assert isinstance(expr.inputs[1], ex.UnboundVariableExpression)
-    assert expr.inputs[1].id == "array_expression_2"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_array_first_expression():
-    # Call the function with col() expressions
+def test_array_first_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.array_first(
-        bpd.col("array_expression"),
+        [1, 2],
     )
 
     # Verify result is a col Expression
@@ -60,17 +65,19 @@ def test_array_first_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == array_op._ARRAY_FIRST_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 1
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "array_expression"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_array_first_n_expression():
-    # Call the function with col() expressions
+def test_array_first_n_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.array_first_n(
-        bpd.col("input_array"),
-        bpd.col("n"),
+        [1, 2],
+        1,
     )
 
     # Verify result is a col Expression
@@ -81,19 +88,20 @@ def test_array_first_n_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == array_op._ARRAY_FIRST_N_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 2
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "input_array"
-    assert isinstance(expr.inputs[1], ex.UnboundVariableExpression)
-    assert expr.inputs[1].id == "n"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_array_includes_expression():
-    # Call the function with col() expressions
+def test_array_includes_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.array_includes(
-        bpd.col("array_to_search"),
-        bpd.col("search_value"),
+        [1, 2],
+        1,
     )
 
     # Verify result is a col Expression
@@ -104,19 +112,20 @@ def test_array_includes_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == array_op._ARRAY_INCLUDES_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 2
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "array_to_search"
-    assert isinstance(expr.inputs[1], ex.UnboundVariableExpression)
-    assert expr.inputs[1].id == "search_value"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_array_includes_all_expression():
-    # Call the function with col() expressions
+def test_array_includes_all_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.array_includes_all(
-        bpd.col("array_to_search"),
-        bpd.col("search_values"),
+        [1, 2],
+        [1, 2],
     )
 
     # Verify result is a col Expression
@@ -127,19 +136,20 @@ def test_array_includes_all_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == array_op._ARRAY_INCLUDES_ALL_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 2
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "array_to_search"
-    assert isinstance(expr.inputs[1], ex.UnboundVariableExpression)
-    assert expr.inputs[1].id == "search_values"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_array_includes_any_expression():
-    # Call the function with col() expressions
+def test_array_includes_any_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.array_includes_any(
-        bpd.col("array_to_search"),
-        bpd.col("search_values"),
+        [1, 2],
+        [1, 2],
     )
 
     # Verify result is a col Expression
@@ -150,18 +160,19 @@ def test_array_includes_any_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == array_op._ARRAY_INCLUDES_ANY_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 2
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "array_to_search"
-    assert isinstance(expr.inputs[1], ex.UnboundVariableExpression)
-    assert expr.inputs[1].id == "search_values"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_array_is_distinct_expression():
-    # Call the function with col() expressions
+def test_array_is_distinct_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.array_is_distinct(
-        bpd.col("array_expression"),
+        [1, 2],
     )
 
     # Verify result is a col Expression
@@ -172,16 +183,18 @@ def test_array_is_distinct_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == array_op._ARRAY_IS_DISTINCT_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 1
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "array_expression"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_array_last_expression():
-    # Call the function with col() expressions
+def test_array_last_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.array_last(
-        bpd.col("array_expression"),
+        [1, 2],
     )
 
     # Verify result is a col Expression
@@ -192,16 +205,18 @@ def test_array_last_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == array_op._ARRAY_LAST_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 1
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "array_expression"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_array_length_expression():
-    # Call the function with col() expressions
+def test_array_length_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.array_length(
-        bpd.col("series"),
+        [1, 2],
     )
 
     # Verify result is a col Expression
@@ -212,16 +227,18 @@ def test_array_length_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == array_op._ARRAY_LENGTH_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 1
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "series"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_array_reverse_expression():
-    # Call the function with col() expressions
+def test_array_reverse_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.array_reverse(
-        bpd.col("value"),
+        [1, 2],
     )
 
     # Verify result is a col Expression
@@ -232,18 +249,20 @@ def test_array_reverse_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == array_op._ARRAY_REVERSE_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 1
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "value"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_array_slice_expression():
-    # Call the function with col() expressions
+def test_array_slice_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.array_slice(
-        bpd.col("array_to_slice"),
-        bpd.col("start_offset"),
-        bpd.col("end_offset"),
+        [1, 2],
+        1,
+        1,
     )
 
     # Verify result is a col Expression
@@ -254,22 +273,22 @@ def test_array_slice_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == array_op._ARRAY_SLICE_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 3
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "array_to_slice"
-    assert isinstance(expr.inputs[1], ex.UnboundVariableExpression)
-    assert expr.inputs[1].id == "start_offset"
-    assert isinstance(expr.inputs[2], ex.UnboundVariableExpression)
-    assert expr.inputs[2].id == "end_offset"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[2], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_array_to_string_expression():
-    # Call the function with col() expressions
+def test_array_to_string_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.array_to_string(
-        bpd.col("series"),
-        bpd.col("delimiter"),
-        bpd.col("null_text"),
+        ["a", "b"],
+        ", ",
+        "test",
     )
 
     # Verify result is a col Expression
@@ -280,21 +299,21 @@ def test_array_to_string_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == array_op._ARRAY_TO_STRING_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 3
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "series"
-    assert isinstance(expr.inputs[1], ex.UnboundVariableExpression)
-    assert expr.inputs[1].id == "delimiter"
-    assert isinstance(expr.inputs[2], ex.UnboundVariableExpression)
-    assert expr.inputs[2].id == "null_text"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[2], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_flatten_expression():
-    # Call the function with col() expressions
+def test_flatten_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.flatten(
-        bpd.col("array_to_flatten"),
-        bpd.col("depth"),
+        [[1, 2], [3, 4]],
+        1,
     )
 
     # Verify result is a col Expression
@@ -305,20 +324,21 @@ def test_flatten_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == array_op._FLATTEN_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 2
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "array_to_flatten"
-    assert isinstance(expr.inputs[1], ex.UnboundVariableExpression)
-    assert expr.inputs[1].id == "depth"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_generate_array_expression():
-    # Call the function with col() expressions
+def test_generate_array_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.generate_array(
-        bpd.col("start_expression"),
-        bpd.col("end_expression"),
-        bpd.col("step_expression"),
+        1,
+        1,
+        1,
     )
 
     # Verify result is a col Expression
@@ -329,11 +349,11 @@ def test_generate_array_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == array_op._GENERATE_ARRAY_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 3
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "start_expression"
-    assert isinstance(expr.inputs[1], ex.UnboundVariableExpression)
-    assert expr.inputs[1].id == "end_expression"
-    assert isinstance(expr.inputs[2], ex.UnboundVariableExpression)
-    assert expr.inputs[2].id == "step_expression"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[2], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")

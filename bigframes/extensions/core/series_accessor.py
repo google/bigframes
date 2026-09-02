@@ -19,7 +19,7 @@
 from __future__ import annotations
 
 import abc
-import datetime
+import datetime as dt
 from typing import (
     Any,
     Literal,
@@ -853,7 +853,7 @@ class BigQuerySeriesAccessor(
         start_date: Union[
             series.Series,
             col.Expression,
-            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], datetime.date],
+            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.date],
         ],
         granularity: Union[
             series.Series,
@@ -965,43 +965,6 @@ class BigQuerySeriesAccessor(
         result = date_trunc_impl(
             bf_series,
             granularity,
-        )
-        return self._to_series(cast(series.Series, result))
-
-    def extract(
-        self,
-        part: Union[
-            series.Series,
-            col.Expression,
-            Union[Any, Literal[sentinels.Sentinel.ARGUMENT_DEFAULT]],
-        ],
-        time_zone: Union[
-            series.Series,
-            col.Expression,
-            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], str],
-        ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
-        *,
-        session: Optional[session.Session] = None,
-    ) -> S:
-        """Returns the value corresponding to the specified date part."""
-        from bigframes.operations.googlesql.global_namespace.date import (
-            extract as extract_impl,
-        )
-
-        # Resolve session from other arguments if not passed
-        if session is None:
-            from bigframes.core import googlesql
-
-            session = googlesql._find_session(
-                part,
-                time_zone,
-            )
-
-        bf_series = self._bf_from_series(session)
-        result = extract_impl(
-            bf_series,
-            part,
-            time_zone,
         )
         return self._to_series(cast(series.Series, result))
 

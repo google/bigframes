@@ -16,17 +16,21 @@
 # This file was generated from: scripts/data/sql-functions/global_namespace/bit.yaml
 # by the script: scripts/generate_bigframes_bigquery.py
 
+import pytest
+
 import bigframes.bigquery as bbq
 import bigframes.core.col
+import bigframes.core.compile.sqlglot.testing
 import bigframes.core.expression as ex
 import bigframes.operations.googlesql.global_namespace.bit as bit_op
-import bigframes.pandas as bpd
+
+pytest.importorskip("pytest_snapshot")
 
 
-def test_bit_count_expression():
-    # Call the function with col() expressions
+def test_bit_count_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.bit_count(
-        bpd.col("expression"),
+        1,
     )
 
     # Verify result is a col Expression
@@ -37,7 +41,9 @@ def test_bit_count_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == bit_op._BIT_COUNT_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 1
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "expression"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")

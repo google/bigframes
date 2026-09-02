@@ -5,23 +5,30 @@
 # This file was generated from: {{ yaml_path }}
 # by the script: {{ script_path }}
 
+import datetime as dt
+import decimal
+import pytest
+
+import bigframes.bigquery as bbq
 import bigframes.core.col
+import bigframes.core.compile.sqlglot.testing
 import bigframes.core.expression as ex
 import bigframes.pandas as bpd
 import {{ import_path }} as {{ short_name }}_op
-import bigframes.bigquery as bbq
+
+pytest.importorskip("pytest_snapshot")
 
 
 {% for func in functions %}
-def test_{{ func.name }}_expression():
-    # Call the function with col() expressions
+def test_{{ func.name }}_expression(snapshot):
+    # Call the function with literals or col() expressions
 {% if is_global %}
     result = bbq.{{ func.name }}(
 {% else %}
     result = bbq.{{ short_name }}.{{ func.name }}(
 {% endif %}
         {% for arg in func.args %}
-        bpd.col("{{ arg.name }}"),
+        {{ arg.test_value }},
         {% endfor %}
     )
 
@@ -33,12 +40,19 @@ def test_{{ func.name }}_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == {{ short_name }}_op.{{ func.op_name }}
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == {{ func.args | length }}
     {% for arg in func.args %}
+    {% if arg.test_is_literal %}
+    assert isinstance(expr.inputs[{{ loop.index0 }}], ex.ScalarConstantExpression)
+    {% else %}
     assert isinstance(expr.inputs[{{ loop.index0 }}], ex.UnboundVariableExpression)
     assert expr.inputs[{{ loop.index0 }}].id == "{{ arg.name }}"
+    {% endif %}
     {% endfor %}
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
 {% endfor %}

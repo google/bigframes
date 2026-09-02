@@ -1,0 +1,1 @@
+ARRAY_FIRST_N([1, 2], 1)

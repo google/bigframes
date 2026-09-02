@@ -16,19 +16,23 @@
 # This file was generated from: scripts/data/sql-functions/global_namespace/aead_encryption.yaml
 # by the script: scripts/generate_bigframes_bigquery.py
 
+import pytest
+
 import bigframes.bigquery as bbq
 import bigframes.core.col
+import bigframes.core.compile.sqlglot.testing
 import bigframes.core.expression as ex
 import bigframes.operations.googlesql.global_namespace.aead_encryption as aead_encryption_op
-import bigframes.pandas as bpd
+
+pytest.importorskip("pytest_snapshot")
 
 
-def test_deterministic_decrypt_bytes_expression():
-    # Call the function with col() expressions
+def test_deterministic_decrypt_bytes_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.deterministic_decrypt_bytes(
-        bpd.col("keyset"),
-        bpd.col("ciphertext"),
-        bpd.col("additional_data"),
+        b"keyset",
+        b"ciphertext",
+        b"additional_data",
     )
 
     # Verify result is a col Expression
@@ -39,22 +43,22 @@ def test_deterministic_decrypt_bytes_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == aead_encryption_op._DETERMINISTIC_DECRYPT_BYTES_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 3
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "keyset"
-    assert isinstance(expr.inputs[1], ex.UnboundVariableExpression)
-    assert expr.inputs[1].id == "ciphertext"
-    assert isinstance(expr.inputs[2], ex.UnboundVariableExpression)
-    assert expr.inputs[2].id == "additional_data"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[2], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_deterministic_decrypt_string_expression():
-    # Call the function with col() expressions
+def test_deterministic_decrypt_string_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.deterministic_decrypt_string(
-        bpd.col("keyset"),
-        bpd.col("ciphertext"),
-        bpd.col("additional_data"),
+        b"keyset",
+        b"ciphertext",
+        "additional_data",
     )
 
     # Verify result is a col Expression
@@ -65,22 +69,22 @@ def test_deterministic_decrypt_string_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == aead_encryption_op._DETERMINISTIC_DECRYPT_STRING_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 3
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "keyset"
-    assert isinstance(expr.inputs[1], ex.UnboundVariableExpression)
-    assert expr.inputs[1].id == "ciphertext"
-    assert isinstance(expr.inputs[2], ex.UnboundVariableExpression)
-    assert expr.inputs[2].id == "additional_data"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[2], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
 
 
-def test_deterministic_encrypt_expression():
-    # Call the function with col() expressions
+def test_deterministic_encrypt_expression(snapshot):
+    # Call the function with literals or col() expressions
     result = bbq.deterministic_encrypt(
-        bpd.col("keyset"),
-        bpd.col("plaintext"),
-        bpd.col("additional_data"),
+        b"keyset",
+        "plaintext",
+        "additional_data",
     )
 
     # Verify result is a col Expression
@@ -91,11 +95,11 @@ def test_deterministic_encrypt_expression():
     assert isinstance(expr, ex.OpExpression)
     assert expr.op == aead_encryption_op._DETERMINISTIC_ENCRYPT_OP
 
-    # Verify arguments are free variables matching the names
+    # Verify arguments
     assert len(expr.inputs) == 3
-    assert isinstance(expr.inputs[0], ex.UnboundVariableExpression)
-    assert expr.inputs[0].id == "keyset"
-    assert isinstance(expr.inputs[1], ex.UnboundVariableExpression)
-    assert expr.inputs[1].id == "plaintext"
-    assert isinstance(expr.inputs[2], ex.UnboundVariableExpression)
-    assert expr.inputs[2].id == "additional_data"
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[2], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")

@@ -18,7 +18,7 @@
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 from typing import Literal, Union
 
 import bigframes.core.col
@@ -173,9 +173,9 @@ def string(
         bigframes.core.col.Expression,
         Union[
             Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
-            datetime.date,
-            datetime.datetime,
-            datetime.time,
+            dt.date,
+            dt.datetime,
+            dt.time,
             str,
         ],
     ],

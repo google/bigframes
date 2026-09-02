@@ -18,7 +18,7 @@
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 from typing import Any, Literal, Union
 
 import bigframes.core.col
@@ -69,25 +69,10 @@ _DATE_TRUNC_OP = googlesql.GoogleSqlScalarOp(
     args=(googlesql.ArgSpec(), googlesql.ArgSpec()),
     signature=lambda *args: dtypes.DATE_DTYPE,
 )
-_EXTRACT_OP = googlesql.GoogleSqlScalarOp(
-    "EXTRACT",
-    args=(googlesql.ArgSpec(), googlesql.ArgSpec(), googlesql.ArgSpec(optional=True)),
-    signature=lambda *args: dtypes.INT_DTYPE,
-)
 _FORMAT_DATE_OP = googlesql.GoogleSqlScalarOp(
     "FORMAT_DATE",
     args=(googlesql.ArgSpec(), googlesql.ArgSpec()),
     signature=lambda *args: dtypes.STRING_DTYPE,
-)
-_GENERATE_DATE_ARRAY_OP = googlesql.GoogleSqlScalarOp(
-    "GENERATE_DATE_ARRAY",
-    args=(
-        googlesql.ArgSpec(),
-        googlesql.ArgSpec(),
-        googlesql.ArgSpec(optional=True),
-        googlesql.ArgSpec(optional=True),
-    ),
-    signature=lambda *args: dtypes.list_type(dtypes.DATE_DTYPE),
 )
 _LAST_DAY_OP = googlesql.GoogleSqlScalarOp(
     "LAST_DAY",
@@ -124,12 +109,7 @@ def date(
     expression: Union[
         series.Series,
         bigframes.core.col.Expression,
-        Union[
-            Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
-            datetime.date,
-            datetime.datetime,
-            str,
-        ],
+        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.date, dt.datetime, str],
     ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
     time_zone_expression: Union[
         series.Series,
@@ -167,7 +147,7 @@ def date_add(
     date_expression: Union[
         series.Series,
         bigframes.core.col.Expression,
-        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], datetime.date],
+        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.date],
     ],
     int64_expression: Union[
         series.Series,
@@ -193,12 +173,12 @@ def date_diff(
     end_date: Union[
         series.Series,
         bigframes.core.col.Expression,
-        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], datetime.date],
+        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.date],
     ],
     start_date: Union[
         series.Series,
         bigframes.core.col.Expression,
-        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], datetime.date],
+        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.date],
     ],
     granularity: Union[
         series.Series,
@@ -233,7 +213,7 @@ def date_sub(
     date_expression: Union[
         series.Series,
         bigframes.core.col.Expression,
-        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], datetime.date],
+        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.date],
     ],
     int64_expression: Union[
         series.Series,
@@ -259,7 +239,7 @@ def date_trunc(
     date_value: Union[
         series.Series,
         bigframes.core.col.Expression,
-        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], datetime.date],
+        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.date],
     ],
     granularity: Union[
         series.Series,
@@ -275,37 +255,6 @@ def date_trunc(
     )
 
 
-def extract(
-    date_expression: Union[
-        series.Series,
-        bigframes.core.col.Expression,
-        Union[
-            Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
-            datetime.date,
-            datetime.datetime,
-            datetime.time,
-        ],
-    ],
-    part: Union[
-        series.Series,
-        bigframes.core.col.Expression,
-        Union[Any, Literal[sentinels.Sentinel.ARGUMENT_DEFAULT]],
-    ],
-    time_zone: Union[
-        series.Series,
-        bigframes.core.col.Expression,
-        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], str],
-    ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
-) -> Union[series.Series, bigframes.core.col.Expression]:
-    """Returns the value corresponding to the specified date part."""
-    return bigframes.core.googlesql.apply_googlesql_scalar_op(
-        _EXTRACT_OP,
-        date_expression,
-        part,
-        time_zone,
-    )
-
-
 def format_date(
     format_string: Union[
         series.Series,
@@ -315,7 +264,7 @@ def format_date(
     date_expr: Union[
         series.Series,
         bigframes.core.col.Expression,
-        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], datetime.date],
+        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.date],
     ],
 ) -> Union[series.Series, bigframes.core.col.Expression]:
     """Formats a DATE value according to a specified format string."""
@@ -326,43 +275,11 @@ def format_date(
     )
 
 
-def generate_date_array(
-    start_date: Union[
-        series.Series,
-        bigframes.core.col.Expression,
-        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], datetime.date],
-    ],
-    end_date: Union[
-        series.Series,
-        bigframes.core.col.Expression,
-        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], datetime.date],
-    ],
-    int64_expression: Union[
-        series.Series,
-        bigframes.core.col.Expression,
-        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], int],
-    ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
-    date_part: Union[
-        series.Series,
-        bigframes.core.col.Expression,
-        Union[Any, Literal[sentinels.Sentinel.ARGUMENT_DEFAULT]],
-    ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
-) -> Union[series.Series, bigframes.core.col.Expression]:
-    """Generates an array of dates in a range."""
-    return bigframes.core.googlesql.apply_googlesql_scalar_op(
-        _GENERATE_DATE_ARRAY_OP,
-        start_date,
-        end_date,
-        int64_expression,
-        date_part,
-    )
-
-
 def last_day(
     date_expression: Union[
         series.Series,
         bigframes.core.col.Expression,
-        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], datetime.date],
+        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.date],
     ],
     date_part: Union[
         series.Series,
@@ -402,7 +319,7 @@ def unix_date(
     date_expression: Union[
         series.Series,
         bigframes.core.col.Expression,
-        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], datetime.date],
+        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.date],
     ],
 ) -> Union[series.Series, bigframes.core.col.Expression]:
     """Returns the number of days since 1970-01-01."""

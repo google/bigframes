@@ -1,0 +1,1 @@
+ARRAY_IS_DISTINCT([1, 2])

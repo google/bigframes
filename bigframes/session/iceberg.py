@@ -205,3 +205,13 @@ class SchemaVisitor(pyiceberg.schema.SchemaVisitorPerPrimitiveType[bq.SchemaFiel
 
     def visit_binary(self, binary_type: pyiceberg.types.BinaryType) -> bq.SchemaField:
         return bq.SchemaField("", "BINARY")
+
+    def visit_geometry(
+        self, geometry_type: pyiceberg.types.GeometryType
+    ) -> bq.SchemaField:
+        return bq.SchemaField("", "GEOGRAPHY")
+
+    def visit_geography(
+        self, geography_type: pyiceberg.types.GeographyType
+    ) -> bq.SchemaField:
+        return bq.SchemaField("", "GEOGRAPHY")

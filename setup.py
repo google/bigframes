@@ -78,7 +78,8 @@ extras = {
         "tzdata",
     ],
     # used for local engine
-    "polars": ["polars >= 1.21.0"],
+    # TODO(b/556839614): Support Polars 2.0+ once GA and breaking changes are addressed.
+    "polars": ["polars >= 1.21.0, < 2.0.0"],
     "scikit-learn": ["scikit-learn>=1.2.2"],
     # Packages required for basic development flow.
     "dev": [

@@ -37,7 +37,7 @@ def polars_session_or_bpd():
         from bigframes.testing import polars_session
 
         return polars_session.TestSession()
-    except ImportError:
+    except (ImportError, KeyError):
         import bigframes.pandas as bpd
 
         return bpd

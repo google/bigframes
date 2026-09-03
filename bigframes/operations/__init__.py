@@ -69,6 +69,7 @@ from bigframes.operations.date_ops import (
     year_op,
 )
 from bigframes.operations.datetime_ops import (
+    ExtractOp,
     StrftimeOp,
     ToDatetimeOp,
     ToTimestampOp,
@@ -76,6 +77,7 @@ from bigframes.operations.datetime_ops import (
     UnixMillis,
     UnixSeconds,
     date_op,
+    extract_op,
     time_op,
     timestamp_diff_op,
 )
@@ -321,6 +323,8 @@ __all__ = [
     "ToTimedeltaOp",
     # Datetime ops
     "date_op",
+    "extract_op",
+    "ExtractOp",
     "time_op",
     "timestamp_diff_op",
     "ToDatetimeOp",

@@ -65,18 +65,14 @@ scalar_functions:
     description: "Adds a specified time interval to a DATE."
     series_accessor_arg: date_expression
     impls:
-      # Signature: date_add:date_i64_any
+      # Signature: date_add:date_interval
       - args:
           - name: "date_expression"
             value: date
             optional: false
             keyword_only: false
-          - name: "int64_expression"
-            value: i64
-            optional: false
-            keyword_only: false
-          - name: "date_part"
-            value: any1
+          - name: "interval"
+            value: interval
             optional: false
             keyword_only: false
         return: date
@@ -85,7 +81,7 @@ scalar_functions:
     description: "Gets the number of unit boundaries between two DATE values (end_date - start_date) at a particular time granularity."
     series_accessor_arg: end_date
     impls:
-      # Signature: date_diff:date_date_any
+      # Signature: date_diff:date_date_date_part
       - args:
           - name: "end_date"
             value: date
@@ -96,7 +92,7 @@ scalar_functions:
             optional: false
             keyword_only: false
           - name: "granularity"
-            value: any1
+            value: date_part
             optional: false
             keyword_only: false
         return: i64
@@ -115,18 +111,14 @@ scalar_functions:
     description: "Subtracts a specified time interval from a DATE."
     series_accessor_arg: date_expression
     impls:
-      # Signature: date_sub:date_i64_any
+      # Signature: date_sub:date_interval
       - args:
           - name: "date_expression"
             value: date
             optional: false
             keyword_only: false
-          - name: "int64_expression"
-            value: i64
-            optional: false
-            keyword_only: false
-          - name: "date_part"
-            value: any1
+          - name: "interval"
+            value: interval
             optional: false
             keyword_only: false
         return: date
@@ -134,17 +126,69 @@ scalar_functions:
     description: "Truncates a DATE, DATETIME, or TIMESTAMP value at a particular granularity."
     series_accessor_arg: date_value
     impls:
-      # Signature: date_trunc:date_any
+      # Signature: date_trunc:date_date_part
       - args:
           - name: "date_value"
             value: date
             optional: false
             keyword_only: false
           - name: "granularity"
-            value: any1
+            value: date_part
             optional: false
             keyword_only: false
         return: date
+  - name: "extract"
+    description: "Returns the value corresponding to the specified date part."
+    series_accessor_arg: date_expression
+    impls:
+      # Signature: extract:date_date_part
+      - args:
+          - name: "date_expression"
+            value: date
+            optional: false
+            keyword_only: false
+          - name: "part"
+            value: date_part
+            optional: false
+            keyword_only: false
+        return: i64
+      # Signature: extract:pts_date_part_str
+      - args:
+          - name: "date_expression"
+            value: timestamp
+            optional: false
+            keyword_only: false
+          - name: "part"
+            value: date_part
+            optional: false
+            keyword_only: false
+          - name: "time_zone"
+            value: string
+            optional: true
+            keyword_only: false
+        return: i64
+      # Signature: extract:pts_date_part
+      - args:
+          - name: "date_expression"
+            value: timestamp
+            optional: false
+            keyword_only: false
+          - name: "part"
+            value: date_part
+            optional: false
+            keyword_only: false
+        return: i64
+      # Signature: extract:pt_date_part
+      - args:
+          - name: "date_expression"
+            value: time
+            optional: false
+            keyword_only: false
+          - name: "part"
+            value: date_part
+            optional: false
+            keyword_only: false
+        return: i64
   - name: "format_date"
     description: "Formats a DATE value according to a specified format string."
     series_accessor_arg: date_expr
@@ -160,18 +204,36 @@ scalar_functions:
             optional: false
             keyword_only: false
         return: string
+  - name: "generate_date_array"
+    description: "Generates an array of dates in a range."
+    impls:
+      # Signature: generate_date_array:date_date_interval
+      - args:
+          - name: "start_date"
+            value: date
+            optional: false
+            keyword_only: false
+          - name: "end_date"
+            value: date
+            optional: false
+            keyword_only: false
+          - name: "interval"
+            value: interval
+            optional: true
+            keyword_only: false
+        return: list<date>
   - name: "last_day"
     description: "Returns the last day from a date expression. This is commonly used to return the last day of the month."
     series_accessor_arg: date_expression
     impls:
-      # Signature: last_day:date_any
+      # Signature: last_day:date_date_part
       - args:
           - name: "date_expression"
             value: date
             optional: false
             keyword_only: false
           - name: "date_part"
-            value: any1
+            value: date_part
             optional: true
             keyword_only: false
         return: date

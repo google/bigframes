@@ -21,7 +21,9 @@ import bigframes_vendored.sqlglot as sg
 import bigframes_vendored.sqlglot.expressions as sge
 import numpy as np
 import pandas as pd
+import pandas.api.types
 import pyarrow as pa
+from dateutil.relativedelta import relativedelta
 from google.cloud import bigquery
 
 import bigframes.core.compile.sqlglot.sqlglot_types as sgt
@@ -71,10 +73,82 @@ def _unwrap_scalar(value: typing.Any) -> typing.Any:
     return value
 
 
-def literal(value: typing.Any, dtype: dtypes.Dtype | None = None) -> sge.Expression:
-    """Return a string representing column reference in a SQL."""
-    if dtype is None:
-        dtype = dtypes.infer_literal_type(value)
+def _relativedelta_to_sqlglot(rd: relativedelta) -> sge.Expression:
+    field_units = [
+        ("YEAR", rd.years),
+        ("MONTH", rd.months),
+        ("DAY", rd.days),
+        ("HOUR", rd.hours),
+        ("MINUTE", rd.minutes),
+        ("SECOND", rd.seconds),
+        ("MICROSECOND", rd.microseconds),
+    ]
+    non_zero = [(unit, val) for unit, val in field_units if val != 0]
+    if not non_zero:
+        return sge.Interval(this=sge.convert(0), unit=sge.var("DAY"))
+    if len(non_zero) == 1:
+        unit, val = non_zero[0]
+        return sge.Interval(this=sge.convert(val), unit=sge.var(unit))
+    expr: sge.Expression | None = None
+    for unit, val in non_zero:
+        interval_expr = sge.Interval(this=sge.convert(val), unit=sge.var(unit))
+        if expr is None:
+            expr = interval_expr
+        else:
+            expr = sge.Add(this=expr, expression=interval_expr)
+    assert expr is not None
+    return expr
+
+
+def _month_day_nano_to_sqlglot(mdn: pa.MonthDayNano) -> sge.Expression:
+    field_units = [
+        ("MONTH", mdn.months),
+        ("DAY", mdn.days),
+    ]
+    ns = mdn.nanoseconds
+    if ns != 0:
+        if ns % 1_000_000_000 == 0:
+            field_units.append(("SECOND", ns // 1_000_000_000))
+        elif ns % 1_000_000 == 0:
+            field_units.append(("MILLISECOND", ns // 1_000_000))
+        elif ns % 1_000 == 0:
+            field_units.append(("MICROSECOND", ns // 1_000))
+        else:
+            field_units.append(("MICROSECOND", ns // 1_000))
+    non_zero = [(unit, val) for unit, val in field_units if val != 0]
+    if not non_zero:
+        return sge.Interval(this=sge.convert(0), unit=sge.var("DAY"))
+    if len(non_zero) == 1:
+        unit, val = non_zero[0]
+        return sge.Interval(this=sge.convert(val), unit=sge.var(unit))
+    expr: sge.Expression | None = None
+    for unit, val in non_zero:
+        interval_expr = sge.Interval(this=sge.convert(val), unit=sge.var(unit))
+        if expr is None:
+            expr = interval_expr
+        else:
+            expr = sge.Add(this=expr, expression=interval_expr)
+    assert expr is not None
+    return expr
+
+
+def _literal_with_known_dtype(
+    value: typing.Any,
+    *,
+    dtype: dtypes.Dtype | str,
+) -> sge.Expression:
+    """Return a string representing a literal value in SQL."""
+    if isinstance(dtype, str):
+        if dtype == "date_part":
+            if isinstance(value, str):
+                return sge.var(value.upper())
+            raise TypeError(
+                f"Expected str for date_part, got {type(value).__name__}: {value}"
+            )
+        elif dtype == "interval":
+            dtype = dtypes.INTERVAL_DTYPE
+        else:
+            raise TypeError(f"got unexpeced dtype {dtype}")
 
     sqlglot_type = sgt.from_bigframes_dtype(dtype) if dtype else None
     if sqlglot_type is None:
@@ -82,11 +156,21 @@ def literal(value: typing.Any, dtype: dtypes.Dtype | None = None) -> sge.Express
             raise ValueError(f"Cannot infer SQLGlot type from None dtype: {value}")
         return sge.Null()
 
-    if value is None:
-        if str(sqlglot_type).upper() == "NULL":
-            return sge.Null()
-        return cast(sge.Null(), sqlglot_type)
-    if dtypes.is_struct_like(dtype):
+    # month_day_nano not currently supported in pandas, so we need to check this
+    # before calling any pandas api types functions.
+    if dtype == dtypes.INTERVAL_DTYPE:
+        if isinstance(value, pa.Scalar) and hasattr(value, "as_py"):
+            value = value.as_py()
+        if isinstance(value, pa.MonthDayNano):
+            return _month_day_nano_to_sqlglot(value)
+        if isinstance(value, relativedelta):
+            return _relativedelta_to_sqlglot(value)
+        if isinstance(value, sge.Interval):
+            return value
+        raise TypeError(
+            f"Expected relativedelta or MonthDayNano for interval, got {type(value).__name__}: {value}"
+        )
+    elif dtypes.is_struct_like(dtype):
         items = [
             literal(value=value[field_name], dtype=field_dtype).as_(
                 field_name, quoted=True
@@ -108,8 +192,6 @@ def literal(value: typing.Any, dtype: dtypes.Dtype | None = None) -> sge.Express
         if np.isinf(value):
             return constants._INF if value > 0 else constants._NEG_INF
         return sge.convert(value)
-    elif pd.isna(value) or (isinstance(value, pa.Scalar) and not value.is_valid):
-        return cast(sge.Null(), sqlglot_type)
     elif dtype == dtypes.JSON_DTYPE:
         return sge.ParseJSON(this=sge.convert(str(value)))
     elif dtype == dtypes.BYTES_DTYPE:
@@ -138,6 +220,67 @@ def literal(value: typing.Any, dtype: dtypes.Dtype | None = None) -> sge.Express
         return sge.convert(utils.timedelta_to_micros(value))
     elif dtype == dtypes.STRING_DTYPE:
         return sge.convert(str(_unwrap_scalar(value)))
+    else:
+        return sge.convert(_unwrap_scalar(value))
+
+
+def _null_literal(*, dtype: dtypes.Dtype | None):
+    """Return a NULL literal, optionally cast to a dtype."""
+    sqlglot_type = sgt.from_bigframes_dtype(dtype) if dtype else None
+    if sqlglot_type is None:
+        return sge.Null()
+    if str(sqlglot_type).upper() == "NULL":
+        return sge.Null()
+    return cast(sge.Null(), sqlglot_type)
+
+
+def _is_null_value(
+    value: typing.Any,
+    dtype: dtypes.Dtype | str | None,
+) -> bool:
+    """Checks if the given literal value should be treated as SQL NULL."""
+    if value is None:
+        return True
+
+    is_invalid_arrow_scalar = isinstance(value, pa.Scalar) and not value.is_valid
+    if is_invalid_arrow_scalar:
+        return True
+
+    # month_day_nano not currently supported in pandas, so we need to
+    # check this before calling any pandas api types functions.
+    is_interval_dtype = dtype == dtypes.INTERVAL_DTYPE
+    if is_interval_dtype:
+        return False
+
+    # If we get NaN for floats, then don't assume it's NULL.
+    is_float_dtype = dtype is not None and pandas.api.types.is_float_dtype(dtype)
+    is_list_like = pandas.api.types.is_list_like(value)
+    if is_float_dtype or is_list_like:
+        return False
+
+    return bool(pd.isna(value))
+
+
+def literal(
+    value: typing.Any,
+    dtype: dtypes.Dtype | str | None = None,
+) -> sge.Expression:
+    """Return a string representing a literal value in SQL."""
+    if dtype is None:
+        dtype = dtypes.infer_literal_type(value)
+
+    if _is_null_value(value, dtype):
+        return _null_literal(
+            dtype=dtype if not isinstance(dtype, str) else None,
+        )
+
+    if dtype is not None:
+        return _literal_with_known_dtype(value, dtype=dtype)
+
+    if isinstance(value, pa.MonthDayNano):
+        return _month_day_nano_to_sqlglot(value)
+    elif isinstance(value, relativedelta):
+        return _relativedelta_to_sqlglot(value)
     else:
         return sge.convert(_unwrap_scalar(value))
 

@@ -28,6 +28,7 @@ class ArgSpec:
     optional: bool = False
     is_vararg: bool = False
     const_only: bool = False
+    dtype: typing.Any = None
 
 
 @dataclasses.dataclass(frozen=True)

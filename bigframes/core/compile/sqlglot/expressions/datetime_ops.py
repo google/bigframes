@@ -25,6 +25,23 @@ from bigframes.core.compile.sqlglot.expressions.typed_expr import TypedExpr
 
 register_unary_op = expression_compiler.expression_compiler.register_unary_op
 register_binary_op = expression_compiler.expression_compiler.register_binary_op
+register_nary_op = expression_compiler.expression_compiler.register_nary_op
+
+
+@register_nary_op(ops.ExtractOp, pass_op=True)
+def _(*operands: TypedExpr, op: ops.ExtractOp) -> sge.Expression:
+    part: sge.Expression
+    if op.part is not None:
+        part = sge.var(op.part.upper())
+        date_expr = operands[0].expr
+        if len(operands) > 1 and not operands[1].is_omitted:
+            date_expr = sge.AtTimeZone(this=date_expr, zone=operands[1].expr)
+    else:
+        date_expr = operands[0].expr
+        part = operands[1].expr
+        if len(operands) > 2 and not operands[2].is_omitted:
+            date_expr = sge.AtTimeZone(this=date_expr, zone=operands[2].expr)
+    return sge.Extract(this=part, expression=date_expr)
 
 
 @register_binary_op(ops.DatetimeToIntegerLabelOp, pass_op=True)

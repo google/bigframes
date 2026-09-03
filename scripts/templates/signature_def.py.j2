@@ -43,6 +43,8 @@ def {{ func_name }}(*args):
         {% elif arg.value == "struct" %}
         if not dtypes.is_struct_like(args[{{ idx }}]):
             match_ok = False
+        {% elif arg.value in ("date_part", "interval") %}
+        pass
         {% else %}
         {% set dtype_expr = dtype_map[arg.value] %}
         try:

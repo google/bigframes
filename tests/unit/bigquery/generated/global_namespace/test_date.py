@@ -19,6 +19,7 @@
 import datetime as dt
 
 import pytest
+from dateutil import relativedelta
 
 import bigframes.bigquery as bbq
 import bigframes.core.col
@@ -85,8 +86,7 @@ def test_date_add_expression(snapshot):
     # Call the function with literals or col() expressions
     result = bbq.date_add(
         dt.date(2025, 1, 1),
-        1,
-        "DAY",
+        relativedelta.relativedelta(days=1),
     )
 
     # Verify result is a col Expression
@@ -98,10 +98,9 @@ def test_date_add_expression(snapshot):
     assert expr.op == date_op._DATE_ADD_OP
 
     # Verify arguments
-    assert len(expr.inputs) == 3
+    assert len(expr.inputs) == 2
     assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
     assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
-    assert isinstance(expr.inputs[2], ex.ScalarConstantExpression)
 
     snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
     snapshot.assert_match(snippet + "\n", "out.sql")
@@ -159,8 +158,7 @@ def test_date_sub_expression(snapshot):
     # Call the function with literals or col() expressions
     result = bbq.date_sub(
         dt.date(2025, 1, 1),
-        1,
-        "DAY",
+        relativedelta.relativedelta(days=1),
     )
 
     # Verify result is a col Expression
@@ -172,10 +170,9 @@ def test_date_sub_expression(snapshot):
     assert expr.op == date_op._DATE_SUB_OP
 
     # Verify arguments
-    assert len(expr.inputs) == 3
+    assert len(expr.inputs) == 2
     assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
     assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
-    assert isinstance(expr.inputs[2], ex.ScalarConstantExpression)
 
     snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
     snapshot.assert_match(snippet + "\n", "out.sql")
@@ -205,6 +202,32 @@ def test_date_trunc_expression(snapshot):
     snapshot.assert_match(snippet + "\n", "out.sql")
 
 
+def test_extract_expression(snapshot):
+    # Call the function with literals or col() expressions
+    result = bbq.extract(
+        dt.date(2025, 1, 1),
+        "DAY",
+        "UTC",
+    )
+
+    # Verify result is a col Expression
+    assert isinstance(result, bigframes.core.col.Expression)
+
+    # Verify the internal expression structure
+    expr = result._value
+    assert isinstance(expr, ex.OpExpression)
+    assert expr.op == date_op._EXTRACT_OP
+
+    # Verify arguments
+    assert len(expr.inputs) == 3
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[2], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
+
+
 def test_format_date_expression(snapshot):
     # Call the function with literals or col() expressions
     result = bbq.format_date(
@@ -224,6 +247,32 @@ def test_format_date_expression(snapshot):
     assert len(expr.inputs) == 2
     assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
     assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+
+    snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
+    snapshot.assert_match(snippet + "\n", "out.sql")
+
+
+def test_generate_date_array_expression(snapshot):
+    # Call the function with literals or col() expressions
+    result = bbq.generate_date_array(
+        dt.date(2025, 1, 1),
+        dt.date(2025, 1, 1),
+        relativedelta.relativedelta(days=1),
+    )
+
+    # Verify result is a col Expression
+    assert isinstance(result, bigframes.core.col.Expression)
+
+    # Verify the internal expression structure
+    expr = result._value
+    assert isinstance(expr, ex.OpExpression)
+    assert expr.op == date_op._GENERATE_DATE_ARRAY_OP
+
+    # Verify arguments
+    assert len(expr.inputs) == 3
+    assert isinstance(expr.inputs[0], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[1], ex.ScalarConstantExpression)
+    assert isinstance(expr.inputs[2], ex.ScalarConstantExpression)
 
     snippet = bigframes.core.compile.sqlglot.testing.to_sql_snippet(result)
     snapshot.assert_match(snippet + "\n", "out.sql")

@@ -18,6 +18,8 @@ from typing import (
     cast,
 )
 
+from dateutil import relativedelta
+
 from bigframes import series, session
 from bigframes.core import col, sentinels
 from bigframes.extensions.core import abstract_series_accessor, series_mixins

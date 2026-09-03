@@ -15,6 +15,7 @@
 from bigframes.core.rewrite.as_sql import as_sql_nodes
 from bigframes.core.rewrite.ctes import extract_ctes
 from bigframes.core.rewrite.fold_row_count import fold_row_counts
+from bigframes.core.rewrite.googlesql import lower_googlesql, lower_googlesql_expr
 from bigframes.core.rewrite.identifiers import remap_variables
 from bigframes.core.rewrite.implicit_align import try_row_join
 from bigframes.core.rewrite.legacy_align import legacy_join_as_projection
@@ -56,6 +57,8 @@ __all__ = [
     "pull_out_window_order",
     "defer_selection",
     "simplify_complex_windows",
+    "lower_googlesql",
+    "lower_googlesql_expr",
     "lower_udfs",
     "simplify_join",
 ]

@@ -29,6 +29,8 @@ from typing import (
     cast,
 )
 
+from dateutil import relativedelta
+
 from bigframes import series, session
 from bigframes.core import col, sentinels
 from bigframes.extensions.core import abstract_series_accessor, series_mixins
@@ -813,15 +815,13 @@ class BigQuerySeriesAccessor(
 
     def date_add(
         self,
-        int64_expression: Union[
+        interval: Union[
             series.Series,
             col.Expression,
-            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], int],
-        ],
-        date_part: Union[
-            series.Series,
-            col.Expression,
-            Union[Any, Literal[sentinels.Sentinel.ARGUMENT_DEFAULT]],
+            Union[
+                Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
+                relativedelta.relativedelta,
+            ],
         ],
         *,
         session: Optional[session.Session] = None,
@@ -836,15 +836,13 @@ class BigQuerySeriesAccessor(
             from bigframes.core import googlesql
 
             session = googlesql._find_session(
-                int64_expression,
-                date_part,
+                interval,
             )
 
         bf_series = self._bf_from_series(session)
         result = date_add_impl(
             bf_series,
-            int64_expression,
-            date_part,
+            interval,
         )
         return self._to_series(cast(series.Series, result))
 
@@ -858,7 +856,25 @@ class BigQuerySeriesAccessor(
         granularity: Union[
             series.Series,
             col.Expression,
-            Union[Any, Literal[sentinels.Sentinel.ARGUMENT_DEFAULT]],
+            Union[
+                Literal[
+                    "YEAR",
+                    "ISOYEAR",
+                    "QUARTER",
+                    "MONTH",
+                    "WEEK",
+                    "ISOWEEK",
+                    "DAY",
+                    "DAYOFWEEK",
+                    "DAYOFYEAR",
+                    "HOUR",
+                    "MINUTE",
+                    "SECOND",
+                    "MILLISECOND",
+                    "MICROSECOND",
+                ],
+                Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
+            ],
         ],
         *,
         session: Optional[session.Session] = None,
@@ -903,15 +919,13 @@ class BigQuerySeriesAccessor(
 
     def date_sub(
         self,
-        int64_expression: Union[
+        interval: Union[
             series.Series,
             col.Expression,
-            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], int],
-        ],
-        date_part: Union[
-            series.Series,
-            col.Expression,
-            Union[Any, Literal[sentinels.Sentinel.ARGUMENT_DEFAULT]],
+            Union[
+                Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
+                relativedelta.relativedelta,
+            ],
         ],
         *,
         session: Optional[session.Session] = None,
@@ -926,15 +940,13 @@ class BigQuerySeriesAccessor(
             from bigframes.core import googlesql
 
             session = googlesql._find_session(
-                int64_expression,
-                date_part,
+                interval,
             )
 
         bf_series = self._bf_from_series(session)
         result = date_sub_impl(
             bf_series,
-            int64_expression,
-            date_part,
+            interval,
         )
         return self._to_series(cast(series.Series, result))
 
@@ -943,7 +955,25 @@ class BigQuerySeriesAccessor(
         granularity: Union[
             series.Series,
             col.Expression,
-            Union[Any, Literal[sentinels.Sentinel.ARGUMENT_DEFAULT]],
+            Union[
+                Literal[
+                    "YEAR",
+                    "ISOYEAR",
+                    "QUARTER",
+                    "MONTH",
+                    "WEEK",
+                    "ISOWEEK",
+                    "DAY",
+                    "DAYOFWEEK",
+                    "DAYOFYEAR",
+                    "HOUR",
+                    "MINUTE",
+                    "SECOND",
+                    "MILLISECOND",
+                    "MICROSECOND",
+                ],
+                Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
+            ],
         ],
         *,
         session: Optional[session.Session] = None,
@@ -965,6 +995,61 @@ class BigQuerySeriesAccessor(
         result = date_trunc_impl(
             bf_series,
             granularity,
+        )
+        return self._to_series(cast(series.Series, result))
+
+    def extract(
+        self,
+        part: Union[
+            series.Series,
+            col.Expression,
+            Union[
+                Literal[
+                    "YEAR",
+                    "ISOYEAR",
+                    "QUARTER",
+                    "MONTH",
+                    "WEEK",
+                    "ISOWEEK",
+                    "DAY",
+                    "DAYOFWEEK",
+                    "DAYOFYEAR",
+                    "HOUR",
+                    "MINUTE",
+                    "SECOND",
+                    "MILLISECOND",
+                    "MICROSECOND",
+                ],
+                Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
+            ],
+        ],
+        time_zone: Union[
+            series.Series,
+            col.Expression,
+            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], str],
+        ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
+        *,
+        session: Optional[session.Session] = None,
+    ) -> S:
+        """Returns the value corresponding to the specified date part."""
+        from bigframes.operations.googlesql.global_namespace.date import (
+            extract as extract_impl,
+        )
+
+        # Resolve session from other arguments if not passed
+        if session is None:
+            from bigframes.core import googlesql
+
+            session = googlesql._find_session(
+                part,
+                time_zone,
+            )
+
+        bf_series = self._bf_from_series(session)
+        result = extract_impl(
+            bf_series,
+            part,
+            time_zone,
         )
         return self._to_series(cast(series.Series, result))
 
@@ -1003,7 +1088,25 @@ class BigQuerySeriesAccessor(
         date_part: Union[
             series.Series,
             col.Expression,
-            Union[Any, Literal[sentinels.Sentinel.ARGUMENT_DEFAULT]],
+            Union[
+                Literal[
+                    "YEAR",
+                    "ISOYEAR",
+                    "QUARTER",
+                    "MONTH",
+                    "WEEK",
+                    "ISOWEEK",
+                    "DAY",
+                    "DAYOFWEEK",
+                    "DAYOFYEAR",
+                    "HOUR",
+                    "MINUTE",
+                    "SECOND",
+                    "MILLISECOND",
+                    "MICROSECOND",
+                ],
+                Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
+            ],
         ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
         *,
         session: Optional[session.Session] = None,

@@ -14,14 +14,17 @@
 from __future__ import annotations
 
 import bigframes.core.col
+import bigframes.core.compile.sqlglot
 import bigframes.core.compile.sqlglot.expression_compiler
 import bigframes.core.compile.sqlglot.sql
+from bigframes.core import rewrite
 
 
 def to_sql_snippet(expr: bigframes.core.col.Expression) -> str:
     """Compiles an Expression into a SQL snippet."""
 
+    lowered_expr = rewrite.lower_googlesql_expr(expr._value)
     sge_expr = bigframes.core.compile.sqlglot.expression_compiler.expression_compiler.compile_expression(
-        expr._value
+        lowered_expr
     )
     return bigframes.core.compile.sqlglot.sql.to_sql(sge_expr)

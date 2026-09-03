@@ -95,7 +95,7 @@ def _(*operands: TypedExpr, op: ops.GoogleSqlScalarOp) -> sge.Expression:
             args.append(sge.Kwarg(this=arg_spec.arg_name, expression=operand.expr))
         else:
             args.append(operand.expr)
-    return sg.func(op.sql_name, *args)
+    return sge.Anonymous(this=op.sql_name, expressions=args)
 
 
 @register_nary_op(ops.SqlScalarOp, pass_op=True)

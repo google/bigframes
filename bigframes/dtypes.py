@@ -30,6 +30,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import shapely.geometry  # type: ignore
+from dateutil.relativedelta import relativedelta
 
 import bigframes.exceptions
 
@@ -60,6 +61,8 @@ TIME_DTYPE = pd.ArrowDtype(pa.time64("us"))
 DATETIME_DTYPE = pd.ArrowDtype(pa.timestamp("us"))
 TIMESTAMP_DTYPE = pd.ArrowDtype(pa.timestamp("us", tz="UTC"))
 TIMEDELTA_DTYPE = pd.ArrowDtype(pa.duration("us"))
+# TODO(b/299294296): Add full INTERVAL support.
+INTERVAL_DTYPE = pd.ArrowDtype(pa.month_day_nano_interval())
 NUMERIC_DTYPE = pd.ArrowDtype(pa.decimal128(38, 9))
 BIGNUMERIC_DTYPE = pd.ArrowDtype(pa.decimal256(76, 38))
 # No arrow equivalent
@@ -152,7 +155,8 @@ class SimpleDtypeInfo:
     clusterable: bool = False
 
 
-# TODO: Missing BQ types: INTERVAL, JSON, RANGE
+# TODO(b/299294296): Add full INTERVAL support.
+# TODO: Missing BQ types: INTERVAL, RANGE
 # TODO: Add mappings to python types
 SIMPLE_TYPES = (
     SimpleDtypeInfo(
@@ -310,6 +314,10 @@ def is_time_like(type_: ExpressionType) -> bool:
 
 def is_time_or_date_like(type_: ExpressionType) -> bool:
     return type_ in (DATE_DTYPE, DATETIME_DTYPE, TIME_DTYPE, TIMESTAMP_DTYPE)
+
+
+def is_interval_like(type_: ExpressionType) -> bool:
+    return type_ == INTERVAL_DTYPE
 
 
 def is_geo_like(type_: ExpressionType) -> bool:
@@ -554,6 +562,9 @@ def arrow_dtype_to_bigframes_dtype(
     if pa.types.is_duration(arrow_dtype):
         return TIMEDELTA_DTYPE
 
+    if pa.types.is_interval(arrow_dtype):
+        return INTERVAL_DTYPE
+
     # BigFrames doesn't distinguish between string and large_string because the
     # largest string (2 GB) is already larger than the largest BigQuery row.
     if pa.types.is_string(arrow_dtype) or pa.types.is_large_string(arrow_dtype):
@@ -774,6 +785,8 @@ def infer_literal_type(literal) -> typing.Optional[Dtype]:
         element_types = [infer_literal_type(i) for i in literal]
         common_type = lcd_type(*element_types)
         return list_type(common_type)
+    if isinstance(literal, relativedelta):
+        return INTERVAL_DTYPE
     if pd.isna(literal):
         return None  # Null value without a definite type
     # Make sure to check datetime before date as datetimes are also dates

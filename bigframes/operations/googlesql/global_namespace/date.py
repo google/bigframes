@@ -19,7 +19,9 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, Literal, Union
+from typing import Literal, Union
+
+from dateutil import relativedelta
 
 import bigframes.core.col
 import bigframes.core.googlesql
@@ -46,12 +48,16 @@ _DATE_OP = googlesql.GoogleSqlScalarOp(
 )
 _DATE_ADD_OP = googlesql.GoogleSqlScalarOp(
     "DATE_ADD",
-    args=(googlesql.ArgSpec(), googlesql.ArgSpec(), googlesql.ArgSpec()),
+    args=(googlesql.ArgSpec(), googlesql.ArgSpec(dtype=dtypes.INTERVAL_DTYPE)),
     signature=lambda *args: dtypes.DATE_DTYPE,
 )
 _DATE_DIFF_OP = googlesql.GoogleSqlScalarOp(
     "DATE_DIFF",
-    args=(googlesql.ArgSpec(), googlesql.ArgSpec(), googlesql.ArgSpec()),
+    args=(
+        googlesql.ArgSpec(),
+        googlesql.ArgSpec(),
+        googlesql.ArgSpec(dtype="date_part"),
+    ),
     signature=lambda *args: dtypes.INT_DTYPE,
 )
 _DATE_FROM_UNIX_DATE_OP = googlesql.GoogleSqlScalarOp(
@@ -61,22 +67,40 @@ _DATE_FROM_UNIX_DATE_OP = googlesql.GoogleSqlScalarOp(
 )
 _DATE_SUB_OP = googlesql.GoogleSqlScalarOp(
     "DATE_SUB",
-    args=(googlesql.ArgSpec(), googlesql.ArgSpec(), googlesql.ArgSpec()),
+    args=(googlesql.ArgSpec(), googlesql.ArgSpec(dtype=dtypes.INTERVAL_DTYPE)),
     signature=lambda *args: dtypes.DATE_DTYPE,
 )
 _DATE_TRUNC_OP = googlesql.GoogleSqlScalarOp(
     "DATE_TRUNC",
-    args=(googlesql.ArgSpec(), googlesql.ArgSpec()),
+    args=(googlesql.ArgSpec(), googlesql.ArgSpec(dtype="date_part")),
     signature=lambda *args: dtypes.DATE_DTYPE,
+)
+_EXTRACT_OP = googlesql.GoogleSqlScalarOp(
+    "EXTRACT",
+    args=(
+        googlesql.ArgSpec(),
+        googlesql.ArgSpec(dtype="date_part"),
+        googlesql.ArgSpec(optional=True),
+    ),
+    signature=lambda *args: dtypes.INT_DTYPE,
 )
 _FORMAT_DATE_OP = googlesql.GoogleSqlScalarOp(
     "FORMAT_DATE",
     args=(googlesql.ArgSpec(), googlesql.ArgSpec()),
     signature=lambda *args: dtypes.STRING_DTYPE,
 )
+_GENERATE_DATE_ARRAY_OP = googlesql.GoogleSqlScalarOp(
+    "GENERATE_DATE_ARRAY",
+    args=(
+        googlesql.ArgSpec(),
+        googlesql.ArgSpec(),
+        googlesql.ArgSpec(optional=True, dtype=dtypes.INTERVAL_DTYPE),
+    ),
+    signature=lambda *args: dtypes.list_type(dtypes.DATE_DTYPE),
+)
 _LAST_DAY_OP = googlesql.GoogleSqlScalarOp(
     "LAST_DAY",
-    args=(googlesql.ArgSpec(), googlesql.ArgSpec(optional=True)),
+    args=(googlesql.ArgSpec(), googlesql.ArgSpec(optional=True, dtype="date_part")),
     signature=lambda *args: dtypes.DATE_DTYPE,
 )
 _PARSE_DATE_OP = googlesql.GoogleSqlScalarOp(
@@ -149,23 +173,19 @@ def date_add(
         bigframes.core.col.Expression,
         Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.date],
     ],
-    int64_expression: Union[
+    interval: Union[
         series.Series,
         bigframes.core.col.Expression,
-        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], int],
-    ],
-    date_part: Union[
-        series.Series,
-        bigframes.core.col.Expression,
-        Union[Any, Literal[sentinels.Sentinel.ARGUMENT_DEFAULT]],
+        Union[
+            Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], relativedelta.relativedelta
+        ],
     ],
 ) -> Union[series.Series, bigframes.core.col.Expression]:
     """Adds a specified time interval to a DATE."""
     return bigframes.core.googlesql.apply_googlesql_scalar_op(
         _DATE_ADD_OP,
         date_expression,
-        int64_expression,
-        date_part,
+        interval,
     )
 
 
@@ -183,7 +203,25 @@ def date_diff(
     granularity: Union[
         series.Series,
         bigframes.core.col.Expression,
-        Union[Any, Literal[sentinels.Sentinel.ARGUMENT_DEFAULT]],
+        Union[
+            Literal[
+                "YEAR",
+                "ISOYEAR",
+                "QUARTER",
+                "MONTH",
+                "WEEK",
+                "ISOWEEK",
+                "DAY",
+                "DAYOFWEEK",
+                "DAYOFYEAR",
+                "HOUR",
+                "MINUTE",
+                "SECOND",
+                "MILLISECOND",
+                "MICROSECOND",
+            ],
+            Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
+        ],
     ],
 ) -> Union[series.Series, bigframes.core.col.Expression]:
     """Gets the number of unit boundaries between two DATE values (end_date - start_date) at a particular time granularity."""
@@ -215,23 +253,19 @@ def date_sub(
         bigframes.core.col.Expression,
         Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.date],
     ],
-    int64_expression: Union[
+    interval: Union[
         series.Series,
         bigframes.core.col.Expression,
-        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], int],
-    ],
-    date_part: Union[
-        series.Series,
-        bigframes.core.col.Expression,
-        Union[Any, Literal[sentinels.Sentinel.ARGUMENT_DEFAULT]],
+        Union[
+            Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], relativedelta.relativedelta
+        ],
     ],
 ) -> Union[series.Series, bigframes.core.col.Expression]:
     """Subtracts a specified time interval from a DATE."""
     return bigframes.core.googlesql.apply_googlesql_scalar_op(
         _DATE_SUB_OP,
         date_expression,
-        int64_expression,
-        date_part,
+        interval,
     )
 
 
@@ -244,7 +278,25 @@ def date_trunc(
     granularity: Union[
         series.Series,
         bigframes.core.col.Expression,
-        Union[Any, Literal[sentinels.Sentinel.ARGUMENT_DEFAULT]],
+        Union[
+            Literal[
+                "YEAR",
+                "ISOYEAR",
+                "QUARTER",
+                "MONTH",
+                "WEEK",
+                "ISOWEEK",
+                "DAY",
+                "DAYOFWEEK",
+                "DAYOFYEAR",
+                "HOUR",
+                "MINUTE",
+                "SECOND",
+                "MILLISECOND",
+                "MICROSECOND",
+            ],
+            Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
+        ],
     ],
 ) -> Union[series.Series, bigframes.core.col.Expression]:
     """Truncates a DATE, DATETIME, or TIMESTAMP value at a particular granularity."""
@@ -252,6 +304,52 @@ def date_trunc(
         _DATE_TRUNC_OP,
         date_value,
         granularity,
+    )
+
+
+def extract(
+    date_expression: Union[
+        series.Series,
+        bigframes.core.col.Expression,
+        Union[
+            Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.date, dt.datetime, dt.time
+        ],
+    ],
+    part: Union[
+        series.Series,
+        bigframes.core.col.Expression,
+        Union[
+            Literal[
+                "YEAR",
+                "ISOYEAR",
+                "QUARTER",
+                "MONTH",
+                "WEEK",
+                "ISOWEEK",
+                "DAY",
+                "DAYOFWEEK",
+                "DAYOFYEAR",
+                "HOUR",
+                "MINUTE",
+                "SECOND",
+                "MILLISECOND",
+                "MICROSECOND",
+            ],
+            Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
+        ],
+    ],
+    time_zone: Union[
+        series.Series,
+        bigframes.core.col.Expression,
+        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], str],
+    ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
+) -> Union[series.Series, bigframes.core.col.Expression]:
+    """Returns the value corresponding to the specified date part."""
+    return bigframes.core.googlesql.apply_googlesql_scalar_op(
+        _EXTRACT_OP,
+        date_expression,
+        part,
+        time_zone,
     )
 
 
@@ -275,6 +373,34 @@ def format_date(
     )
 
 
+def generate_date_array(
+    start_date: Union[
+        series.Series,
+        bigframes.core.col.Expression,
+        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.date],
+    ],
+    end_date: Union[
+        series.Series,
+        bigframes.core.col.Expression,
+        Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.date],
+    ],
+    interval: Union[
+        series.Series,
+        bigframes.core.col.Expression,
+        Union[
+            Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], relativedelta.relativedelta
+        ],
+    ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
+) -> Union[series.Series, bigframes.core.col.Expression]:
+    """Generates an array of dates in a range."""
+    return bigframes.core.googlesql.apply_googlesql_scalar_op(
+        _GENERATE_DATE_ARRAY_OP,
+        start_date,
+        end_date,
+        interval,
+    )
+
+
 def last_day(
     date_expression: Union[
         series.Series,
@@ -284,7 +410,25 @@ def last_day(
     date_part: Union[
         series.Series,
         bigframes.core.col.Expression,
-        Union[Any, Literal[sentinels.Sentinel.ARGUMENT_DEFAULT]],
+        Union[
+            Literal[
+                "YEAR",
+                "ISOYEAR",
+                "QUARTER",
+                "MONTH",
+                "WEEK",
+                "ISOWEEK",
+                "DAY",
+                "DAYOFWEEK",
+                "DAYOFYEAR",
+                "HOUR",
+                "MINUTE",
+                "SECOND",
+                "MILLISECOND",
+                "MICROSECOND",
+            ],
+            Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
+        ],
     ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
 ) -> Union[series.Series, bigframes.core.col.Expression]:
     """Returns the last day from a date expression. This is commonly used to return the last day of the month."""

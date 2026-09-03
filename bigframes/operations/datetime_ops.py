@@ -157,3 +157,48 @@ class TimestampDiff(base_ops.BinaryOp):
 
 
 timestamp_diff_op = TimestampDiff()
+
+
+@dataclasses.dataclass(frozen=True)
+class ExtractOp(base_ops.NaryOp):
+    name: typing.ClassVar[str] = "extract"
+    part: (
+        typing.Literal[
+            "YEAR",
+            "ISOYEAR",
+            "QUARTER",
+            "MONTH",
+            "WEEK",
+            "ISOWEEK",
+            "DAY",
+            "DAYOFWEEK",
+            "DAYOFYEAR",
+            "HOUR",
+            "MINUTE",
+            "SECOND",
+            "MILLISECOND",
+            "MICROSECOND",
+        ]
+        | None
+    ) = None
+
+    @property
+    def args(self):
+        from bigframes.operations import googlesql
+
+        if self.part is not None:
+            return (
+                googlesql.ArgSpec(),
+                googlesql.ArgSpec(optional=True),
+            )
+        return (
+            googlesql.ArgSpec(),
+            googlesql.ArgSpec(dtype="date_part"),
+            googlesql.ArgSpec(optional=True),
+        )
+
+    def output_type(self, *input_types: dtypes.ExpressionType) -> dtypes.ExpressionType:
+        return dtypes.INT_DTYPE
+
+
+extract_op = ExtractOp()

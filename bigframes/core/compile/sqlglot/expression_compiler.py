@@ -21,8 +21,12 @@ import bigframes_vendored.sqlglot.expressions as sge
 import bigframes.core.agg_expressions as agg_exprs
 import bigframes.core.expression as ex
 import bigframes.operations as ops
-from bigframes.core.compile.sqlglot import sql
-from bigframes.core.compile.sqlglot.expressions.typed_expr import TypedExpr
+
+if typing.TYPE_CHECKING:
+    from bigframes.core.compile.sqlglot.expressions import typed_expr
+
+
+expression_compiler: ExpressionCompiler
 
 
 class ExpressionCompiler:
@@ -30,7 +34,9 @@ class ExpressionCompiler:
         # Mapping of operation name to implementations
         self._registry: dict[
             str,
-            typing.Callable[[typing.Sequence[TypedExpr], ops.RowOp], sge.Expression],
+            typing.Callable[
+                [typing.Sequence[typed_expr.TypedExpr], ops.RowOp], sge.Expression
+            ],
         ] = {}
 
     # A set of SQLGlot classes that may need to be parenthesized
@@ -74,20 +80,30 @@ class ExpressionCompiler:
     def compile_expression(
         self,
         expression: ex.Expression,
+        *,
+        dtype: typing.Any = None,
     ) -> sge.Expression:
         """Compiles BigFrames scalar expression into SQLGlot expression."""
         raise NotImplementedError(f"Unrecognized expression: {expression}")
 
     @compile_expression.register
-    def _(self, expr: ex.DerefOp) -> sge.Expression:
+    def _(self, expr: ex.DerefOp, *, dtype: typing.Any = None) -> sge.Expression:
         return sge.Column(this=sge.to_identifier(expr.id.sql, quoted=True))
 
     @compile_expression.register
-    def _(self, expr: ex.ScalarConstantExpression) -> sge.Expression:
-        return sql.literal(expr.value, expr.dtype)
+    def _(
+        self, expr: ex.ScalarConstantExpression, *, dtype: typing.Any = None
+    ) -> sge.Expression:
+        # Avoid circular import since expression_compiler is imported as part of
+        # the bigframes.core.compile.sqlglot import.
+        from bigframes.core.compile.sqlglot import sql
+
+        return sql.literal(expr.value, dtype=dtype or expr.dtype)
 
     @compile_expression.register
-    def _(self, expr: agg_exprs.WindowExpression) -> sge.Expression:
+    def _(
+        self, expr: agg_exprs.WindowExpression, *, dtype: typing.Any = None
+    ) -> sge.Expression:
         import bigframes.core.compile.sqlglot.aggregate_compiler as agg_compile
 
         return agg_compile.compile_analytic(
@@ -96,17 +112,34 @@ class ExpressionCompiler:
         )
 
     @compile_expression.register
-    def _(self, expr: ex.OpExpression) -> sge.Expression:
-        inputs = tuple(
-            TypedExpr(self.compile_expression(sub_expr), sub_expr.output_type)
-            if not isinstance(sub_expr, ex.OmittedArg)
-            else TypedExpr(sge.Null(), None, is_omitted=True)
-            for sub_expr in expr.inputs
-        )
-        return self.compile_row_op(expr.op, inputs)
+    def _(self, expr: ex.OpExpression, *, dtype: typing.Any = None) -> sge.Expression:
+        # Avoid circular imports since this module is also a part of
+        # bigframes.core.compile.sqlglot.
+        from bigframes.core.compile.sqlglot.expressions import typed_expr
+
+        arg_specs = getattr(expr.op, "args", None)
+        num_args = len(arg_specs) if arg_specs is not None else 0
+
+        inputs = []
+        for i, sub_expr in enumerate(expr.inputs):
+            if isinstance(sub_expr, ex.OmittedArg):
+                inputs.append(typed_expr.TypedExpr(sge.Null(), None, is_omitted=True))
+                continue
+
+            sub_dtype = None
+            if arg_specs is not None and num_args > 0:
+                if i < num_args:
+                    sub_dtype = getattr(arg_specs[i], "dtype", None)
+                elif arg_specs[-1].is_vararg:
+                    sub_dtype = getattr(arg_specs[-1], "dtype", None)
+
+            compiled_expr = self.compile_expression(sub_expr, dtype=sub_dtype)
+            inputs.append(typed_expr.TypedExpr(compiled_expr, sub_expr.output_type))
+
+        return self.compile_row_op(expr.op, tuple(inputs))
 
     def compile_row_op(
-        self, op: ops.RowOp, inputs: typing.Sequence[TypedExpr]
+        self, op: ops.RowOp, inputs: typing.Sequence[typed_expr.TypedExpr]
     ) -> sge.Expression:
         impl = self._registry[op.name]
         return impl(inputs, op)
@@ -129,7 +162,9 @@ class ExpressionCompiler:
         key = typing.cast(str, op_ref.name)
 
         def decorator(impl: typing.Callable[..., sge.Expression]):
-            def normalized_impl(args: typing.Sequence[TypedExpr], op: ops.RowOp):
+            def normalized_impl(
+                args: typing.Sequence[typed_expr.TypedExpr], op: ops.RowOp
+            ):
                 arg = self._add_parentheses(args[0])
                 if pass_op:
                     return impl(arg, op)
@@ -159,7 +194,9 @@ class ExpressionCompiler:
         key = typing.cast(str, op_ref.name)
 
         def decorator(impl: typing.Callable[..., sge.Expression]):
-            def normalized_impl(args: typing.Sequence[TypedExpr], op: ops.RowOp):
+            def normalized_impl(
+                args: typing.Sequence[typed_expr.TypedExpr], op: ops.RowOp
+            ):
                 left = self._add_parentheses(args[0])
                 right = self._add_parentheses(args[1])
                 if pass_op:
@@ -185,7 +222,9 @@ class ExpressionCompiler:
         key = typing.cast(str, op_ref.name)
 
         def decorator(impl: typing.Callable[..., sge.Expression]):
-            def normalized_impl(args: typing.Sequence[TypedExpr], op: ops.RowOp):
+            def normalized_impl(
+                args: typing.Sequence[typed_expr.TypedExpr], op: ops.RowOp
+            ):
                 arg0 = self._add_parentheses(args[0])
                 arg1 = self._add_parentheses(args[1])
                 arg2 = self._add_parentheses(args[2])
@@ -212,7 +251,9 @@ class ExpressionCompiler:
         key = typing.cast(str, op_ref.name)
 
         def decorator(impl: typing.Callable[..., sge.Expression]):
-            def normalized_impl(args: typing.Sequence[TypedExpr], op: ops.RowOp):
+            def normalized_impl(
+                args: typing.Sequence[typed_expr.TypedExpr], op: ops.RowOp
+            ):
                 args = [self._add_parentheses(arg) for arg in args]
                 if pass_op:
                     return impl(*args, op=op)
@@ -227,16 +268,22 @@ class ExpressionCompiler:
     def _register(
         self,
         op_name: str,
-        impl: typing.Callable[[typing.Sequence[TypedExpr], ops.RowOp], sge.Expression],
+        impl: typing.Callable[
+            [typing.Sequence[typed_expr.TypedExpr], ops.RowOp], sge.Expression
+        ],
     ):
         if op_name in self._registry:
             raise ValueError(f"Operation name {op_name} already registered")
         self._registry[op_name] = impl
 
     @classmethod
-    def _add_parentheses(cls, expr: TypedExpr) -> TypedExpr:
+    def _add_parentheses(cls, expr: typed_expr.TypedExpr) -> typed_expr.TypedExpr:
+        # Avoid circular imports since this module is also a part of
+        # bigframes.core.compile.sqlglot.
+        from bigframes.core.compile.sqlglot.expressions import typed_expr
+
         if type(expr.expr) in cls.SQLGLOT_NEEDS_PARENS:
-            return TypedExpr(sge.paren(expr.expr, copy=False), expr.dtype)
+            return typed_expr.TypedExpr(sge.paren(expr.expr, copy=False), expr.dtype)
         return expr
 
 

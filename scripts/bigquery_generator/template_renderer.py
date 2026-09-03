@@ -74,7 +74,10 @@ def _is_concrete_type(yaml_type: str) -> bool:
 
 
 def _validate_type(yaml_type: str) -> None:
-    if yaml_type in ("any1", "struct") or yaml_type in constants.DTYPE_MAP:
+    if (
+        yaml_type in ("any1", "struct", "date_part", "interval")
+        or yaml_type in constants.DTYPE_MAP
+    ):
         return
     inner = _unwrap_list_type(yaml_type)
     if inner is not None:
@@ -183,6 +186,10 @@ def _to_bigframes_op(bq_func: data_models.BQFunc) -> data_models.BigFramesOp:
             spec += f'arg_name="{bf_func_arg.name}", '
         if bf_func_arg.optional:
             spec += "optional=True, "
+        if "date_part" in bf_func_arg.types:
+            spec += 'dtype="date_part", '
+        elif "interval" in bf_func_arg.types:
+            spec += "dtype=dtypes.INTERVAL_DTYPE, "
         spec = spec.rstrip(", ") + ")"
         arg_specs.append(spec)
 

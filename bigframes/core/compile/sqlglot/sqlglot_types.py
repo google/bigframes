@@ -58,6 +58,8 @@ def from_bigframes_dtype(
         return "GEOGRAPHY"
     elif bigframes_dtype == bigframes.dtypes.TIMEDELTA_DTYPE:
         return "INT64"
+    elif bigframes_dtype == bigframes.dtypes.INTERVAL_DTYPE:
+        return "INTERVAL"
     elif isinstance(bigframes_dtype, pd.ArrowDtype):
         if pa.types.is_list(bigframes_dtype.pyarrow_dtype):
             inner_bigframes_dtype = bigframes.dtypes.arrow_dtype_to_bigframes_dtype(

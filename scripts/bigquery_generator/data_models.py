@@ -203,8 +203,10 @@ class BigFramesFuncArg:
             return "0"
         if name == "second":
             return "0"
-        if name in ("granularity", "date_part", "part"):
+        if "date_part" in types or name in ("granularity", "date_part", "part"):
             return '"DAY"'
+        if "interval" in types:
+            return "relativedelta.relativedelta(days=1)"
         if name in ("time_zone", "time_zone_expression"):
             return '"UTC"'
         if "format" in name:

@@ -118,6 +118,7 @@ DTYPE_MAP = {
     "timestamp": "dtypes.TIMESTAMP_DTYPE",
     "decimal<38,9>": "dtypes.NUMERIC_DTYPE",
     "decimal<76,38>": "dtypes.BIGNUMERIC_DTYPE",
+    "interval": "dtypes.INTERVAL_DTYPE",
 }
 
 PY_TYPE_MAP = {
@@ -139,4 +140,10 @@ PY_TYPE_MAP = {
     "decimal<38,9>": "decimal.Decimal",
     "decimal<76,38>": "decimal.Decimal",
     "interval_day": "dt.timedelta",
+    "date_part": (
+        'Literal["YEAR", "ISOYEAR", "QUARTER", "MONTH", "WEEK", "ISOWEEK", '
+        '"DAY", "DAYOFWEEK", "DAYOFYEAR", "HOUR", "MINUTE", "SECOND", '
+        '"MILLISECOND", "MICROSECOND"]'
+    ),
+    "interval": "relativedelta.relativedelta",
 }

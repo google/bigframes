@@ -2424,18 +2424,18 @@ def test_df_apply_axis_1_multiple_params(session):
                 "I got 2, 23 and beta",
                 "I got 3, 23.5 and gamma",
             ],
-            index=[0, 1, 2],
+            index=pandas.Index([0, 1, 2], dtype="Int64"),
         )
 
         pandas.testing.assert_series_equal(
-            expected_result, bf_result, check_dtype=False, check_index_type=False
+            expected_result, bf_result, check_dtype=False
         )
 
         # Let's make sure the read_gbq_function path works for this function
         foo_reuse = session.read_gbq_function(foo.bigframes_bigquery_function)
         bf_result = bf_df.apply(foo_reuse, axis=1).to_pandas()
         pandas.testing.assert_series_equal(
-            expected_result, bf_result, check_dtype=False, check_index_type=False
+            expected_result, bf_result, check_dtype=False
         )
     finally:
         # clean up the gcp assets created for the remote function
@@ -2510,18 +2510,18 @@ def test_df_apply_axis_1_multiple_params_array_output(session):
                 ["2", "23", "beta"],
                 ["3", "23.5", "gamma"],
             ],
-            index=[0, 1, 2],
+            index=pandas.Index([0, 1, 2], dtype="Int64"),
         )
 
         pandas.testing.assert_series_equal(
-            expected_result, bf_result, check_dtype=False, check_index_type=False
+            expected_result, bf_result, check_dtype=False
         )
 
         # Let's make sure the read_gbq_function path works for this function
         foo_reuse = session.read_gbq_function(foo.bigframes_bigquery_function)
         bf_result = bf_df.apply(foo_reuse, axis=1).to_pandas()
         pandas.testing.assert_series_equal(
-            expected_result, bf_result, check_dtype=False, check_index_type=False
+            expected_result, bf_result, check_dtype=False
         )
     finally:
         # clean up the gcp assets created for the remote function
@@ -2586,11 +2586,11 @@ def test_df_apply_axis_1_single_param_non_series(session):
                 "I got 2",
                 "I got 3",
             ],
-            index=[0, 1, 2],
+            index=pandas.Index([0, 1, 2], dtype="Int64"),
         )
 
         pandas.testing.assert_series_equal(
-            expected_result, bf_result, check_dtype=False, check_index_type=False
+            expected_result, bf_result, check_dtype=False
         )
     finally:
         # clean up the gcp assets created for the remote function

@@ -533,56 +533,11 @@ def docs(session):
     )
     session.run(
         "sphinx-build",
+        "-j",  # build in parallel
+        "auto",
         "-W",  # warnings as errors
         "-T",  # show full traceback on exception
         "-N",  # no colors
-        "-b",
-        "html",
-        "-d",
-        os.path.join("docs", "_build", "doctrees", ""),
-        os.path.join("docs", ""),
-        os.path.join("docs", "_build", "html", ""),
-    )
-
-
-@nox.session(python="3.10")
-def docfx(session):
-    """Build the docfx yaml files for this library."""
-
-    session.install("-e", ".[scikit-learn]")
-    session.install(
-        SPHINX_VERSION,
-        "sphinx-sitemap==2.9.0",
-        "pydata-sphinx-theme==0.13.3",
-        "myst-parser==0.18.1",
-        "myst-nb",
-        "gcp-sphinx-docfx-yaml==3.2.4",
-        "anywidget",
-    )
-
-    shutil.rmtree(os.path.join("docs", "_build"), ignore_errors=True)
-
-    session.run(
-        "python",
-        "scripts/publish_api_coverage.py",
-        "docs",
-    )
-    session.run(
-        "sphinx-build",
-        "-T",  # show full traceback on exception
-        "-N",  # no colors
-        "-D",
-        (
-            "extensions=sphinx.ext.autodoc,"
-            "sphinx.ext.autosummary,"
-            "docfx_yaml.extension,"
-            "sphinx.ext.intersphinx,"
-            "sphinx.ext.coverage,"
-            "sphinx.ext.napoleon,"
-            "sphinx.ext.todo,"
-            "sphinx.ext.viewcode,"
-            "myst_parser"
-        ),
         "-b",
         "html",
         "-d",

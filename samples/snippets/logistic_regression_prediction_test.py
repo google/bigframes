@@ -23,6 +23,11 @@ def test_logistic_regression_prediction(random_model_id: str) -> None:
     # [START bigquery_dataframes_logistic_regression_prediction_examine]
     import bigframes.pandas as bpd
 
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
+
     df = bpd.read_gbq(
         "bigquery-public-data.ml_datasets.census_adult_income",
         columns=(
@@ -50,6 +55,11 @@ def test_logistic_regression_prediction(random_model_id: str) -> None:
     # [START bigquery_dataframes_logistic_regression_prediction_prepare]
     import bigframes.pandas as bpd
 
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
+
     input_data = bpd.read_gbq(
         "bigquery-public-data.ml_datasets.census_adult_income",
         columns=(
@@ -63,81 +73,99 @@ def test_logistic_regression_prediction(random_model_id: str) -> None:
             "functional_weight",
         ),
     )
-    input_data["dataframe"] = bpd.Series("training", index=input_data.index,).case_when(
+    input_data["dataframe"] = input_data["functional_weight"].case_when(
         [
             (((input_data["functional_weight"] % 10) == 8), "evaluation"),
             (((input_data["functional_weight"] % 10) == 9), "prediction"),
+            (True, "training"),
         ]
     )
     del input_data["functional_weight"]
     # [END bigquery_dataframes_logistic_regression_prediction_prepare]
 
     # [START bigquery_dataframes_logistic_regression_prediction_create_model]
-    import bigframes.ml.linear_model
+    import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
+
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
 
     # input_data is defined in an earlier step.
-    training_data = input_data[input_data["dataframe"] == "training"]
-    X = training_data.drop(columns=["income_bracket", "dataframe"])
-    y = training_data["income_bracket"]
-
-    census_model = bigframes.ml.linear_model.LogisticRegression(
-        # Balance the class labels in the training data by setting
-        # class_weight="balanced".
-        #
-        # By default, the training data is unweighted. If the labels
-        # in the training data are imbalanced, the model may learn to
-        # predict the most popular class of labels more heavily. In
-        # this case, most of the respondents in the dataset are in the
-        # lower income bracket. This may lead to a model that predicts
-        # the lower income bracket too heavily. Class weights balance
-        # the class labels by calculating the weights for each class in
-        # inverse proportion to the frequency of that class.
-        class_weight="balanced",
-        max_iterations=15,
+    training_data = input_data[input_data["dataframe"] == "training"].drop(
+        columns=["dataframe"]
     )
-    census_model.fit(X, y)
 
-    census_model.to_gbq(
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.create_model.html#bigframes.bigquery.ml.create_model
+    ml.create_model(
         your_model_id,  # For example: "your-project.census.census_model"
+        options={
+            "model_type": "LOGISTIC_REG",
+            # Balance the class labels in the training data by setting
+            # auto_class_weights=True.
+            #
+            # By default, the training data is unweighted. If the labels
+            # in the training data are imbalanced, the model may learn to
+            # predict the most popular class of labels more heavily. In
+            # this case, most of the respondents in the dataset are in the
+            # lower income bracket. This may lead to a model that predicts
+            # the lower income bracket too heavily. Class weights balance
+            # the class labels by calculating the weights for each class in
+            # inverse proportion to the frequency of that class.
+            "auto_class_weights": True,
+            "enable_global_explain": True,
+            "data_split_method": "NO_SPLIT",
+            "input_label_cols": ["income_bracket"],
+            "max_iterations": 15,
+        },
+        training_data=training_data,
         replace=True,
     )
     # [END bigquery_dataframes_logistic_regression_prediction_create_model]
 
     # [START bigquery_dataframes_logistic_regression_prediction_evaluate_model]
-    # Select model you'll use for predictions. `read_gbq_model` loads model
-    # data from BigQuery, but you could also use the `census_model` object
-    # from previous steps.
-    census_model = bpd.read_gbq_model(
-        your_model_id,  # For example: "your-project.census.census_model"
-    )
+    import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
+
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
 
     # input_data is defined in an earlier step.
     evaluation_data = input_data[input_data["dataframe"] == "evaluation"]
-    X = evaluation_data.drop(columns=["income_bracket", "dataframe"])
-    y = evaluation_data["income_bracket"]
 
-    # The score() method evaluates how the model performs compared to the
-    # actual data. Output DataFrame matches that of ML.EVALUATE().
-    score = census_model.score(X, y)
-    score.peek()
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.evaluate.html#bigframes.bigquery.ml.evaluate
+    ml.evaluate(
+        your_model_id,  # For example: "your-project.census.census_model"
+        input_=evaluation_data,
+    )
     # Output:
     #    precision    recall  accuracy  f1_score  log_loss   roc_auc
     # 0   0.685764  0.536685   0.83819  0.602134  0.350417  0.882953
     # [END bigquery_dataframes_logistic_regression_prediction_evaluate_model]
 
     # [START bigquery_dataframes_logistic_regression_prediction_predict_income_bracket]
-    # Select model you'll use for predictions. `read_gbq_model` loads model
-    # data from BigQuery, but you could also use the `census_model` object
-    # from previous steps.
-    census_model = bpd.read_gbq_model(
-        your_model_id,  # For example: "your-project.census.census_model"
-    )
+    import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
+
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
 
     # input_data is defined in an earlier step.
     prediction_data = input_data[input_data["dataframe"] == "prediction"]
 
-    predictions = census_model.predict(prediction_data)
-    predictions.peek()
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.predict.html#bigframes.bigquery.ml.predict
+    ml.predict(
+        your_model_id,  # For example: "your-project.census.census_model"
+        input_=prediction_data,
+    )
     # Output:
     #           predicted_income_bracket                     predicted_income_bracket_probs  age workclass  ... occupation  hours_per_week income_bracket   dataframe
     # 18004                    <=50K  [{'label': ' >50K', 'prob': 0.0763305999358786...   75         ?  ...          ?               6          <=50K  prediction

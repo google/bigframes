@@ -17,14 +17,16 @@ def test_bqml_getting_started(random_model_id: str) -> None:
     your_model_id = random_model_id  # for example: bqml_tutorial.sample_model
 
     # [START bigquery_dataframes_bqml_getting_started_tutorial]
-    from bigframes.ml.linear_model import LogisticRegression
     import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
 
-    # Start by selecting the data you'll use for training. `read_gbq` accepts
-    # either a SQL query or a table ID. Since this example selects from multiple
-    # tables via a wildcard, use SQL to define this data. Watch issue
-    # https://github.com/googleapis/python-bigquery-dataframes/issues/169
-    # for updates to `read_gbq` to support wildcard tables.
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
+
+    # Start by selecting the data you'll use for training.
+    # The filters parameter limits the number of tables scanned by the query.
 
     df = bpd.read_gbq_table(
         "bigquery-public-data.google_analytics_sample.ga_sessions_*",
@@ -63,10 +65,11 @@ def test_bqml_getting_started(random_model_id: str) -> None:
     # Extract the total number of page views within the session.
     pageviews = df["totals"].struct.field("pageviews").fillna(0)
 
-    # Combine all the feature columns into a single DataFrame
+    # Combine all the feature columns and the label column into a single DataFrame
     # to use as training data.
-    features = bpd.DataFrame(
+    training_data = bpd.DataFrame(
         {
+            "label": label,
             "os": operating_system,
             "is_mobile": is_mobile,
             "country": country,
@@ -74,27 +77,32 @@ def test_bqml_getting_started(random_model_id: str) -> None:
         }
     )
 
-    # Logistic Regression model splits data into two classes, giving the
-    # a confidence score that the data is in one of the classes.
-    model = LogisticRegression()
-    model.fit(features, label)
-
-    # The model.fit() call above created a temporary model.
-    # Use the to_gbq() method to write to a permanent location.
-    model.to_gbq(
+    # A Logistic Regression model splits data into two classes, giving a
+    # confidence score that the data is in one of the classes.
+    #
+    # Use ml.create_model to create and train the model in BigQuery.
+    # The options parameter specifies the model type and the label column.
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.create_model.html#bigframes.bigquery.ml.create_model
+    ml.create_model(
         your_model_id,  # For example: "bqml_tutorial.sample_model",
+        options={
+            "model_type": "LOGISTIC_REG",
+            "input_label_cols": ["label"],
+        },
+        training_data=training_data,
         replace=True,
     )
     # [END bigquery_dataframes_bqml_getting_started_tutorial]
 
     # [START bigquery_dataframes_bqml_getting_started_tutorial_evaluate]
     import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
 
-    # Select model you'll use for evaluating. `read_gbq_model` loads model data from a
-    # BigQuery, but you could also use the `model` object from the previous steps.
-    model = bpd.read_gbq_model(
-        your_model_id,  # For example: "bqml_tutorial.sample_model",
-    )
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
 
     # The filters parameter limits the number of tables scanned by the query.
     # The date range scanned is July 1, 2017 to August 1, 2017. This is the
@@ -116,8 +124,9 @@ def test_bqml_getting_started(random_model_id: str) -> None:
     is_mobile = df["device"].struct.field("isMobile")
     country = df["geoNetwork"].struct.field("country").fillna("")
     pageviews = df["totals"].struct.field("pageviews").fillna(0)
-    features = bpd.DataFrame(
+    eval_data = bpd.DataFrame(
         {
+            "label": label,
             "os": operating_system,
             "is_mobile": is_mobile,
             "country": country,
@@ -125,8 +134,10 @@ def test_bqml_getting_started(random_model_id: str) -> None:
         }
     )
 
-    # Some models include a convenient .score(X, y) method for evaluation with a preset accuracy metric:
-
+    # Use the ml.evaluate method to evaluate the model with test data.
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.evaluate.html#bigframes.bigquery.ml.evaluate
+    #
     # Because you performed a logistic regression, the results include the following columns:
 
     # - precision — A metric for classification models. Precision identifies the frequency with
@@ -145,26 +156,27 @@ def test_bqml_getting_started(random_model_id: str) -> None:
 
     # - roc_auc — The area under the ROC curve. This is the probability that a classifier is more confident that
     # a randomly chosen positive example
-    # is actually positive than that a randomly chosen negative example is positive. For more information,
-    # see ['Classification']('https://developers.google.com/machine-learning/crash-course/classification/video-lecture')
-    # in the Machine Learning Crash Course.
+    # is actually positive than that a randomly chosen negative example is positive.
+    # For more information, see Classification in the Machine Learning Crash Course:
+    # https://developers.google.com/machine-learning/crash-course/classification/video-lecture
 
-    model.score(features, label)
+    ml.evaluate(
+        your_model_id,  # For example: "bqml_tutorial.sample_model",
+        input_=eval_data,
+    )
     #    precision    recall  accuracy  f1_score  log_loss   roc_auc
-    # 0   0.412621  0.079143  0.985074  0.132812  0.049764  0.974285
+    # 0   0.451613  0.078212  0.985316  0.133333  0.046824  0.980537
     # [1 rows x 6 columns]
     # [END bigquery_dataframes_bqml_getting_started_tutorial_evaluate]
 
     # [START bigquery_dataframes_bqml_getting_started_tutorial_predict_by_country]
     import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
 
-    # Select model you'll use for predicting.
-    # `read_gbq_model` loads model data from
-    # BigQuery, but you could also use the `model`
-    # object from the previous steps.
-    model = bpd.read_gbq_model(
-        your_model_id,  # For example: "bqml_tutorial.sample_model",
-    )
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
 
     # The filters parameter limits the number of tables scanned by the query.
     # The date range scanned is July 1, 2017 to August 1, 2017. This is the
@@ -192,15 +204,18 @@ def test_bqml_getting_started(random_model_id: str) -> None:
             "pageviews": pageviews,
         }
     )
-    # Use Logistic Regression predict method to predict results
-    # using your model.
-    # Find more information here in
-    # [BigFrames](https://cloud.google.com/python/docs/reference/bigframes/latest/bigframes.ml.linear_model.LogisticRegression#bigframes_ml_linear_model_LogisticRegression_predict)
 
-    predictions = model.predict(features)
+    # Use the ml.predict method to predict results using your model.
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.predict.html#bigframes.bigquery.ml.predict
+
+    predictions = ml.predict(
+        your_model_id,  # For example: "bqml_tutorial.sample_model",
+        input_=features,
+    )
 
     # Call groupby method to group predicted_label by country.
-    # Call sum method to get the total_predicted_label by country.
+    # Call sum method to get the total_predicted_purchases by country.
     total_predicted_purchases = predictions.groupby(["country"])[
         ["predicted_label"]
     ].sum()
@@ -211,9 +226,9 @@ def test_bqml_getting_started(random_model_id: str) -> None:
     total_predicted_purchases.sort_values(ascending=False).head(10)
 
     # country
-    # United States    220
-    # Taiwan             8
-    # Canada             7
+    # United States    162
+    # Taiwan             5
+    # Canada             3
     # India              2
     # Japan              2
     # Turkey             2
@@ -228,14 +243,12 @@ def test_bqml_getting_started(random_model_id: str) -> None:
     # [START bigquery_dataframes_bqml_getting_started_tutorial_predict_by_visitor]
 
     import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
 
-    # Select model you'll use for predicting.
-    # `read_gbq_model` loads model data from
-    # BigQuery, but you could also use the `model`
-    # object from the previous steps.
-    model = bpd.read_gbq_model(
-        your_model_id,  # For example: "bqml_tutorial.sample_model",
-    )
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
 
     # The filters parameter limits the number of tables scanned by the query.
     # The date range scanned is July 1, 2017 to August 1, 2017. This is the
@@ -267,10 +280,17 @@ def test_bqml_getting_started(random_model_id: str) -> None:
         }
     )
 
-    predictions = model.predict(features)
+    # Use the ml.predict method to predict results using your model.
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.predict.html#bigframes.bigquery.ml.predict
+
+    predictions = ml.predict(
+        your_model_id,  # For example: "bqml_tutorial.sample_model",
+        input_=features,
+    )
 
     # Call groupby method to group predicted_label by visitor.
-    # Call sum method to get the total_predicted_label by visitor.
+    # Call sum method to get the total_predicted_purchases by visitor.
     total_predicted_purchases = predictions.groupby(["fullVisitorId"])[
         ["predicted_label"]
     ].sum()
@@ -281,16 +301,16 @@ def test_bqml_getting_started(random_model_id: str) -> None:
     total_predicted_purchases.sort_values(ascending=False).head(10)
 
     # fullVisitorId
-    # 9417857471295131045    4
+    # 9417857471295131045    3
     # 0376394056092189113    2
-    # 0456807427403774085    2
     # 057693500927581077     2
     # 112288330928895942     2
     # 1280993661204347450    2
-    # 2105122376016897629    2
-    # 2158257269735455737    2
     # 2969418676126258798    2
-    # 489038402765684003     2
+    # 7420300501523012460    2
+    # 806992249032686650     2
+    # 8388931032955052746    2
+    # 0082806901961150595    1
     # Name: predicted_label, dtype: Int64
 
 

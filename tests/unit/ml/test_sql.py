@@ -182,6 +182,25 @@ def test_ai_forecast_correct(
     )
 
 
+def test_ai_predict(
+    base_sql_generator: ml_sql.BaseSqlGenerator,
+    mock_df: bpd.DataFrame,
+):
+    sql = base_sql_generator.ai_predict(
+        training_sql=mock_df.sql,
+        prediction_sql=mock_df.sql,
+        options={
+            "label_col": "label1",
+        },
+    )
+
+    assert (
+        sql
+        == """SELECT * FROM AI.PREDICT((input_X_y_sql),(input_X_y_sql),
+  label_col => 'label1')"""
+    )
+
+
 def test_create_model_correct(
     model_creation_sql_generator: ml_sql.ModelCreationSqlGenerator,
     mock_df: bpd.DataFrame,

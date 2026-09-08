@@ -16,6 +16,8 @@
 Generates SQL queries needed for BigQuery DataFrames ML
 """
 
+from __future__ import annotations
+
 from typing import Iterable, Literal, Mapping, Optional, Union
 
 import bigframes_vendored.constants as constants
@@ -203,7 +205,7 @@ class BaseSqlGenerator:
     def ai_forecast(
         self,
         source_sql: str,
-        options: Mapping[str, Union[int, float, bool, Iterable[str]]],
+        options: Mapping[str, int | float | bool | Iterable[str]],
     ):
         """Encode AI.FORECAST.
         https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-ai-forecast
@@ -211,6 +213,19 @@ class BaseSqlGenerator:
         named_parameters_sql = self.build_named_parameters(**options)
 
         return f"""SELECT * FROM AI.FORECAST(({source_sql}),{named_parameters_sql})"""
+
+    def ai_predict(
+        self,
+        training_sql: str,
+        prediction_sql: str,
+        options: Mapping[str, int | float | bool | Iterable[str]],
+    ):
+        """Encode AI.PREDICT.
+        https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-ai-predict
+        """
+        named_parameters_sql = self.build_named_parameters(**options)
+
+        return f"""SELECT * FROM AI.PREDICT(({training_sql}),({prediction_sql}),{named_parameters_sql})"""
 
 
 class ModelCreationSqlGenerator(BaseSqlGenerator):

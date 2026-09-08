@@ -1152,7 +1152,7 @@ def forecast(
         if column not in df.columns:
             raise ValueError(f"Column `{column}` not found")
 
-    options: dict[str, Union[int, float, str, Iterable[str]]] = {
+    options: dict[str, int | float | str | Iterable[str]] = {
         "data_col": data_col,
         "timestamp_col": timestamp_col,
         "model": model,
@@ -1166,6 +1166,71 @@ def forecast(
         options["context_window"] = context_window
 
     return ml_core.BaseBqml(df._session).ai_forecast(input_data=df, options=options)
+
+
+@log_adapter.method_logger(custom_base_name="bigquery_ai")
+def predict(
+    training_df: dataframe.DataFrame | pd.DataFrame,
+    prediction_df: dataframe.DataFrame | pd.DataFrame,
+    *,
+    label_col: str = "label",
+) -> dataframe.DataFrame:
+    """
+    Uses TabFm, a pre-trained foundation model for tabular data, to perform regression
+    and classification tasks on structured data.
+
+    **Examples:**
+        >>> df = bpd.read_gbq("bigquery-public-data.ml_datasets.penguins")
+        >>> df = df[df['body_mass_g'] > 0]
+
+        >>> size = len(df)
+        >>> training_size = int(size * 0.8)
+        >>> training_df = df.head(training_size)
+        >>> prediction_df = df.tail(size - training_size).dropna(subset=['body_mass_g'])
+
+        >>> result = bbq.ai.predict(training_df,prediction_df,label_col='body_mass_g')
+        >>> type(result) # doctest: +ELLIPSIS
+        <class 'pandas...DataFrame'>
+
+    Args:
+        training_df (DataFrame):
+            The dataframe that contains the training data. It could be either a
+            BigFrames Dataframe or a pandas DataFrame. If it's a pandas
+            DataFrame, the global BigQuery session will be used to load the
+            data. The table or query result must contain a column named label or
+            the column that you specify in the 'label_col' argument. Every other
+            column is considered a feature column. The feature and label columns
+            must be one of the following types: string, bool, int, float, or
+            decimal
+        prediction_df (DataFrame):
+            The table or query that contains the data to run prediction on. It
+            could be either a BigFrames Dataframe or a pandas DataFrame. If it's
+            a pandas DataFrame, the global BigQuery session will be used to load
+            the data. The table or query result must contain all of the feature
+            columns in the training data and can optionally contain additional
+            columns.
+        label_col (str, default 'label'):
+            A string value that specifies the name of the label column in the
+            training data.
+    """
+    # Find a unifying session for the subsequent operations.
+    session = None
+    for df in [training_df, prediction_df]:
+        if isinstance(df, dataframe.DataFrame):
+            session = df._session
+            break
+
+    if session is None:
+        session = bpd.get_global_session()
+
+    if isinstance(training_df, pd.DataFrame):
+        training_df = session.read_pandas(training_df)
+    if isinstance(prediction_df, pd.DataFrame):
+        prediction_df = session.read_pandas(prediction_df)
+
+    return ml_core.BaseBqml(session).ai_predict(
+        training_df, prediction_df, options={"label_col": label_col}
+    )
 
 
 def _separate_context_and_series(

@@ -68,6 +68,7 @@ from bigframes.bigquery._operations.ai import (
     generate_table,
     generate_text,
     if_,
+    predict,
     score,
     similarity,
 )
@@ -84,6 +85,7 @@ __all__ = [
     "generate_table",
     "generate_text",
     "if_",
+    "predict",
     "score",
     "similarity",
 ]

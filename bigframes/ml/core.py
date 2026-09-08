@@ -41,16 +41,33 @@ class BaseBqml:
     def ai_forecast(
         self,
         input_data: bpd.DataFrame,
-        options: Mapping[str, Union[str, int, float, Iterable[str]]],
+        options: Mapping[str, str | int | float | Iterable[str]],
     ) -> bpd.DataFrame:
-        result_sql = self._sql_generator.ai_forecast(
+        query = self._sql_generator.ai_forecast(
             source_sql=input_data.sql, options=options
         )
 
         # TODO(b/395912450): Once the limitations with local data are
         # resolved, consider setting allow_large_results only when expected
         # data size is large.
-        return self._session.read_gbq_query(result_sql, allow_large_results=True)
+        return self._session.read_gbq_query(query, allow_large_results=True)
+
+    def ai_predict(
+        self,
+        training_data: bpd.DataFrame,
+        prediction_data: bpd.DataFrame,
+        options: Mapping[str, str | int | float | Iterable[str]],
+    ) -> bpd.DataFrame:
+        query = self._sql_generator.ai_predict(
+            training_sql=training_data.sql,
+            prediction_sql=prediction_data.sql,
+            options=options,
+        )
+
+        # TODO(b/395912450): Once the limitations with local data are
+        # resolved, consider setting allow_large_results only when expected
+        # data size is large.
+        return self._session.read_gbq_query(query, allow_large_results=True)
 
 
 class BqmlModel(BaseBqml):

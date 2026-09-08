@@ -93,6 +93,65 @@ def test_bigframes_ai_forecast(scalar_types_df: bpd.DataFrame, monkeypatch):
     assert actual_result is forecast_result
 
 
+def test_ai_predict(monkeypatch):
+    session = mock.create_autospec(bigframes.session.Session)
+    bf_df = mock.create_autospec(bpd.DataFrame)
+    session.read_pandas.return_value = bf_df
+
+    mock_predict = mock.MagicMock()
+    predict_result_df = mock.create_autospec(bpd.DataFrame)
+    mock_predict.return_value = predict_result_df
+    expected_result = mock.create_autospec(pd.DataFrame)
+    predict_result_df.to_pandas.return_value = expected_result
+
+    monkeypatch.setattr(bigframes.bigquery.ai, "predict", mock_predict)
+
+    df = pd.DataFrame({"feat": [1.0], "label": [2.0]})
+    prediction_df = pd.DataFrame({"feat": [3.0]})
+
+    actual_result = df.bigquery.ai.predict(
+        prediction_df,
+        label_col="label",
+        session=session,
+    )
+
+    session.read_pandas.assert_called_once()
+    mock_predict.assert_called_once_with(
+        bf_df,
+        prediction_df,
+        label_col="label",
+    )
+    predict_result_df.to_pandas.assert_called_once()
+    assert actual_result is expected_result
+
+
+def test_bigframes_ai_predict(scalar_types_df: bpd.DataFrame, monkeypatch):
+    session = mock.create_autospec(bigframes.session.Session)
+    predict_result = mock.create_autospec(bpd.DataFrame)
+    mock_predict = mock.MagicMock()
+    mock_predict.return_value = predict_result
+
+    monkeypatch.setattr(bigframes.bigquery.ai, "predict", mock_predict)
+
+    prediction_df = mock.create_autospec(bpd.DataFrame)
+
+    actual_result = scalar_types_df.bigquery.ai.predict(
+        prediction_df,
+        label_col="label",
+        session=session,
+    )
+
+    session.read_pandas.assert_not_called()
+    mock_predict.assert_called_once_with(
+        scalar_types_df,
+        prediction_df,
+        label_col="label",
+    )
+    # BigFrames accessor returns the bf_df directly without calling to_pandas
+    predict_result.to_pandas.assert_not_called()
+    assert actual_result is predict_result
+
+
 def test_ai_generate(monkeypatch):
     mock_generate = mock.MagicMock()
     result_series = mock.create_autospec(bpd.Series)

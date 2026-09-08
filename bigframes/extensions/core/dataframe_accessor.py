@@ -108,6 +108,31 @@ class AIAccessor(AbstractBigQueryDataFrameAccessor[T, S]):
         )
         return self._to_dataframe(result)
 
+    def predict(
+        self,
+        prediction_df: bigframes.dataframe.DataFrame | pd.DataFrame,
+        *,
+        label_col: str = "label",
+        session: bigframes.session.Session | None = None,
+    ) -> T:
+        """
+        Uses TabFm, a pre-trained foundation model for tabular data, to perform
+        regression and classification tasks on structured data.
+
+        This is an accessor for :func:`bigframes.bigquery.ai.predict`. See that
+        function's documentation for detailed parameter descriptions and examples.
+        """
+        import bigframes.bigquery.ai
+
+        training_df = self._bf_from_dataframe(session)
+
+        result = bigframes.bigquery.ai.predict(
+            training_df,
+            prediction_df,
+            label_col=label_col,
+        )
+        return self._to_dataframe(result)
+
     def generate(
         self,
         prompt: PROMPT_TYPE,

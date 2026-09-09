@@ -32,6 +32,11 @@ def test_kmeans_sample(project_id: str, random_model_id_eu: str) -> None:
     # Compute in the EU multi-region to query the London bicycles dataset.
     bigframes.options.bigquery.location = "EU"
 
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
+
     # Extract the information you'll need to train the k-means model in this
     # tutorial. Use the read_gbq function to represent cycle hires
     # data as a DataFrame.
@@ -65,21 +70,17 @@ def test_kmeans_sample(project_id: str, random_model_id_eu: str) -> None:
     sample_time = datetime.datetime(2015, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
     sample_time2 = datetime.datetime(2016, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
 
-    h = h.loc[(h["start_date"] >= sample_time) & (h["start_date"] <= sample_time2)]
+    h = h[(h["start_date"] >= sample_time) & (h["start_date"] <= sample_time2)]
 
     # Replace each day-of-the-week number with the corresponding "weekday" or
-    # "weekend" label by using the Series.map method.
+    # "weekend" label by using the Series.case_when method.
+    dayofweek = h["start_date"].dt.dayofweek
     h = h.assign(
-        isweekday=h.start_date.dt.dayofweek.map(
-            {
-                0: "weekday",
-                1: "weekday",
-                2: "weekday",
-                3: "weekday",
-                4: "weekday",
-                5: "weekend",
-                6: "weekend",
-            }
+        isweekday=dayofweek.case_when(
+            [
+                (dayofweek.isin([5, 6]), "weekend"),
+                (True, "weekday"),
+            ]
         )
     )
 
@@ -117,46 +118,50 @@ def test_kmeans_sample(project_id: str, random_model_id_eu: str) -> None:
     # [END bigquery_dataframes_bqml_kmeans]
 
     # [START bigquery_dataframes_bqml_kmeans_fit]
+    from bigframes.bigquery import ml
 
-    from bigframes.ml.cluster import KMeans
+    # A k-means model groups data into clusters, which is useful for
+    # descriptive analytics.
+    #
+    # Extract only the numerical feature columns for model training.
+    # 'station_name' and 'isweekday' are excluded so clustering is based on
+    # bicycle usage patterns rather than station identity or day of week.
+    features = stationstats[["duration", "num_trips", "distance_from_city_center"]]
 
-    # To determine an optimal number of clusters, construct and fit several
-    # K-Means objects with different values of num_clusters, find the error
-    # measure, and pick the point at which the error measure is at its minimum
-    # value.
-    cluster_model = KMeans(n_clusters=4)
-    cluster_model.fit(stationstats)
-    cluster_model.to_gbq(
-        your_model_id,  # For example: "bqml_tutorial.london_station_clusters"
+    # Use ml.create_model to create and train the model in BigQuery.
+    # The options parameter specifies the model type and the number of clusters.
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.create_model.html#bigframes.bigquery.ml.create_model
+    ml.create_model(
+        your_model_id,  # For example: "bqml_tutorial.london_station_clusters",
+        options={
+            "model_type": "KMEANS",
+            "num_clusters": 4,
+        },
+        training_data=features,
         replace=True,
     )
     # [END bigquery_dataframes_bqml_kmeans_fit]
 
     # [START bigquery_dataframes_bqml_kmeans_predict]
-
-    # Select model you'll use for predictions. `read_gbq_model` loads model
-    # data from BigQuery, but you could also use the `cluster_model` object
-    # from previous steps.
-    cluster_model = bpd.read_gbq_model(
-        your_model_id,
-        # For example: "bqml_tutorial.london_station_clusters",
-    )
+    from bigframes.bigquery import ml
 
     # Use 'contains' function to filter by stations containing the string
     # "Kennington".
-    stationstats = stationstats.loc[
-        stationstats["station_name"].str.contains("Kennington")
-    ]
+    stationstats = stationstats[stationstats["station_name"].str.contains("Kennington")]
 
-    result = cluster_model.predict(stationstats)
+    # Use the ml.predict method to predict results using your model.
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.predict.html#bigframes.bigquery.ml.predict
+    ml.predict(
+        your_model_id,  # For example: "bqml_tutorial.london_station_clusters",
+        input_=stationstats,
+    )
 
-    # Expected output results:   >>>results.peek(3)
+    # Expected output results:
     # CENTROID...	NEAREST...	station_name  isweekday	 duration num_trips dist...
     # 	1	[{'CENTROID_ID'...	Borough...	  weekday	  1110	    5749	0.13
     # 	2	[{'CENTROID_ID'...	Borough...	  weekend	  2125      1774	0.13
     # 	1	[{'CENTROID_ID'...	Webber...	  weekday	  795	    6517	0.16
     #   3 rows × 7 columns
-
     # [END bigquery_dataframes_bqml_kmeans_predict]
-
-    assert result is not None

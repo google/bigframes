@@ -62,10 +62,11 @@ def test_read_pandas_large_df(session, large_pd_df, write_engine: str):
     assert len(large_pd_df) == 1000000
 
 
-def test_close(session: bigframes.Session):
+def test_close():
     # we will create two tables and confirm that they are deleted
     # when the session is closed
 
+    session = bigframes.Session(context=bigframes.BigQueryOptions(location="US"))
     bqclient = session.bqclient
 
     expiration = (

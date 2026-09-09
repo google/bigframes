@@ -106,6 +106,7 @@ def test_streaming_df_to_pubsub(
             # wait 200 seconds in order to ensure the query doesn't stop
             # (i.e. it is continuous)
             future.result(timeout=200)
+            query_job.reload()
         except futures.TimeoutError:
             future.cancel()
         assert query_job.error_result is None, (

@@ -325,7 +325,16 @@ class StreamingDataFrame(StreamingBase):
         )
 
         appends_clause = f"APPENDS(TABLE `{original_table}`, {start_ts_str})"
-        sql_str = sql_str.replace(f"`{original_table}`", appends_clause)
+        # SQLGlot compiler wraps a pair of backticks around each part of the
+        # table name, while the Ibis compiler does that for the whole table
+        # name. So we need to check for both cases and replace the correct one.
+        individually_quoted = ".".join(
+            f"`{part}`" for part in original_table.split(".")
+        )
+        if individually_quoted in sql_str:
+            sql_str = sql_str.replace(individually_quoted, appends_clause)
+        else:
+            sql_str = sql_str.replace(f"`{original_table}`", appends_clause)
         return sql_str
 
     @property

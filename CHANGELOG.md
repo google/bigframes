@@ -4,6 +4,49 @@
 
 [1]: https://pypi.org/project/bigframes/#history
 
+## [2.49.0](https://github.com/googleapis/google-cloud-python/compare/bigframes-v2.48.0...bigframes-v2.49.0) (2026-09-09)
+
+
+### Features
+
+* support iceberg geo types
+* support inplace parameter on `DataFrame.fillna()` and `Series.fillna()`
+
+
+### Bug Fixes
+
+* configure continuous query connection properties and assert job error status
+* enable compiler fallback for dry runs
+* fix quotation error for SQLGlot compiler for `StreamingDataFrame`
+* handle time and date literals in SQLGlot compiler properly
+* omit `INTO` keyword in `LOAD DATA OVERWRITE` DDL
+* parenthesize `OR` expressions for `AND` chaining in SQLGlot
+* quote literal values for strings in SQLGlot
+* remove broken `bigframes.bigquery.extract` and `bigframes.bigquery.generate_date_array` functions
+* session lifecycle and Python 3.14 syntax
+* support bool coercion for non-numerical values in SQLGlot compiler
+
+
+### Documentation
+
+* add `client_json_credentials` sample
+* add `create_table` tri-library sample
+* add `extract_table` combined sample
+* add `extract_table_json` combined sample
+* add `load_table_gcs_csv` combined sample
+* add `pandas_to_gbq_simple` combined sample
+* add `read_gbq_simple` combined sample
+* restore `samples/snippets` directory
+* update BigQuery DataFrames boosted tree model snippet to use `bigframes.bigquery.ml` API
+* update BigQuery DataFrames k-means snippet to use the `bigframes.bigquery.ml` module and partial ordering
+* update BigQuery DataFrames ML (linear regression) tutorial to use the `bigframes.bigquery.ml` API
+* update BQML getting started tutorial to use `bigframes.bigquery.ml` APIs
+* update `load_table_dataframe` to combined sample
+* update logistic regression prediction snippets to use `bigframes.bigquery.ml` API and partial ordering
+* update multimodal sample models
+* update `query_results_dataframe` to combined sample
+
+
 ## [2.48.0](https://github.com/googleapis/google-cloud-python/compare/bigframes-v2.47.0...bigframes-v2.48.0) (2026-08-12)
 
 

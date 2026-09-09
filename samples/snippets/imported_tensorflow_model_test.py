@@ -19,26 +19,54 @@ def test_imported_tensorflow_model() -> None:
     import os
 
     PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "bigframes-dev")
+    your_model_id = "your_model_id"
 
     # [START bigquery_dataframes_imported_tensorflow_tutorial_import_tensorflow_models]
     import bigframes
-    from bigframes.ml.imported import TensorFlowModel
+    import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
 
     bigframes.options.bigquery.project = PROJECT_ID
     # You can change the location to one of the valid locations: https://cloud.google.com/bigquery/docs/locations#supported_locations
     bigframes.options.bigquery.location = "US"
 
-    imported_tensorflow_model = TensorFlowModel(
-        model_path="gs://cloud-training-demos/txtclass/export/exporter/1549825580/*"
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
+
+    # Use ml.create_model to create and import the model in BigQuery.
+    # The options parameter specifies the model type and the Cloud Storage path.
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.create_model.html#bigframes.bigquery.ml.create_model
+    ml.create_model(
+        your_model_id,  # For example: "bqml_tutorial.imported_tf_model"
+        options={
+            "model_type": "TENSORFLOW",
+            "model_path": "gs://cloud-training-demos/txtclass/export/exporter/1549825580/*",
+        },
+        replace=True,
     )
     # [END bigquery_dataframes_imported_tensorflow_tutorial_import_tensorflow_models]
-    assert imported_tensorflow_model is not None
 
     # [START bigquery_dataframes_imported_tensorflow_tutorial_make_predictions]
     import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
+
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
 
     df = bpd.read_gbq("bigquery-public-data.hacker_news.full")
     df_pred = df.rename(columns={"title": "input"})
-    predictions = imported_tensorflow_model.predict(df_pred)
-    predictions.head(5)
+
+    # Use the ml.predict method to predict results using your model.
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.predict.html#bigframes.bigquery.ml.predict
+    predictions = ml.predict(
+        your_model_id,  # For example: "bqml_tutorial.imported_tf_model"
+        input_=df_pred,
+    )
+    predictions.peek(5)
     # [END bigquery_dataframes_imported_tensorflow_tutorial_make_predictions]

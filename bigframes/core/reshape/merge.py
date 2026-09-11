@@ -45,9 +45,33 @@ def merge(
     right_index: bool = False,
     sort: bool = False,
     suffixes: tuple[str, str] = ("_x", "_y"),
+    indicator: bool | str = False,
 ) -> dataframe.DataFrame:
     left = _validate_operand(left)
     right = _validate_operand(right)
+
+    indicator_col: str | None
+    if isinstance(indicator, str):
+        indicator_col = indicator
+    elif isinstance(indicator, bool):
+        indicator_col = "_merge" if indicator else None
+    else:
+        raise ValueError("indicator option can only accept boolean or string arguments")
+
+    if indicator_col is not None:
+        columns = left.columns.union(right.columns)
+        for i in ["_left_indicator", "_right_indicator"]:
+            if i in columns:
+                raise ValueError(
+                    f"Cannot use `indicator=True` option when data contains a column named {i}"
+                )
+        if indicator_col in columns:
+            raise ValueError(
+                "Cannot use name of an existing column for indicator column"
+            )
+
+        left = left.assign(_left_indicator=1)
+        right = right.assign(_right_indicator=2)
 
     if how == "cross":
         if on is not None:
@@ -60,29 +84,44 @@ def merge(
             how=how,
             sort=True,
         )
-        return dataframe.DataFrame(result_block)
+        result = dataframe.DataFrame(result_block)
+    else:
+        left_join_ids, right_join_ids = _validate_left_right_on(
+            left,
+            right,
+            on,
+            left_on=left_on,
+            right_on=right_on,
+            left_index=left_index,
+            right_index=right_index,
+        )
 
-    left_join_ids, right_join_ids = _validate_left_right_on(
-        left,
-        right,
-        on,
-        left_on=left_on,
-        right_on=right_on,
-        left_index=left_index,
-        right_index=right_index,
-    )
+        block = left._block.merge(
+            right._block,
+            how,
+            left_join_ids,
+            right_join_ids,
+            sort=sort,
+            suffixes=suffixes,
+            left_index=left_index,
+            right_index=right_index,
+        )
+        result = dataframe.DataFrame(block)
 
-    block = left._block.merge(
-        right._block,
-        how,
-        left_join_ids,
-        right_join_ids,
-        sort=sort,
-        suffixes=suffixes,
-        left_index=left_index,
-        right_index=right_index,
-    )
-    return dataframe.DataFrame(block)
+    if indicator_col is not None:
+        has_left = result["_left_indicator"].notna()
+        has_right = result["_right_indicator"].notna()
+        indicator_series = result["_left_indicator"].case_when(
+            [
+                (has_left & has_right, "both"),
+                (has_left, "left_only"),
+                (True, "right_only"),
+            ]
+        )
+        result[indicator_col] = indicator_series
+        result = result.drop(columns=["_left_indicator", "_right_indicator"])
+
+    return result
 
 
 merge.__doc__ = vendored_pandas_merge.merge.__doc__

@@ -3721,6 +3721,7 @@ class DataFrame:
         right_index: bool = False,
         sort: bool = False,
         suffixes: tuple[str, str] = ("_x", "_y"),
+        indicator: Union[bool, str] = False,
     ) -> DataFrame:
         from bigframes.core.reshape import merge
 
@@ -3735,6 +3736,7 @@ class DataFrame:
             right_index=right_index,
             sort=sort,
             suffixes=suffixes,
+            indicator=indicator,
         )
 
     def join(

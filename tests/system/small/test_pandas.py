@@ -430,6 +430,43 @@ def test_merge_left_on_right_on(scalars_dfs, merge_how):
     assert_frame_equal(bf_result, pd_result, ignore_order=True)
 
 
+@pytest.mark.parametrize(
+    ("merge_how",),
+    [
+        ("inner",),
+        ("outer",),
+        ("left",),
+        ("right",),
+    ],
+)
+def test_merge_indicator(scalars_dfs, merge_how):
+    scalars_df, scalars_pandas_df = scalars_dfs
+    on = "rowindex_2"
+    left_columns = ["int64_col", "float64_col", "rowindex_2"]
+    right_columns = ["int64_col", "bool_col", "string_col", "rowindex_2"]
+
+    left = scalars_df[left_columns]
+    # Offset the rows somewhat so that outer join can have an effect.
+    right = scalars_df[right_columns].assign(rowindex_2=scalars_df["rowindex_2"] + 2)
+
+    df = bpd.merge(left, right, merge_how, on, sort=True, indicator=True)
+    bf_result = df.to_pandas()
+
+    pd_result = pd.merge(
+        scalars_pandas_df[left_columns],
+        scalars_pandas_df[right_columns].assign(
+            rowindex_2=scalars_pandas_df["rowindex_2"] + 2
+        ),
+        merge_how,
+        on,
+        sort=True,
+        indicator=True,
+    )
+    pd_result["_merge"] = pd_result["_merge"].astype("string[pyarrow]")
+
+    assert_frame_equal(bf_result, pd_result, ignore_order=True)
+
+
 def test_merge_cross(scalars_dfs):
     scalars_df, scalars_pandas_df = scalars_dfs
     left_columns = ["int64_col", "float64_col", "int64_too"]

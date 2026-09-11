@@ -1599,6 +1599,220 @@ def test_merge_left_on_right_on(scalars_dfs, merge_how):
     assert_frame_equal(bf_result, pd_result, ignore_order=True, check_index_type=False)
 
 
+@pytest.mark.parametrize(
+    ("merge_how",),
+    [
+        ("inner",),
+        ("outer",),
+        ("left",),
+        ("right",),
+        ("cross",),
+    ],
+)
+def test_merge_indicator(scalars_dfs, merge_how):
+    scalars_df, scalars_pandas_df = scalars_dfs
+    left_columns = ["int64_col", "float64_col", "rowindex_2"]
+    right_columns = ["int64_col", "bool_col", "string_col", "rowindex_2"]
+
+    left = scalars_df[left_columns]
+    right = scalars_df[right_columns].assign(rowindex_2=scalars_df["rowindex_2"] + 2)
+    pandas_left_df = scalars_pandas_df[left_columns]
+    pandas_right_df = scalars_pandas_df[right_columns].assign(
+        rowindex_2=scalars_pandas_df["rowindex_2"] + 2
+    )
+
+    if merge_how == "cross":
+        df = left.merge(right, how=merge_how, indicator=True)
+        pd_result = pandas_left_df.merge(pandas_right_df, how=merge_how, indicator=True)
+    else:
+        df = left.merge(right, how=merge_how, on="rowindex_2", indicator=True)
+        pd_result = pandas_left_df.merge(
+            pandas_right_df, how=merge_how, on="rowindex_2", indicator=True
+        )
+
+    pd_result["_merge"] = pd_result["_merge"].astype("string[pyarrow]")
+    bf_result = df.to_pandas()
+    assert_frame_equal(
+        bf_result,
+        pd_result,
+        ignore_order=True,
+        check_index_type=False,
+    )
+
+
+def test_bpd_merge_indicator(scalars_dfs):
+    scalars_df, scalars_pandas_df = scalars_dfs
+    left_columns = ["int64_col", "float64_col", "rowindex_2"]
+    right_columns = ["int64_col", "bool_col", "string_col", "rowindex_2"]
+
+    left = scalars_df[left_columns]
+    right = scalars_df[right_columns].assign(rowindex_2=scalars_df["rowindex_2"] + 2)
+    pandas_left_df = scalars_pandas_df[left_columns]
+    pandas_right_df = scalars_pandas_df[right_columns].assign(
+        rowindex_2=scalars_pandas_df["rowindex_2"] + 2
+    )
+
+    df = bpd.merge(left, right, how="outer", on="rowindex_2", indicator=True)
+    pd_result = pd.merge(
+        pandas_left_df, pandas_right_df, how="outer", on="rowindex_2", indicator=True
+    )
+    pd_result["_merge"] = pd_result["_merge"].astype("string[pyarrow]")
+
+    bf_result = df.to_pandas()
+    assert_frame_equal(
+        bf_result,
+        pd_result,
+        ignore_order=True,
+        check_index_type=False,
+    )
+
+
+def test_merge_indicator_custom_name(scalars_dfs):
+    scalars_df, scalars_pandas_df = scalars_dfs
+    left_columns = ["int64_col", "float64_col", "rowindex_2"]
+    right_columns = ["int64_col", "bool_col", "string_col", "rowindex_2"]
+
+    left = scalars_df[left_columns]
+    right = scalars_df[right_columns].assign(rowindex_2=scalars_df["rowindex_2"] + 2)
+    pandas_left_df = scalars_pandas_df[left_columns]
+    pandas_right_df = scalars_pandas_df[right_columns].assign(
+        rowindex_2=scalars_pandas_df["rowindex_2"] + 2
+    )
+
+    df = left.merge(right, how="outer", on="rowindex_2", indicator="custom_indicator")
+    pd_result = pandas_left_df.merge(
+        pandas_right_df,
+        how="outer",
+        on="rowindex_2",
+        indicator="custom_indicator",
+    )
+    pd_result["custom_indicator"] = pd_result["custom_indicator"].astype(
+        "string[pyarrow]"
+    )
+
+    bf_result = df.to_pandas()
+    assert_frame_equal(
+        bf_result,
+        pd_result,
+        ignore_order=True,
+        check_index_type=False,
+    )
+
+
+def test_merge_indicator_invalid_type(scalars_dfs):
+    scalars_df, _ = scalars_dfs
+    with pytest.raises(
+        ValueError,
+        match="indicator option can only accept boolean or string arguments",
+    ):
+        scalars_df.merge(scalars_df, indicator=123)
+
+
+def test_merge_indicator_collision_existing_column(scalars_dfs):
+    scalars_df, _ = scalars_dfs
+    df = scalars_df[["int64_col"]].assign(_merge=1)
+    with pytest.raises(
+        ValueError,
+        match="Cannot use name of an existing column for indicator column",
+    ):
+        df.merge(df, on="int64_col", indicator=True)
+
+
+def test_merge_indicator_collision_reserved_column(scalars_dfs):
+    scalars_df, _ = scalars_dfs
+    df = scalars_df[["int64_col"]].assign(_left_indicator="x")
+    with pytest.raises(
+        ValueError,
+        match="Cannot use `indicator=True` option when data contains a column named _left_indicator",
+    ):
+        df.merge(df, on="int64_col", indicator=True)
+
+
+def test_merge_indicator_dtype(scalars_dfs):
+    scalars_df, _ = scalars_dfs
+    left = scalars_df[["int64_col", "rowindex_2"]]
+    right = scalars_df[["string_col", "rowindex_2"]]
+    df = left.merge(right, on="rowindex_2", indicator=True)
+    assert df["_merge"].dtype == "string[pyarrow]"
+
+
+def test_merge_indicator_false(scalars_dfs):
+    scalars_df, _ = scalars_dfs
+    left = scalars_df[["int64_col", "rowindex_2"]]
+    right = scalars_df[["string_col", "rowindex_2"]]
+    df = left.merge(right, on="rowindex_2", indicator=False)
+    assert "_merge" not in df.columns
+    assert "_left_indicator" not in df.columns
+    assert "_right_indicator" not in df.columns
+
+
+def test_merge_indicator_left_on_right_on(scalars_dfs):
+    scalars_df, scalars_pandas_df = scalars_dfs
+    left_columns = ["int64_col", "int64_too"]
+    right_columns = ["bool_col", "rowindex_2"]
+
+    left = scalars_df[left_columns]
+    right = scalars_df[right_columns]
+    pandas_left_df = scalars_pandas_df[left_columns]
+    pandas_right_df = scalars_pandas_df[right_columns]
+
+    df = left.merge(
+        right,
+        how="outer",
+        left_on="int64_too",
+        right_on="rowindex_2",
+        indicator=True,
+    )
+    pd_result = pandas_left_df.merge(
+        pandas_right_df,
+        how="outer",
+        left_on="int64_too",
+        right_on="rowindex_2",
+        indicator=True,
+    )
+    pd_result["_merge"] = pd_result["_merge"].astype("string[pyarrow]")
+
+    bf_result = df.to_pandas()
+    assert_frame_equal(
+        bf_result,
+        pd_result,
+        ignore_order=True,
+        check_index_type=False,
+    )
+
+
+def test_merge_indicator_left_index_right_index(scalars_dfs):
+    scalars_df, scalars_pandas_df = scalars_dfs
+    left = scalars_df[["int64_col"]]
+    right = scalars_df[["string_col"]]
+    pandas_left_df = scalars_pandas_df[["int64_col"]]
+    pandas_right_df = scalars_pandas_df[["string_col"]]
+
+    df = left.merge(
+        right,
+        how="outer",
+        left_index=True,
+        right_index=True,
+        indicator=True,
+    )
+    pd_result = pandas_left_df.merge(
+        pandas_right_df,
+        how="outer",
+        left_index=True,
+        right_index=True,
+        indicator=True,
+    )
+    pd_result["_merge"] = pd_result["_merge"].astype("string[pyarrow]")
+
+    bf_result = df.to_pandas()
+    assert_frame_equal(
+        bf_result,
+        pd_result,
+        ignore_order=True,
+        check_index_type=False,
+    )
+
+
 def test_shape(scalars_dfs):
     scalars_df, scalars_pandas_df = scalars_dfs
     bf_result = scalars_df.shape

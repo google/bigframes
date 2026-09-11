@@ -18,6 +18,7 @@ def merge(
     right_index: bool = False,
     sort=False,
     suffixes=("_x", "_y"),
+    indicator: bool | str = False,
 ):
     """
     Merge DataFrame objects with a database-style join.
@@ -35,6 +36,32 @@ def merge(
         If both key columns contain rows where the key is a null value, those
         rows will be matched against each other. This is different from usual SQL
         join behaviour and can lead to unexpected results.
+
+    **Examples:**
+
+        >>> import bigframes.pandas as bpd
+        >>> df1 = bpd.DataFrame({'a': ['foo', 'bar'], 'b': [1, 2]})
+        >>> df2 = bpd.DataFrame({'a': ['foo', 'baz'], 'c': [3, 4]})
+        >>> bpd.merge(df1, df2, how='left', on='a')
+             a  b     c
+        0  foo  1     3
+        1  bar  2  <NA>
+        <BLANKLINE>
+        [2 rows x 3 columns]
+
+        >>> bpd.merge(df1, df2, how='left', on='a', indicator=True)
+             a  b     c     _merge
+        0  foo  1     3       both
+        1  bar  2  <NA>  left_only
+        <BLANKLINE>
+        [2 rows x 4 columns]
+
+        >>> bpd.merge(df1, df2, how='left', on='a', indicator='indicator_column')
+             a  b     c indicator_column
+        0  foo  1     3             both
+        1  bar  2  <NA>        left_only
+        <BLANKLINE>
+        [2 rows x 4 columns]
 
     Args:
         left:
@@ -79,6 +106,18 @@ def merge(
             Pass a value of `None` instead of a string to indicate that the
             column name from `left` or `right` should be left as-is, with
             no suffix. At least one of the values must not be None.
+        indicator (bool or str, default False):
+            If True, adds a column to the output DataFrame called "_merge"
+            with information on the source of each row. The column can be
+            given a different name by providing a string argument. The column
+            will have a value of "left_only" for observations whose merge key
+            only appears in the left DataFrame, "right_only" for observations
+            whose merge key only appears in the right DataFrame, and "both"
+            if the observation's merge key appears in both DataFrames.
+
+            .. note::
+                Unlike pandas, the indicator column has a string dtype rather
+                than ``Categorical``.
 
     Returns:
         bigframes.pandas.DataFrame:

@@ -574,3 +574,51 @@ def generate_embedding(
         return bpd.read_gbq_query(sql)
     else:
         return session.read_gbq_query(sql)
+
+
+@log_adapter.method_logger(custom_base_name="bigquery_ml")
+def recommend(
+    model: bigframes.ml.base.BaseEstimator | str | pd.Series,
+    input_: pd.DataFrame | dataframe.DataFrame | str | None = None,
+    *,
+    trial_id: int | None = None,
+) -> dataframe.DataFrame:
+    """
+    Generates recommendations from a BigQuery ML matrix factorization model.
+
+    See the `BigQuery ML RECOMMEND function syntax
+    <https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-recommend>`_
+    for additional reference.
+
+    Args:
+        model (bigframes.ml.base.BaseEstimator, str, or pd.Series):
+            The matrix factorization model to use for recommendation.
+        input_ (Union[bigframes.pandas.DataFrame, str], optional):
+            The DataFrame or query that contains the user and/or item data to
+            generate recommendations for. If not provided, recommendations are
+            returned for every user-item combination seen during training.
+        trial_id (int, optional):
+            An INT64 value that identifies the hyperparameter tuning trial that
+            you want the function to evaluate. The function uses the optimal
+            trial by default. Only specify this argument if you ran
+            hyperparameter tuning when creating the model.
+
+    Returns:
+        bigframes.pandas.DataFrame:
+            The recommendation results.
+    """
+    import bigframes.pandas as bpd
+
+    model_name, session = utils.get_model_name_and_session(model, input_)
+    table_sql = utils.to_sql(input_) if input_ is not None else None
+
+    sql = bigframes.core.sql.ml.recommend(
+        model_name=model_name,
+        table=table_sql,
+        trial_id=trial_id,
+    )
+
+    if session is None:
+        return bpd.read_gbq_query(sql)
+    else:
+        return session.read_gbq_query(sql)

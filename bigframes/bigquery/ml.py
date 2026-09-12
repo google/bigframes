@@ -28,6 +28,7 @@ from bigframes.bigquery._operations.ml import (
     get_insights,
     global_explain,
     predict,
+    recommend,
     transform,
 )
 
@@ -35,6 +36,7 @@ __all__ = [
     "create_model",
     "evaluate",
     "predict",
+    "recommend",
     "explain_predict",
     "global_explain",
     "transform",

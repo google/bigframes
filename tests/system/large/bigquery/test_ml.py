@@ -119,3 +119,43 @@ def test_create_model_with_transform(dataset_id):
     )
 
     assert result["modelType"] == "LINEAR_REGRESSION"
+
+
+@pytest.fixture(scope="module")
+def matrix_factorization_model(ratings_df_default_index, dataset_id):
+    model_name = f"{dataset_id}.mf_model"
+    return ml.create_model(
+        model_name=model_name,
+        options={
+            "model_type": "MATRIX_FACTORIZATION",
+            "feedback_type": "explicit",
+            "user_col": "user_id",
+            "item_col": "item_id",
+            "rating_col": "rating",
+            "l2_reg": 9.83,
+            "num_factors": 6,
+        },
+        training_data=ratings_df_default_index,
+        replace=True,
+    )
+
+
+def test_recommend_no_input(matrix_factorization_model):
+    # Without input data, ML.RECOMMEND returns a rating for every user-item
+    # combination seen during training.
+    result = ml.recommend(matrix_factorization_model)
+
+    assert len(result) > 0
+    assert "user_id" in result.columns
+    assert "item_id" in result.columns
+    assert "predicted_rating" in result.columns
+
+
+def test_recommend_with_input(matrix_factorization_model):
+    users = bpd.DataFrame({"user_id": ["1", "2"]})
+
+    result = ml.recommend(matrix_factorization_model, users)
+
+    assert len(result) > 0
+    assert "predicted_rating" in result.columns
+    assert set(result["user_id"].to_pandas()) == {"1", "2"}

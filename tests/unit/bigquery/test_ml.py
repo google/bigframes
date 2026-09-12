@@ -213,3 +213,39 @@ def test_generate_embedding_with_pandas_dataframe(
     assert "STRUCT(\n  TRUE AS `flatten_json_output`" in generated_sql
     assert "'RETRIEVAL_DOCUMENT' AS `task_type`" in generated_sql
     assert "256 AS `output_dimensionality`" in generated_sql
+
+
+@mock.patch("bigframes.pandas.read_gbq_query")
+@mock.patch("bigframes.pandas.read_pandas")
+def test_recommend_with_pandas_dataframe(read_pandas_mock, read_gbq_query_mock):
+    df = pd.DataFrame({"user_id": ["1", "2", "3"]})
+    read_pandas_mock.return_value._to_sql_query.return_value = (
+        "SELECT * FROM `pandas_df`",
+        [],
+        [],
+    )
+
+    ml_ops.recommend(MODEL_SERIES, input_=df, trial_id=3)
+
+    read_pandas_mock.assert_called_once()
+    read_gbq_query_mock.assert_called_once()
+    generated_sql = read_gbq_query_mock.call_args[0][0]
+    assert "ML.RECOMMEND" in generated_sql
+    assert f"MODEL `{MODEL_NAME}`" in generated_sql
+    assert "(SELECT * FROM `pandas_df`)" in generated_sql
+    assert "3 AS `trial_id`" in generated_sql
+
+
+@mock.patch("bigframes.pandas.read_gbq_query")
+@mock.patch("bigframes.pandas.read_pandas")
+def test_recommend_without_input(read_pandas_mock, read_gbq_query_mock):
+    ml_ops.recommend(MODEL_SERIES)
+
+    read_pandas_mock.assert_not_called()
+    read_gbq_query_mock.assert_called_once()
+    generated_sql = read_gbq_query_mock.call_args[0][0]
+    assert "ML.RECOMMEND" in generated_sql
+    assert f"MODEL `{MODEL_NAME}`" in generated_sql
+    # Without input data, ML.RECOMMEND returns a rating for every user-item
+    # combination seen during training, so no sub-select is emitted.
+    assert "(SELECT" not in generated_sql

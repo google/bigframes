@@ -307,3 +307,25 @@ def generate_embedding(
     sql += _build_struct_sql(struct_options)
     sql += ")\n"
     return sql
+
+
+def recommend(
+    model_name: str,
+    *,
+    table: str | None = None,
+    trial_id: int | None = None,
+) -> str:
+    """Encode the ML.RECOMMEND statement.
+    See https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-recommend for reference.
+    """
+    struct_options: dict[str, str | int | float | bool] = {}
+    if trial_id is not None:
+        struct_options["trial_id"] = trial_id
+
+    sql = f"SELECT * FROM ML.RECOMMEND(MODEL {sg_sql.to_sql(sg_sql.identifier(model_name))}"
+    if table:
+        sql += f", ({table})"
+
+    sql += _build_struct_sql(struct_options)
+    sql += ")\n"
+    return sql

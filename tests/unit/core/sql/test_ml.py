@@ -241,3 +241,39 @@ def test_generate_embedding_model_with_options(snapshot):
         output_dimensionality=256,
     )
     snapshot.assert_match(sql, "generate_embedding_model_with_options.sql")
+
+
+def test_recommend_model_basic(snapshot):
+    sql = bigframes.core.sql.ml.recommend(
+        model_name="my_project.my_dataset.my_model",
+    )
+
+    snapshot.assert_match(sql, "recommend_model_basic.sql")
+
+
+def test_recommend_model_with_table(snapshot):
+    sql = bigframes.core.sql.ml.recommend(
+        model_name="my_project.my_dataset.my_model",
+        table="SELECT * FROM new_data",
+    )
+
+    snapshot.assert_match(sql, "recommend_model_with_table.sql")
+
+
+def test_recommend_model_with_options(snapshot):
+    sql = bigframes.core.sql.ml.recommend(
+        model_name="my_model",
+        table="SELECT * FROM new_data",
+        trial_id=3,
+    )
+
+    snapshot.assert_match(sql, "recommend_model_with_options.sql")
+
+
+def test_recommend_model_with_options_no_table(snapshot):
+    sql = bigframes.core.sql.ml.recommend(
+        model_name="my_model",
+        trial_id=3,
+    )
+
+    snapshot.assert_match(sql, "recommend_model_with_options_no_table.sql")

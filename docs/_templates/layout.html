@@ -1,6 +1,12 @@
 
 {% extends "!layout.html" %}
 {%- block content %}
+{%- if READTHEDOCS %}
+<div class="unauthorized-mirror-banner" style="background-color: var(--pst-color-warning-bg, #fff3cd); color: var(--pst-color-text-base, #856404); border: 1px solid var(--pst-color-warning, #ffeeba); padding: 15px; text-align: center; font-size: 15px; font-family: sans-serif; position: relative; z-index: 9999; margin-bottom: 0;">
+  <strong>Notice:</strong> This is an unofficial mirror of the documentation. The official documentation is available at
+  <a href="https://dataframes.bigquery.dev/" style="color: var(--pst-color-link-higher-contrast, var(--pst-color-link, #0056b3)); text-decoration: underline; font-weight: bold;">https://dataframes.bigquery.dev/</a>
+</div>
+{%- endif %}
 {%- if theme_fixed_sidebar|lower == 'true' %}
   <div class="document">
     {{ sidebar() }}

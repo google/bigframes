@@ -172,6 +172,10 @@ html_theme_options = {
     },
 }
 
+# Pass READTHEDOCS environment variable to Jinja templates
+html_context = globals().get("html_context", {})
+html_context["READTHEDOCS"] = os.environ.get("READTHEDOCS", "").lower() in ("true", "1")
+
 # Add any paths that contain custom themes here, relative to this directory.
 # html_theme_path = []
 

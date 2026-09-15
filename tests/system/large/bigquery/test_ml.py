@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import datetime
+
 import pytest
 
 import bigframes.bigquery.ml as ml
@@ -159,3 +161,86 @@ def test_recommend_with_input(matrix_factorization_model):
     assert len(result) > 0
     assert "predicted_rating" in result.columns
     assert set(result["user_id"].to_pandas()) == {"1", "2"}
+
+
+@pytest.fixture(scope="module")
+def arima_plus_model(time_series_df_default_index, dataset_id):
+    model_name = f"{dataset_id}.arima_plus_model"
+    return ml.create_model(
+        model_name=model_name,
+        options={
+            "model_type": "ARIMA_PLUS",
+            "time_series_timestamp_col": "parsed_date",
+            "time_series_data_col": "total_visits",
+            "horizon": 10,
+        },
+        training_data=time_series_df_default_index[["parsed_date", "total_visits"]],
+        replace=True,
+    )
+
+
+def test_forecast_no_input(arima_plus_model):
+    # ARIMA_PLUS models forecast when the model is created, so ML.FORECAST
+    # takes no input data.
+    result = ml.forecast(arima_plus_model)
+
+    assert len(result) > 0
+    assert "forecast_timestamp" in result.columns
+    assert "forecast_value" in result.columns
+    assert "confidence_level" in result.columns
+
+
+def test_forecast_with_options(arima_plus_model):
+    result = ml.forecast(arima_plus_model, horizon=4, confidence_level=0.8)
+
+    assert len(result) == 4
+    assert "forecast_value" in result.columns
+    assert set(result["confidence_level"].to_pandas()) == {0.8}
+
+
+@pytest.fixture(scope="module")
+def arima_plus_xreg_model(time_series_df_default_index, dataset_id):
+    model_name = f"{dataset_id}.arima_plus_xreg_model"
+    # Filter to a single time series so that timestamps are unique, and derive
+    # an external covariate, since the shared table has no feature column.
+    df = time_series_df_default_index[time_series_df_default_index["id"] == "1"][
+        ["parsed_date", "total_visits"]
+    ]
+    df["day_of_week"] = df["parsed_date"].dt.dayofweek
+
+    return ml.create_model(
+        model_name=model_name,
+        options={
+            "model_type": "ARIMA_PLUS_XREG",
+            "time_series_timestamp_col": "parsed_date",
+            "time_series_data_col": "total_visits",
+            "horizon": 10,
+        },
+        training_data=df,
+        replace=True,
+    )
+
+
+def test_forecast_xreg_with_input(arima_plus_xreg_model):
+    # Unlike ARIMA_PLUS, an ARIMA_PLUS_XREG model needs the future values of
+    # its covariates, so ML.FORECAST takes an input table. The training data
+    # ends on 2017-08-01, so forecast the three days that follow.
+    future_features = bpd.DataFrame(
+        {
+            "parsed_date": [
+                datetime.datetime(2017, 8, 2, tzinfo=datetime.timezone.utc),
+                datetime.datetime(2017, 8, 3, tzinfo=datetime.timezone.utc),
+                datetime.datetime(2017, 8, 4, tzinfo=datetime.timezone.utc),
+            ],
+            "day_of_week": [2, 3, 4],
+        }
+    )
+
+    result = ml.forecast(
+        arima_plus_xreg_model, future_features, horizon=3, confidence_level=0.9
+    )
+
+    assert len(result) == 3
+    assert "forecast_timestamp" in result.columns
+    assert "forecast_value" in result.columns
+    assert set(result["confidence_level"].to_pandas()) == {0.9}

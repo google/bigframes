@@ -329,3 +329,36 @@ def recommend(
     sql += _build_struct_sql(struct_options)
     sql += ")\n"
     return sql
+
+
+def forecast(
+    model_name: str,
+    *,
+    table: str | None = None,
+    horizon: int | None = None,
+    confidence_level: float | None = None,
+) -> str:
+    """Encode the ML.FORECAST statement.
+    See https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-forecast for reference.
+    """
+    struct_options: dict[str, str | int | float | bool] = {}
+    if horizon is not None:
+        struct_options["horizon"] = horizon
+    if confidence_level is not None:
+        struct_options["confidence_level"] = confidence_level
+
+    sql = f"SELECT * FROM ML.FORECAST(MODEL {sg_sql.to_sql(sg_sql.identifier(model_name))}"
+    # Unlike most BQML table-valued functions, ML.FORECAST takes the STRUCT of
+    # options before the input table. BigQuery also requires the STRUCT to be
+    # present whenever a table is supplied, otherwise it parses the table as a
+    # scalar subquery, so fall back to an empty STRUCT in that case.
+    struct_sql = _build_struct_sql(struct_options)
+    if table and not struct_sql:
+        struct_sql = ", STRUCT()"
+
+    sql += struct_sql
+    if table:
+        sql += f", ({table})"
+
+    sql += ")\n"
+    return sql

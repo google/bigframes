@@ -622,3 +622,59 @@ def recommend(
         return bpd.read_gbq_query(sql)
     else:
         return session.read_gbq_query(sql)
+
+
+@log_adapter.method_logger(custom_base_name="bigquery_ml")
+def forecast(
+    model: bigframes.ml.base.BaseEstimator | str | pd.Series,
+    input_: pd.DataFrame | dataframe.DataFrame | str | None = None,
+    *,
+    horizon: int | None = None,
+    confidence_level: float | None = None,
+) -> dataframe.DataFrame:
+    """
+    Forecasts future time series values with a BigQuery ML time series model.
+
+    See the `BigQuery ML FORECAST function syntax
+    <https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-forecast>`_
+    for additional reference.
+
+    Args:
+        model (bigframes.ml.base.BaseEstimator, str, or pd.Series):
+            The time series model, such as an ``ARIMA_PLUS`` or
+            ``ARIMA_PLUS_XREG`` model, to use for forecasting.
+        input_ (Union[bigframes.pandas.DataFrame, str], optional):
+            The DataFrame or query that contains the future feature values
+            used by an ``ARIMA_PLUS_XREG`` model. ``ARIMA_PLUS`` models don't
+            take input data, because forecasting happens when the model is
+            created.
+        horizon (int, optional):
+            An INT64 value that specifies the number of time points to
+            forecast. The default value is 3, and the maximum value is the
+            value of the ``horizon`` option specified in the ``CREATE MODEL``
+            statement, or 1000 if that option isn't specified.
+        confidence_level (float, optional):
+            A FLOAT64 value that specifies the percentage of the future values
+            that fall in the prediction interval. The default value is 0.95.
+            The valid input range is [0, 1).
+
+    Returns:
+        bigframes.pandas.DataFrame:
+            The forecasted time series values.
+    """
+    import bigframes.pandas as bpd
+
+    model_name, session = utils.get_model_name_and_session(model, input_)
+    table_sql = utils.to_sql(input_) if input_ is not None else None
+
+    sql = bigframes.core.sql.ml.forecast(
+        model_name=model_name,
+        table=table_sql,
+        horizon=horizon,
+        confidence_level=confidence_level,
+    )
+
+    if session is None:
+        return bpd.read_gbq_query(sql)
+    else:
+        return session.read_gbq_query(sql)

@@ -1,0 +1,5 @@
+sphinx
+sphinx-sitemap
+myst-parser
+myst-nb
+pydata-sphinx-theme

@@ -515,13 +515,8 @@ def cover(session):
 def docs(session):
     """Build the docs for this library."""
     session.install("-e", ".[scikit-learn]")
-    session.install(
-        "sphinx",
-        "sphinx-sitemap",
-        "myst-parser",
-        "myst-nb",
-        "pydata-sphinx-theme",
-    )
+    # Use a requirements file so that readthedocs can share the same deps.
+    session.install("-r", "docs/requirements-docs.txt")
 
     shutil.rmtree(os.path.join("docs", "_build"), ignore_errors=True)
     session.run("python", "-m", "pip", "freeze")

@@ -362,3 +362,36 @@ def forecast(
 
     sql += ")\n"
     return sql
+
+
+def explain_forecast(
+    model_name: str,
+    *,
+    table: str | None = None,
+    horizon: int | None = None,
+    confidence_level: float | None = None,
+) -> str:
+    """Encode the ML.EXPLAIN_FORECAST statement.
+    See https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-explain-forecast for reference.
+    """
+    struct_options: dict[str, str | int | float | bool] = {}
+    if horizon is not None:
+        struct_options["horizon"] = horizon
+    if confidence_level is not None:
+        struct_options["confidence_level"] = confidence_level
+
+    sql = f"SELECT * FROM ML.EXPLAIN_FORECAST(MODEL {sg_sql.to_sql(sg_sql.identifier(model_name))}"
+    # As with ML.FORECAST, the STRUCT of options comes before the input table,
+    # the reverse of most BQML table-valued functions. BigQuery also requires
+    # the STRUCT whenever a table is supplied, otherwise it parses the table as
+    # a scalar subquery.
+    struct_sql = _build_struct_sql(struct_options)
+    if table and not struct_sql:
+        struct_sql = ", STRUCT()"
+
+    sql += struct_sql
+    if table:
+        sql += f", ({table})"
+
+    sql += ")\n"
+    return sql

@@ -173,6 +173,10 @@ def arima_plus_model(time_series_df_default_index, dataset_id):
             "time_series_timestamp_col": "parsed_date",
             "time_series_data_col": "total_visits",
             "horizon": 10,
+            # ML.EXPLAIN_FORECAST requires this on ARIMA_PLUS models. It
+            # defaults to True, but it is set explicitly so that the
+            # requirement is visible.
+            "decompose_time_series": True,
         },
         training_data=time_series_df_default_index[["parsed_date", "total_visits"]],
         replace=True,
@@ -221,11 +225,12 @@ def arima_plus_xreg_model(time_series_df_default_index, dataset_id):
     )
 
 
-def test_forecast_xreg_with_input(arima_plus_xreg_model):
-    # Unlike ARIMA_PLUS, an ARIMA_PLUS_XREG model needs the future values of
-    # its covariates, so ML.FORECAST takes an input table. The training data
-    # ends on 2017-08-01, so forecast the three days that follow.
-    future_features = bpd.DataFrame(
+@pytest.fixture(scope="module")
+def future_features():
+    # An ARIMA_PLUS_XREG model needs the future values of its covariates, which
+    # the model cannot know. The training data ends on 2017-08-01, so supply the
+    # three days that follow.
+    return bpd.DataFrame(
         {
             "parsed_date": [
                 datetime.datetime(2017, 8, 2, tzinfo=datetime.timezone.utc),
@@ -236,6 +241,8 @@ def test_forecast_xreg_with_input(arima_plus_xreg_model):
         }
     )
 
+
+def test_forecast_xreg_with_input(arima_plus_xreg_model, future_features):
     result = ml.forecast(
         arima_plus_xreg_model, future_features, horizon=3, confidence_level=0.9
     )
@@ -244,3 +251,42 @@ def test_forecast_xreg_with_input(arima_plus_xreg_model):
     assert "forecast_timestamp" in result.columns
     assert "forecast_value" in result.columns
     assert set(result["confidence_level"].to_pandas()) == {0.9}
+
+
+def test_explain_forecast_no_input(arima_plus_model):
+    # ARIMA_PLUS models forecast when the model is created, so
+    # ML.EXPLAIN_FORECAST takes no input data.
+    result = ml.explain_forecast(arima_plus_model)
+
+    assert len(result) > 0
+    assert "time_series_timestamp" in result.columns
+    assert "time_series_data" in result.columns
+    assert set(result["time_series_type"].to_pandas()) == {"history", "forecast"}
+    assert result["trend"].notnull().all()
+    assert result["time_series_adjusted_data"].notnull().all()
+
+
+def test_explain_forecast_with_options(arima_plus_model):
+    result = ml.explain_forecast(arima_plus_model, horizon=4, confidence_level=0.8)
+
+    # Unlike ML.FORECAST, the output also contains the history rows that the
+    # forecast is explained against, so only the forecast rows follow horizon.
+    forecast = result[result["time_series_type"] == "forecast"]
+    history = result[result["time_series_type"] == "history"]
+
+    assert len(forecast) == 4
+    assert forecast["prediction_interval_lower_bound"].notnull().all()
+    assert forecast["prediction_interval_upper_bound"].notnull().all()
+    assert set(forecast["confidence_level"].to_pandas()) == {0.8}
+    assert history["confidence_level"].isnull().all()
+
+
+def test_explain_forecast_xreg_with_input(arima_plus_xreg_model, future_features):
+    result = ml.explain_forecast(
+        arima_plus_xreg_model, future_features, horizon=3, confidence_level=0.9
+    )
+    forecast = result[result["time_series_type"] == "forecast"]
+
+    assert len(forecast) == 3
+    assert "time_series_adjusted_data" in result.columns
+    assert "trend" in result.columns

@@ -678,3 +678,62 @@ def forecast(
         return bpd.read_gbq_query(sql)
     else:
         return session.read_gbq_query(sql)
+
+
+@log_adapter.method_logger(custom_base_name="bigquery_ml")
+def explain_forecast(
+    model: bigframes.ml.base.BaseEstimator | str | pd.Series,
+    input_: pd.DataFrame | dataframe.DataFrame | str | None = None,
+    *,
+    horizon: int | None = None,
+    confidence_level: float | None = None,
+) -> dataframe.DataFrame:
+    """
+    Forecasts future time series values and explains them with the separate
+    components that make up the time series.
+
+    See the `BigQuery ML EXPLAIN_FORECAST function syntax
+    <https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-explain-forecast>`_
+    for additional reference.
+
+    Args:
+        model (bigframes.ml.base.BaseEstimator, str, or pd.Series):
+            The time series model to explain. Must be an ``ARIMA_PLUS`` model
+            trained with the ``decompose_time_series`` option enabled, which is
+            the default, or an ``ARIMA_PLUS_XREG`` model.
+        input_ (Union[bigframes.pandas.DataFrame, str], optional):
+            The DataFrame or query that contains the future feature values
+            used by an ``ARIMA_PLUS_XREG`` model. ``ARIMA_PLUS`` models don't
+            take input data, because forecasting happens when the model is
+            created.
+        horizon (int, optional):
+            An INT64 value that specifies the number of time points to
+            forecast. The default value is 3, and the maximum value is the
+            value of the ``horizon`` option specified in the ``CREATE MODEL``
+            statement, or 1000 if that option isn't specified.
+        confidence_level (float, optional):
+            A FLOAT64 value that specifies the percentage of the future values
+            that fall in the prediction interval. The default value is 0.95.
+            The valid input range is [0, 1).
+
+    Returns:
+        bigframes.pandas.DataFrame:
+            The history and forecast time series values, along with the trend,
+            seasonal, holiday, and other components that explain them.
+    """
+    import bigframes.pandas as bpd
+
+    model_name, session = utils.get_model_name_and_session(model, input_)
+    table_sql = utils.to_sql(input_) if input_ is not None else None
+
+    sql = bigframes.core.sql.ml.explain_forecast(
+        model_name=model_name,
+        table=table_sql,
+        horizon=horizon,
+        confidence_level=confidence_level,
+    )
+
+    if session is None:
+        return bpd.read_gbq_query(sql)
+    else:
+        return session.read_gbq_query(sql)

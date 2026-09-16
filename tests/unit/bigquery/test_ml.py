@@ -290,3 +290,44 @@ def test_forecast_without_input(read_pandas_mock, read_gbq_query_mock):
     # the model is created.
     assert "(SELECT" not in generated_sql
     assert "STRUCT" not in generated_sql
+
+
+@mock.patch("bigframes.pandas.read_gbq_query")
+@mock.patch("bigframes.pandas.read_pandas")
+def test_explain_forecast_with_pandas_dataframe(read_pandas_mock, read_gbq_query_mock):
+    df = pd.DataFrame({"col1": [1, 2, 3]})
+    read_pandas_mock.return_value._to_sql_query.return_value = (
+        "SELECT * FROM `pandas_df`",
+        [],
+        [],
+    )
+
+    ml_ops.explain_forecast(MODEL_SERIES, input_=df, horizon=30, confidence_level=0.8)
+
+    read_pandas_mock.assert_called_once()
+    read_gbq_query_mock.assert_called_once()
+    generated_sql = read_gbq_query_mock.call_args[0][0]
+    assert "ML.EXPLAIN_FORECAST" in generated_sql
+    assert f"MODEL `{MODEL_NAME}`" in generated_sql
+    assert "(SELECT * FROM `pandas_df`)" in generated_sql
+    assert "30 AS `horizon`" in generated_sql
+    assert "0.8 AS `confidence_level`" in generated_sql
+    assert generated_sql.index("STRUCT(") < generated_sql.index(
+        "(SELECT * FROM `pandas_df`)"
+    )
+
+
+@mock.patch("bigframes.pandas.read_gbq_query")
+@mock.patch("bigframes.pandas.read_pandas")
+def test_explain_forecast_without_input(read_pandas_mock, read_gbq_query_mock):
+    ml_ops.explain_forecast(MODEL_SERIES)
+
+    read_pandas_mock.assert_not_called()
+    read_gbq_query_mock.assert_called_once()
+    generated_sql = read_gbq_query_mock.call_args[0][0]
+    assert "ML.EXPLAIN_FORECAST" in generated_sql
+    assert f"MODEL `{MODEL_NAME}`" in generated_sql
+    # ARIMA_PLUS models take no input data, because forecasting happens when
+    # the model is created.
+    assert "(SELECT" not in generated_sql
+    assert "STRUCT" not in generated_sql

@@ -315,3 +315,41 @@ def test_forecast_model_with_options_no_table(snapshot):
     )
 
     snapshot.assert_match(sql, "forecast_model_with_options_no_table.sql")
+
+
+def test_explain_forecast_model_basic(snapshot):
+    sql = bigframes.core.sql.ml.explain_forecast(
+        model_name="my_project.my_dataset.my_model",
+    )
+
+    snapshot.assert_match(sql, "explain_forecast_model_basic.sql")
+
+
+def test_explain_forecast_model_with_table(snapshot):
+    sql = bigframes.core.sql.ml.explain_forecast(
+        model_name="my_project.my_dataset.my_model",
+        table="SELECT * FROM new_data",
+    )
+
+    snapshot.assert_match(sql, "explain_forecast_model_with_table.sql")
+
+
+def test_explain_forecast_model_with_options(snapshot):
+    sql = bigframes.core.sql.ml.explain_forecast(
+        model_name="my_model",
+        table="SELECT * FROM new_data",
+        horizon=30,
+        confidence_level=0.8,
+    )
+
+    snapshot.assert_match(sql, "explain_forecast_model_with_options.sql")
+
+
+def test_explain_forecast_model_with_options_no_table(snapshot):
+    sql = bigframes.core.sql.ml.explain_forecast(
+        model_name="my_model",
+        horizon=30,
+        confidence_level=0.8,
+    )
+
+    snapshot.assert_match(sql, "explain_forecast_model_with_options_no_table.sql")

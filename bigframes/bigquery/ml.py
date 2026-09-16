@@ -22,6 +22,7 @@ For an interface more familiar to Scikit-Learn users, see :mod:`bigframes.ml`.
 from bigframes.bigquery._operations.ml import (
     create_model,
     evaluate,
+    explain_forecast,
     explain_predict,
     forecast,
     generate_embedding,
@@ -40,6 +41,7 @@ __all__ = [
     "recommend",
     "forecast",
     "explain_predict",
+    "explain_forecast",
     "global_explain",
     "transform",
     "generate_text",

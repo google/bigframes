@@ -302,7 +302,7 @@ def json_pandas_df() -> pd.DataFrame:
         '[{"a": 1}, {"a": 2}, {"a": null}, {}]',
         '"100"',
         '{"date": "2024-07-16"}',
-        '{"int_value": 2, "null_filed": null}',
+        '{"int_value": 2, "null_field": null}',
         '{"list_data": [10, 20, 30]}',
     ]
     df = pd.DataFrame(

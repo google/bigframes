@@ -4,7 +4,7 @@
 
 [1]: https://pypi.org/project/bigframes/#history
 
-## [2.49.0](https://github.com/googleapis/google-cloud-python/compare/bigframes-v2.48.0...bigframes-v2.49.0) (2026-09-09)
+## [2.49.0](https://github.com/google/bigframes/compare/v2.48.0...v2.49.0) (2026-09-09)
 
 
 ### Features

@@ -1,0 +1,121 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# NOTE: Package versions in this file are synchronized with noxfile.py.
+# Run `python scripts/sync_pre_commit.py` or `nox -s format` to update.
+
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+
+default_stages:
+  - pre-commit
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.14
+    hooks:
+      - id: ruff
+        name: ruff lint
+        args:
+          - --fix
+          - --select=I,F
+          - --target-version=py310
+          - --line-length=88
+        files: ^(docs|bigframes|scripts|tests|third_party)/|^(noxfile|setup)\.py$
+      - id: ruff-format
+        name: ruff format
+        args:
+          - --target-version=py310
+          - --line-length=88
+        files: ^(docs|bigframes|scripts|tests|third_party)/|^(noxfile|setup)\.py$
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.15.0
+    hooks:
+      - id: mypy
+        name: mypy
+        args:
+          - --check-untyped-defs
+          - --explicit-package-bases
+        files: ^(bigframes|tests/(system|unit))/
+        exclude: ^third_party/
+        additional_dependencies:
+          - anywidget>=0.9.18
+          - atpublic>=2.3,<6
+          - db-dtypes>=1.4.2
+          - freezegun
+          - fsspec>=2023.3.0
+          - gcsfs>=2023.3.0,!=2025.5.0,!=2026.2.0,!=2026.3.0
+          - geopandas>=0.12.2
+          - google-cloud-bigquery-connection>=1.18.2
+          - google-cloud-bigquery-storage>=2.30.0,<3.0.0
+          - google-cloud-bigquery[bqstorage,pandas]>=3.36.0
+          - google-cloud-functions>=1.20.2
+          - google-cloud-resource-manager>=1.14.2
+          - google-cloud-storage>=2.0.0
+          - google-cloud-testutils
+          - google-crc32c>=1.0.0,<2.0.0
+          - grpc-google-iam-v1>=0.14.2
+          - humanize>=4.6.0
+          - jinja2
+          - matplotlib>=3.7.1
+          - mock
+          - numpy>=1.24.0
+          - openpyxl
+          - pandas-gbq>=0.26.1
+          - pandas-stubs<=2.2.3.241126
+          - pandas>=1.5.3
+          - pluggy
+          - polars>=1.21.0,<2.0.0
+          - pyiceberg>=0.7.1
+          - pytest-cov
+          - pytest-retry
+          - pytest-snapshot
+          - pytest-timeout
+          - pytest-xdist
+          - pytest==8.4.2
+          - python-dateutil>=2.8.2,<3
+          - requests>=2.27.1
+          - rich>=12.4.4,<14
+          - scikit-learn>=1.2.2
+          - shapely>=1.8.5
+          - tabulate>=0.9
+          - toolz>=0.11,<2
+          - traitlets>=5.0.0
+          - types-protobuf
+          - types-python-dateutil
+          - types-PyYAML
+          - types-requests
+          - types-setuptools
+          - types-tabulate
+          - typing-extensions>=4.5.0,<5
+          - tzdata
+          - xarray
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.2.0
+    hooks:
+      - id: conventional-pre-commit
+        name: conventional commits
+        stages: [commit-msg]
+
+  - repo: local
+    hooks:
+      - id: check-pre-commit-sync
+        name: check pre-commit versions sync with noxfile.py
+        entry: python3 scripts/sync_pre_commit.py --check
+        language: python
+        files: ^(noxfile\.py|setup\.py|mypy\.ini|\.pre-commit-config\.yaml|scripts/sync_pre_commit\.py)$
+        pass_filenames: false

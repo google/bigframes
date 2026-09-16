@@ -35,6 +35,20 @@ ENV_OVERRIDES = (
 
 RUFF_VERSION = "ruff==0.14.14"
 MYPY_VERSION = "mypy==1.15.0"
+CONVENTIONAL_PRE_COMMIT_VERSION = "v4.2.0"
+
+MYPY_TYPE_DEPENDENCIES = [
+    # TODO: update to latest pandas-stubs once we resolve bigframes issues.
+    "pandas-stubs<=2.2.3.241126",
+    "types-protobuf",
+    "types-python-dateutil",
+    "types-requests",
+    "types-setuptools",
+    "types-tabulate",
+    "types-PyYAML",
+    "polars",
+    "anywidget",
+]
 
 # Notebook tests should match colab and BQ Studio.
 # Check with import sys; sys.version_info
@@ -164,6 +178,9 @@ def lint(session):
         *LINT_PATHS,
     )
 
+    # Check that pre-commit hook versions stay in sync with noxfile.py
+    session.run("python", "scripts/sync_pre_commit.py", "--check")
+
 
 # Use a python runtime which is available in the owlbot post processor here
 # https://github.com/googleapis/synthtool/blob/master/docker/owlbot/python/Dockerfile
@@ -215,6 +232,9 @@ def format(session):
         "--line-length=88",  # Standard Black line length
         *LINT_PATHS,
     )
+
+    # 4. Sync pre-commit hook versions with noxfile.py
+    session.run("python", "scripts/sync_pre_commit.py")
 
 
 @nox.session(python=DEFAULT_PYTHON_VERSION)
@@ -1007,21 +1027,7 @@ def mypy(session):
     # Just install the dependencies' type info directly, since "mypy --install-types"
     # might require an additional pass.
     deps = (
-        set(
-            [
-                MYPY_VERSION,
-                # TODO: update to latest pandas-stubs once we resolve bigframes issues.
-                "pandas-stubs<=2.2.3.241126",
-                "types-protobuf",
-                "types-python-dateutil",
-                "types-requests",
-                "types-setuptools",
-                "types-tabulate",
-                "types-PyYAML",
-                "polars",
-                "anywidget",
-            ]
-        )
+        set([MYPY_VERSION] + MYPY_TYPE_DEPENDENCIES)
         | set(SYSTEM_TEST_STANDARD_DEPENDENCIES)
         | set(UNIT_TEST_STANDARD_DEPENDENCIES)
     )

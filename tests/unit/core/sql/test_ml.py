@@ -353,3 +353,33 @@ def test_explain_forecast_model_with_options_no_table(snapshot):
     )
 
     snapshot.assert_match(sql, "explain_forecast_model_with_options_no_table.sql")
+
+
+def test_arima_evaluate_model_basic(snapshot):
+    sql = bigframes.core.sql.ml.arima_evaluate(
+        model_name="my_project.my_dataset.my_model",
+    )
+
+    snapshot.assert_match(sql, "arima_evaluate_model_basic.sql")
+
+
+def test_arima_evaluate_model_with_show_all_candidate_models(snapshot):
+    sql = bigframes.core.sql.ml.arima_evaluate(
+        model_name="my_model",
+        show_all_candidate_models=True,
+    )
+
+    snapshot.assert_match(
+        sql, "arima_evaluate_model_with_show_all_candidate_models.sql"
+    )
+
+
+def test_arima_evaluate_model_without_show_all_candidate_models(snapshot):
+    sql = bigframes.core.sql.ml.arima_evaluate(
+        model_name="my_model",
+        show_all_candidate_models=False,
+    )
+
+    snapshot.assert_match(
+        sql, "arima_evaluate_model_without_show_all_candidate_models.sql"
+    )

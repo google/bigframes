@@ -20,6 +20,7 @@ For an interface more familiar to Scikit-Learn users, see :mod:`bigframes.ml`.
 """
 
 from bigframes.bigquery._operations.ml import (
+    arima_evaluate,
     create_model,
     evaluate,
     explain_forecast,
@@ -37,6 +38,7 @@ from bigframes.bigquery._operations.ml import (
 __all__ = [
     "create_model",
     "evaluate",
+    "arima_evaluate",
     "predict",
     "recommend",
     "forecast",

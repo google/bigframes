@@ -737,3 +737,49 @@ def explain_forecast(
         return bpd.read_gbq_query(sql)
     else:
         return session.read_gbq_query(sql)
+
+
+@log_adapter.method_logger(custom_base_name="bigquery_ml")
+def arima_evaluate(
+    model: bigframes.ml.base.BaseEstimator | str | pd.Series,
+    *,
+    show_all_candidate_models: bool | None = None,
+) -> dataframe.DataFrame:
+    """
+    Evaluates the model metrics of ``ARIMA_PLUS`` or ``ARIMA_PLUS_XREG`` time
+    series models.
+
+    See the `BigQuery ML ARIMA_EVALUATE function syntax
+    <https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-arima-evaluate>`_
+    for additional reference.
+
+    Args:
+        model (bigframes.ml.base.BaseEstimator, str, or pd.Series):
+            The time series model to evaluate.
+        show_all_candidate_models (bool, optional):
+            A BOOL value that specifies whether to return the evaluation
+            metrics of all the candidate models that ``auto.ARIMA`` evaluated,
+            or only those of the best model, which is the one with the lowest
+            Akaike information criterion (AIC). For single time series
+            ``ARIMA_PLUS`` or ``ARIMA_PLUS_XREG`` models, the default value is
+            True. For large-scale time series ``ARIMA_PLUS`` models, the
+            default value is False.
+
+    Returns:
+        bigframes.pandas.DataFrame:
+            The evaluation metrics, one row per model. A model that couldn't be
+            fitted has NULL metrics and an ``error_message`` explaining why.
+    """
+    import bigframes.pandas as bpd
+
+    model_name, session = utils.get_model_name_and_session(model)
+
+    sql = bigframes.core.sql.ml.arima_evaluate(
+        model_name=model_name,
+        show_all_candidate_models=show_all_candidate_models,
+    )
+
+    if session is None:
+        return bpd.read_gbq_query(sql)
+    else:
+        return session.read_gbq_query(sql)

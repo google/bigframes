@@ -395,3 +395,21 @@ def explain_forecast(
 
     sql += ")\n"
     return sql
+
+
+def arima_evaluate(
+    model_name: str,
+    *,
+    show_all_candidate_models: bool | None = None,
+) -> str:
+    """Encode the ML.ARIMA_EVALUATE statement.
+    See https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-arima-evaluate for reference.
+    """
+    struct_options: dict[str, str | int | float | bool] = {}
+    if show_all_candidate_models is not None:
+        struct_options["show_all_candidate_models"] = show_all_candidate_models
+
+    sql = f"SELECT * FROM ML.ARIMA_EVALUATE(MODEL {sg_sql.to_sql(sg_sql.identifier(model_name))}"
+    sql += _build_struct_sql(struct_options)
+    sql += ")\n"
+    return sql

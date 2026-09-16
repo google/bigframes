@@ -331,3 +331,30 @@ def test_explain_forecast_without_input(read_pandas_mock, read_gbq_query_mock):
     # the model is created.
     assert "(SELECT" not in generated_sql
     assert "STRUCT" not in generated_sql
+
+
+@mock.patch("bigframes.pandas.read_gbq_query")
+@mock.patch("bigframes.pandas.read_pandas")
+def test_arima_evaluate(read_pandas_mock, read_gbq_query_mock):
+    ml_ops.arima_evaluate(MODEL_SERIES, show_all_candidate_models=True)
+
+    read_pandas_mock.assert_not_called()
+    read_gbq_query_mock.assert_called_once()
+    generated_sql = read_gbq_query_mock.call_args[0][0]
+    assert "ML.ARIMA_EVALUATE" in generated_sql
+    assert f"MODEL `{MODEL_NAME}`" in generated_sql
+    assert "TRUE AS `show_all_candidate_models`" in generated_sql
+    assert "(SELECT" not in generated_sql
+
+
+@mock.patch("bigframes.pandas.read_gbq_query")
+@mock.patch("bigframes.pandas.read_pandas")
+def test_arima_evaluate_without_options(read_pandas_mock, read_gbq_query_mock):
+    ml_ops.arima_evaluate(MODEL_SERIES)
+
+    read_pandas_mock.assert_not_called()
+    read_gbq_query_mock.assert_called_once()
+    generated_sql = read_gbq_query_mock.call_args[0][0]
+    assert "ML.ARIMA_EVALUATE" in generated_sql
+    assert f"MODEL `{MODEL_NAME}`" in generated_sql
+    assert "STRUCT" not in generated_sql

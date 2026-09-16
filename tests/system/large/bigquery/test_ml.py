@@ -290,3 +290,56 @@ def test_explain_forecast_xreg_with_input(arima_plus_xreg_model, future_features
     assert len(forecast) == 3
     assert "time_series_adjusted_data" in result.columns
     assert "trend" in result.columns
+
+
+@pytest.mark.parametrize(
+    "model_fixture",
+    [
+        "arima_plus_model",
+        "arima_plus_xreg_model",
+    ],
+)
+def test_arima_evaluate(model_fixture, request):
+    model = request.getfixturevalue(model_fixture)
+
+    result = ml.arima_evaluate(model)
+
+    expected_columns = {
+        "non_seasonal_p",
+        "non_seasonal_d",
+        "non_seasonal_q",
+        "has_drift",
+        "log_likelihood",
+        "AIC",
+        "variance",
+    }
+    assert len(result) > 0
+    assert expected_columns <= set(result.columns)
+    assert result["AIC"].notnull().all()
+
+
+@pytest.mark.parametrize(
+    "model_fixture",
+    [
+        "arima_plus_model",
+        "arima_plus_xreg_model",
+    ],
+)
+@pytest.mark.parametrize(
+    "show_all_candidate_models",
+    [
+        True,
+        False,
+    ],
+)
+def test_arima_evaluate_with_options(model_fixture, show_all_candidate_models, request):
+    model = request.getfixturevalue(model_fixture)
+
+    result = ml.arima_evaluate(
+        model, show_all_candidate_models=show_all_candidate_models
+    )
+
+    if show_all_candidate_models:
+        assert len(result) > 1
+    else:
+        assert len(result) == 1

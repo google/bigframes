@@ -383,3 +383,11 @@ def test_arima_evaluate_model_without_show_all_candidate_models(snapshot):
     snapshot.assert_match(
         sql, "arima_evaluate_model_without_show_all_candidate_models.sql"
     )
+
+
+def test_arima_coefficients_model_basic(snapshot):
+    sql = bigframes.core.sql.ml.arima_coefficients(
+        model_name="my_project.my_dataset.my_model",
+    )
+
+    snapshot.assert_match(sql, "arima_coefficients_model_basic.sql")

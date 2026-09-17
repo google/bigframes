@@ -358,3 +358,16 @@ def test_arima_evaluate_without_options(read_pandas_mock, read_gbq_query_mock):
     assert "ML.ARIMA_EVALUATE" in generated_sql
     assert f"MODEL `{MODEL_NAME}`" in generated_sql
     assert "STRUCT" not in generated_sql
+
+
+@mock.patch("bigframes.pandas.read_gbq_query")
+@mock.patch("bigframes.pandas.read_pandas")
+def test_arima_coefficients(read_pandas_mock, read_gbq_query_mock):
+    ml_ops.arima_coefficients(MODEL_SERIES)
+
+    read_pandas_mock.assert_not_called()
+    read_gbq_query_mock.assert_called_once()
+    generated_sql = read_gbq_query_mock.call_args[0][0]
+    assert "ML.ARIMA_COEFFICIENTS" in generated_sql
+    assert f"MODEL `{MODEL_NAME}`" in generated_sql
+    assert "STRUCT" not in generated_sql

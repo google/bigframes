@@ -783,3 +783,41 @@ def arima_evaluate(
         return bpd.read_gbq_query(sql)
     else:
         return session.read_gbq_query(sql)
+
+
+@log_adapter.method_logger(custom_base_name="bigquery_ml")
+def arima_coefficients(
+    model: bigframes.ml.base.BaseEstimator | str | pd.Series,
+) -> dataframe.DataFrame:
+    """
+    Gets the ARIMA coefficients and the weights of the external regressors for
+    ``ARIMA_PLUS`` and ``ARIMA_PLUS_XREG`` time series models.
+
+    See the `BigQuery ML ARIMA_COEFFICIENTS function syntax
+    <https://docs.cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-arima-coefficients>`_
+    for additional reference.
+
+    Args:
+        model (bigframes.ml.base.BaseEstimator, str, or pd.Series):
+            The time series model to get the coefficients of.
+
+    Returns:
+        bigframes.pandas.DataFrame:
+            The autoregressive coefficients, the moving-average coefficients,
+            and the constant term of the fitted ARIMA model, one row per time
+            series. For ``ARIMA_PLUS_XREG`` models, the result has additional
+            rows and columns holding the weight of each external regressor, or
+            its per-category weights when the regressor is non-numeric.
+    """
+    import bigframes.pandas as bpd
+
+    model_name, session = utils.get_model_name_and_session(model)
+
+    sql = bigframes.core.sql.ml.arima_coefficients(
+        model_name=model_name,
+    )
+
+    if session is None:
+        return bpd.read_gbq_query(sql)
+    else:
+        return session.read_gbq_query(sql)

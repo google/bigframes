@@ -343,3 +343,37 @@ def test_arima_evaluate_with_options(model_fixture, show_all_candidate_models, r
         assert len(result) > 1
     else:
         assert len(result) == 1
+
+
+@pytest.mark.parametrize(
+    "model_fixture",
+    [
+        "arima_plus_model",
+        "arima_plus_xreg_model",
+    ],
+)
+def test_arima_coefficients(model_fixture, request):
+    model = request.getfixturevalue(model_fixture)
+
+    result = ml.arima_coefficients(model)
+
+    expected_columns = {
+        "ar_coefficients",
+        "ma_coefficients",
+        "intercept_or_drift",
+    }
+    assert len(result) > 0
+    assert expected_columns <= set(result.columns)
+    assert result["intercept_or_drift"].notnull().sum() == 1
+
+
+def test_arima_coefficients_xreg_weights(arima_plus_xreg_model):
+    result = ml.arima_coefficients(arima_plus_xreg_model)
+
+    expected_columns = {
+        "processed_input",
+        "weight",
+        "category_weights",
+    }
+    assert expected_columns <= set(result.columns)
+    assert result["weight"].notnull().any()

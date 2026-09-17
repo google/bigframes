@@ -413,3 +413,13 @@ def arima_evaluate(
     sql += _build_struct_sql(struct_options)
     sql += ")\n"
     return sql
+
+
+def arima_coefficients(
+    model_name: str,
+) -> str:
+    """Encode the ML.ARIMA_COEFFICIENTS statement.
+    See https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-arima-coefficients for reference.
+    """
+    sql = f"SELECT * FROM ML.ARIMA_COEFFICIENTS(MODEL {sg_sql.to_sql(sg_sql.identifier(model_name))})\n"
+    return sql

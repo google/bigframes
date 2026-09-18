@@ -18,7 +18,15 @@ import google.cloud.bigquery as bigquery
 import pytest
 
 import bigframes.pandas as bpd
-from bigframes.core import bq_data
+from bigframes import dtypes
+from bigframes.core import (
+    array_value,
+    blocks,
+    bq_data,
+    identifiers,
+    nodes,
+    schema,
+)
 
 pytest.importorskip("pytest_snapshot")
 
@@ -92,3 +100,48 @@ def test_compile_astype_aliases(scalar_types_df: bpd.DataFrame, snapshot):
         }
     )
     snapshot.assert_match(result.sql + "\n", "out.sql")
+
+
+def test_compile_readtable_w_json_string_workaround(
+    compiler_session_w_json_types, json_types_table_schema, snapshot
+):
+    table_ref = bigquery.TableReference(
+        bigquery.DatasetReference("bigframes-dev", "sqlglot_test"),
+        "json_types",
+    )
+    table = bigquery.Table(table_ref, tuple(json_types_table_schema))
+    table._properties["location"] = compiler_session_w_json_types._location
+    native_table = bq_data.GbqNativeTable.from_table(table)
+
+    logical_schema = schema.ArraySchema(
+        (
+            schema.SchemaItem("rowindex", dtypes.INT_DTYPE),
+            schema.SchemaItem("json_col", dtypes.JSON_DTYPE),
+            schema.SchemaItem("json_string_col", dtypes.JSON_DTYPE),
+        )
+    )
+    source = bq_data.BigqueryDataSource(
+        table=native_table,
+        schema=logical_schema,
+    )
+    scan_list = nodes.ScanList(
+        (
+            nodes.ScanItem(identifiers.ColumnId("rowindex"), "rowindex"),
+            nodes.ScanItem(identifiers.ColumnId("json_col"), "json_col"),
+            nodes.ScanItem(identifiers.ColumnId("json_string_col"), "json_string_col"),
+        )
+    )
+    read_node = nodes.ReadTableNode(
+        source=source,
+        scan_list=scan_list,
+        table_session=compiler_session_w_json_types,
+    )
+    block = blocks.Block(
+        array_value.ArrayValue(read_node),
+        index_columns=(),
+        column_labels=("rowindex", "json_col", "json_string_col"),
+    )
+
+    bf_df = bpd.DataFrame(block)
+
+    snapshot.assert_match(bf_df.sql, "out.sql")

@@ -47,9 +47,22 @@ class SqlDataSource(nodes.LeafNode):
 
     @property
     def is_star_selection(self) -> bool:
-        return tuple(self.source.schema.names) == tuple(
+        # A star selection (SELECT *) is only logical if all column names and types match
+        # the table's physical schema. For example, intermediate tables may have physical
+        # type STRING but logical type JSON_DTYPE (b/374784249), requiring explicit column
+        # selection and type conversion rather than a wildcard SELECT *.
+        if tuple(self.source.schema.names) != tuple(
             field.name for field in self.source.table.physical_schema
-        )
+        ):
+            return False
+        for field in self.source.table.physical_schema:
+            try:
+                _, field_dtype = bigframes.dtypes.convert_schema_field(field)
+            except TypeError:
+                return False
+            if field_dtype != self.source.schema.get_type(field.name):
+                return False
+        return True
 
     @property
     def variables_introduced(self) -> int:

@@ -8,5 +8,10 @@
         "name": "json_col",
         "type": "JSON",
         "mode": "NULLABLE"
+    },
+    {
+        "name": "json_string_col",
+        "type": "STRING",
+        "mode": "NULLABLE"
     }
 ]

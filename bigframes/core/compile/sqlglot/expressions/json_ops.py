@@ -66,8 +66,10 @@ def _(expr: TypedExpr, op: ops.JSONValueArray) -> sge.Expression:
 
 
 @register_unary_op(ops.ParseJSON)
-def _(expr: TypedExpr) -> sge.Expression:
-    return sge.func("PARSE_JSON", expr.expr)
+def parse_json(expr: TypedExpr | sge.Expression) -> sge.Expression:
+    # This function has a name only because it's directly invoked in sqlglot_ir when handling JSON columns.
+    inner = expr.expr if isinstance(expr, TypedExpr) else expr
+    return sge.func("PARSE_JSON", inner)
 
 
 @register_unary_op(ops.ToJSON, pass_op=True)

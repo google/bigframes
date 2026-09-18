@@ -21,13 +21,14 @@ import typing
 
 import bigframes_vendored.sqlglot as sg
 import bigframes_vendored.sqlglot.expressions as sge
+import google.cloud.bigquery as bq
 import pyarrow as pa
 
 import bigframes.core.compile.sqlglot.sqlglot_types as sgt
 from bigframes import dtypes
 from bigframes.core import guid, local_data, schema
 from bigframes.core.compile.sqlglot import sql
-from bigframes.core.compile.sqlglot.expressions import typed_expr
+from bigframes.core.compile.sqlglot.expressions import json_ops, typed_expr
 
 # shapely.wkt.dumps was moved to shapely.io.to_wkt in 2.0.
 try:
@@ -179,8 +180,10 @@ class SQLGlotIR:
         table_id: str,
         uid_gen: guid.SequentialUIDGenerator | None = None,
         columns: typing.Sequence[str] = (),
-        sql_predicate: typing.Optional[str] = None,
-        system_time: typing.Optional[datetime.datetime] = None,
+        sql_predicate: str | None = None,
+        system_time: datetime.datetime | None = None,
+        expr_schema: schema.ArraySchema | None = None,
+        physical_schema: typing.Sequence[bq.SchemaField] | None = None,
     ) -> SQLGlotIR:
         """Builds a SQLGlotIR expression from a BigQuery table.
 
@@ -189,9 +192,11 @@ class SQLGlotIR:
             dataset_id (str): The dataset ID of the BigQuery table.
             table_id (str): The table ID of the BigQuery table.
             uid_gen (guid.SequentialUIDGenerator): A generator for unique identifiers.
-            columns (typing.Sequence[str]): The names of the columns to select.
-            sql_predicate (typing.Optional[str]): An optional SQL predicate for filtering.
-            system_time (typing.Optional[str]): An optional system time for time-travel queries.
+            columns (typing.Sequence[str]): The names of the columns to select. Empty means select all columns.
+            sql_predicate (str | None): An optional SQL predicate for filtering.
+            system_time (datetime.datetime | None): An optional system time for time-travel queries.
+            expr_schema (schema.ArraySchema | None): The logical schema of the expression.
+            physical_schema (typing.Sequence[bq.SchemaField] | None): The physical schema of the table.
         """
         version = (
             sge.Version(
@@ -213,12 +218,28 @@ class SQLGlotIR:
             alias=sql.identifier(table_alias),
         )
 
-        if not columns and not sql_predicate:
-            return cls.from_expr(expr=table_expr, uid_gen=uid_gen)
+        select_items: list[sge.Expression] = []
+        if not columns:  # An empty value means select all columns.
+            if not sql_predicate:
+                return cls.from_expr(expr=table_expr, uid_gen=uid_gen)
+            select_items = [sge.Star()]
+        else:
+            physical_types: dict[str, str] = {}
+            if physical_schema:
+                physical_types = {f.name: f.field_type.upper() for f in physical_schema}
 
-        select_items: list[sge.Identifier | sge.Star] = (
-            [sql.identifier(col) for col in columns] if columns else [sge.Star()]
-        )
+            for col in columns:
+                item: sge.Expression = sql.identifier(col)
+                # TODO(b/395912450): Remove workaround solution once b/374784249 got resolved.
+                if (
+                    expr_schema is not None
+                    and expr_schema.get_type(col) == dtypes.JSON_DTYPE
+                    and physical_types.get(col) == "STRING"
+                ):
+                    item = sge.Alias(this=json_ops.parse_json(item), alias=item)
+
+                select_items.append(item)
+
         select_expr = sge.Select().select(*select_items).from_(table_expr)
 
         if sql_predicate:

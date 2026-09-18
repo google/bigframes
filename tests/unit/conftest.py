@@ -271,6 +271,7 @@ def json_types_table_schema() -> typing.Sequence[bigquery.SchemaField]:
     return [
         bigquery.SchemaField("rowindex", "INTEGER"),
         bigquery.SchemaField("json_col", "JSON"),
+        bigquery.SchemaField("json_string_col", "STRING"),
     ]
 
 

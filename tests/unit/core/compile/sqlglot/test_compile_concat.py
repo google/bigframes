@@ -12,10 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import google.cloud.bigquery as bigquery
 import pytest
 
 import bigframes.pandas as bpd
-from bigframes.core import ordering
+from bigframes import dtypes
+from bigframes.core import (
+    array_value,
+    blocks,
+    bq_data,
+    identifiers,
+    nodes,
+    ordering,
+    schema,
+)
 
 pytest.importorskip("pytest_snapshot")
 
@@ -46,3 +56,51 @@ def test_compile_concat_filter_sorted(scalar_types_df: bpd.DataFrame, snapshot):
 
     sql = result.session._executor.to_sql(result, enable_cache=False)
     snapshot.assert_match(sql, "out.sql")
+
+
+def test_compile_concat_w_json_string_workaround(
+    compiler_session_w_json_types, json_types_table_schema, snapshot
+):
+    table_ref = bigquery.TableReference(
+        bigquery.DatasetReference("bigframes-dev", "sqlglot_test"),
+        "json_types",
+    )
+    table = bigquery.Table(table_ref, tuple(json_types_table_schema))
+    table._properties["location"] = compiler_session_w_json_types._location
+    native_table = bq_data.GbqNativeTable.from_table(table)
+
+    logical_schema = schema.ArraySchema(
+        (
+            schema.SchemaItem("rowindex", dtypes.INT_DTYPE),
+            schema.SchemaItem("json_col", dtypes.JSON_DTYPE),
+            schema.SchemaItem("json_string_col", dtypes.JSON_DTYPE),
+        )
+    )
+    source = bq_data.BigqueryDataSource(
+        table=native_table,
+        schema=logical_schema,
+    )
+    scan_list = nodes.ScanList(
+        (
+            nodes.ScanItem(identifiers.ColumnId("rowindex"), "rowindex"),
+            nodes.ScanItem(identifiers.ColumnId("json_col"), "json_col"),
+            nodes.ScanItem(identifiers.ColumnId("json_string_col"), "json_string_col"),
+        )
+    )
+    read_node = nodes.ReadTableNode(
+        source=source,
+        scan_list=scan_list,
+        table_session=compiler_session_w_json_types,
+    )
+    block = blocks.Block(
+        array_value.ArrayValue(read_node),
+        index_columns=(),
+        column_labels=("rowindex", "json_col", "json_string_col"),
+    )
+    df = bpd.DataFrame(block)
+    s1 = df["json_col"]
+    s2 = df["json_string_col"]
+
+    concat_series = bpd.concat([s1, s2])
+
+    snapshot.assert_match(concat_series.sql, "out.sql")

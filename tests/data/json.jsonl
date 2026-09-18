@@ -1,16 +1,16 @@
-{"rowindex": 0, "json_col": null}
-{"rowindex": 1, "json_col": true}
-{"rowindex": 2, "json_col": 100}
-{"rowindex": 3, "json_col": 0.98}
-{"rowindex": 4, "json_col": "a string"}
-{"rowindex": 5, "json_col": []}
-{"rowindex": 6, "json_col": [1, 2, 3]}
-{"rowindex": 7, "json_col": [{"a": 1}, {"a": 2}, {"a": null}, {}]}
-{"rowindex": 8, "json_col": "100"}
-{"rowindex": 9, "json_col": {"float_num": 3.14159}}
-{"rowindex": 10, "json_col": {"date": "2024-07-16"}}
-{"rowindex": 11, "json_col": 100}
-{"rowindex": 12, "json_col": {"int_value": 2, "null_field": null}}
-{"rowindex": 13, "json_col": {"list_data": [10, 20, 30]}}
-{"rowindex": 14, "json_col": {"person": {"name": "Alice", "age": 35}}}
-{"rowindex": 15, "json_col": {"order": {"items": ["book", "pen"], "total": 15.99}}}
+{"rowindex": 0, "json_col": null, "json_string_col": "null"}
+{"rowindex": 1, "json_col": true, "json_string_col": "true"}
+{"rowindex": 2, "json_col": 100, "json_string_col": "100"}
+{"rowindex": 3, "json_col": 0.98, "json_string_col": "0.98"}
+{"rowindex": 4, "json_col": "a string", "json_string_col": "\"a string\""}
+{"rowindex": 5, "json_col": [], "json_string_col": "[]"}
+{"rowindex": 6, "json_col": [1, 2, 3], "json_string_col": "[1, 2, 3]"}
+{"rowindex": 7, "json_col": [{"a": 1}, {"a": 2}, {"a": null}, {}], "json_string_col": "[{\"a\": 1}, {\"a\": 2}, {\"a\": null}, {}]"}
+{"rowindex": 8, "json_col": "100", "json_string_col": "\"100\""}
+{"rowindex": 9, "json_col": {"float_num": 3.14159}, "json_string_col": "{\"float_num\": 3.14159}"}
+{"rowindex": 10, "json_col": {"date": "2024-07-16"}, "json_string_col": "{\"date\": \"2024-07-16\"}"}
+{"rowindex": 11, "json_col": 100, "json_string_col": "100"}
+{"rowindex": 12, "json_col": {"int_value": 2, "null_field": null}, "json_string_col": "{\"int_value\": 2, \"null_field\": null}"}
+{"rowindex": 13, "json_col": {"list_data": [10, 20, 30]}, "json_string_col": "{\"list_data\": [10, 20, 30]}"}
+{"rowindex": 14, "json_col": {"person": {"name": "Alice", "age": 35}}, "json_string_col": "{\"person\": {\"name\": \"Alice\", \"age\": 35}}"}
+{"rowindex": 15, "json_col": {"order": {"items": ["book", "pen"], "total": 15.99}}, "json_string_col": "{\"order\": {\"items\": [\"book\", \"pen\"], \"total\": 15.99}}"}

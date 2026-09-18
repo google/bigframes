@@ -214,6 +214,8 @@ def compile_readtable(node: sql_nodes.SqlDataSource, child: sqlglot_ir.SQLGlotIR
         columns=columns,
         sql_predicate=node.source.sql_predicate,
         system_time=node.source.at_time,
+        expr_schema=node.source.schema,
+        physical_schema=table_obj.physical_schema,
     )
 
 

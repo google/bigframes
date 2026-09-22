@@ -5241,3 +5241,84 @@ def test_series_where_with_expression_resolving_to_self(scalars_dfs):
     pd_result = s1_pd.where(s2_pd, s1_pd)
 
     pd.testing.assert_series_equal(bf_result, pd_result, check_dtype=False)
+
+
+@pytest.mark.parametrize(
+    ("fill_value"),
+    [
+        (0),
+        (-1),
+        (999),
+    ],
+)
+def test_series_multi_index_unstack_fill_value(session: bigframes.Session, fill_value):
+    index = pd.MultiIndex.from_tuples(
+        [("a", "x"), ("a", "y"), ("b", "x")], names=["lvl0", "lvl1"]
+    )
+    pandas_series = pd.Series([1, 2, 3], index=index, name="col")
+    bf_series = session.read_pandas(pandas_series.to_frame())["col"]
+
+    bf_result = bf_series.unstack(fill_value=fill_value).to_pandas()
+    pd_result = pandas_series.unstack(fill_value=fill_value)
+
+    assert_frame_equal(
+        bf_result,
+        pd_result,
+        check_dtype=False,
+        check_index_type=False,
+        check_column_type=False,
+    )
+
+
+def test_series_multi_index_unstack_fill_value_preserves_existing_nulls(
+    session: bigframes.Session,
+):
+    index = pd.MultiIndex.from_tuples(
+        [("a", "x"), ("a", "y"), ("b", "x")], names=["lvl0", "lvl1"]
+    )
+    pandas_series = pd.Series([1.0, numpy.nan, 3.0], index=index, name="col")
+    bf_series = session.read_pandas(pandas_series.to_frame())["col"]
+
+    bf_result = bf_series.unstack(fill_value=0).to_pandas()
+    pd_result = pandas_series.unstack(fill_value=0)
+
+    assert_frame_equal(
+        bf_result,
+        pd_result,
+        check_dtype=False,
+        check_index_type=False,
+        check_column_type=False,
+    )
+
+
+def test_series_multi_index_unstack_fill_value_str(session: bigframes.Session):
+    index = pd.MultiIndex.from_tuples(
+        [("a", "x"), ("a", "y"), ("b", "x")], names=["lvl0", "lvl1"]
+    )
+    pandas_series = pd.Series(["p", "q", "r"], index=index, name="col")
+    bf_series = session.read_pandas(pandas_series.to_frame())["col"]
+
+    bf_result = bf_series.unstack(fill_value="missing").to_pandas()
+    pd_result = pandas_series.unstack(fill_value="missing")
+
+    assert_frame_equal(
+        bf_result,
+        pd_result,
+        check_dtype=False,
+        check_index_type=False,
+        check_column_type=False,
+    )
+
+
+@pytest.mark.parametrize("bad_fill_value", [[1, 2], {"a": 1}, (1, 2)])
+def test_series_multi_index_unstack_non_scalar_fill_value_raises(
+    session: bigframes.Session, bad_fill_value
+):
+    index = pd.MultiIndex.from_tuples(
+        [("a", "x"), ("a", "y"), ("b", "x")], names=["lvl0", "lvl1"]
+    )
+    pandas_series = pd.Series([1, 2, 3], index=index, name="col")
+    bf_series = session.read_pandas(pandas_series.to_frame())["col"]
+
+    with pytest.raises(ValueError, match="fill_value must be a scalar"):
+        bf_series.unstack(fill_value=bad_fill_value)

@@ -5138,9 +5138,27 @@ class Series(NDFrame):  # type: ignore[misc]
         """
         raise NotImplementedError(constants.ABSTRACT_METHOD_ERROR_MESSAGE)
 
-    def unstack(self, level):
+    def unstack(self, level=-1, *, fill_value=None):
         """
         Unstack, also known as pivot, Series with MultiIndex to produce DataFrame.
+
+        **Examples:**
+
+            >>> index = pd.MultiIndex.from_tuples([('one', 'a'), ('one', 'b'), ('two', 'a')])
+            >>> s = bpd.Series([1, 2, 3], index=index)
+            >>> s.unstack(fill_value=0)
+            level_1  a  b
+            level_0
+            one      1  2
+            two      3  0
+            <BLANKLINE>
+            [2 rows x 2 columns]
+
+        Args:
+            level (int, str, or list of these, default -1 (last level)):
+                Level(s) of index to unstack, can pass level name.
+            fill_value (scalar, default None):
+                Value to use to replace missing values.
 
         Returns:
             bigframes.pandas.DataFrame: Unstacked Series.

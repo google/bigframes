@@ -6570,7 +6570,7 @@ class DataFrame(generic.NDFrame):
         """
         raise NotImplementedError(constants.ABSTRACT_METHOD_ERROR_MESSAGE)
 
-    def unstack(self, level=-1):
+    def unstack(self, level=-1, *, fill_value=None):
         """
         Pivot a level of the (necessarily hierarchical) index labels.
 
@@ -6598,9 +6598,22 @@ class DataFrame(generic.NDFrame):
                 bar    4
             dtype: Int64
 
+            >>> index = pd.MultiIndex.from_tuples([('one', 'a'), ('one', 'b'), ('two', 'a')])
+            >>> df = bpd.DataFrame({'val': [1, 2, 3]}, index=index)
+            >>> df.unstack(fill_value=0)
+                    val
+            level_1   a  b
+            level_0
+            one       1  2
+            two       3  0
+            <BLANKLINE>
+            [2 rows x 2 columns]
+
         Args:
             level (int, str, or list of these, default -1 (last level)):
                 Level(s) of index to unstack, can pass level name.
+            fill_value (scalar, default None):
+                Value to use to replace missing values.
 
         Returns:
             bigframes.pandas.DataFrame or bigframes.pandas.Series: DataFrame or Series.

@@ -1712,6 +1712,7 @@ class Block:
             typing.Union[pd.Index, Sequence[object]]
         ] = None,
         values_in_index: typing.Optional[bool] = None,
+        fill_value: typing.Optional[typing.Any] = None,
     ):
         # We need the unique values from the pivot columns to turn them into
         # column ids. It can be deteremined by running a SQL query on the
@@ -1732,23 +1733,58 @@ class Block:
             )
         column_index = columns_values
 
+        # After pivoting with AnyValueOp(), an aggregated cell is NULL in two cases:
+        #   1. Missing combination: no input row had this (index, pivot_value) pair.
+        #   2. Pre-existing NULL: a matching input row existed, but its value was NULL.
+        #
+        # pandas unstack(fill_value=...) only replaces case (1) and preserves NULL
+        # for case (2). To distinguish them, project the boolean match condition for
+        # each pivoted column and aggregate it with `AnyOp()` (`LOGICAL_OR`), which
+        # evaluates to TRUE iff at least one matching input row existed.
         column_ids: list[str] = []
+        presence_ids: list[str] = []
         block = self
         for value in values:
             for uvalue in columns_values:
                 block, masked_id = self._create_pivot_col(block, columns, value, uvalue)
                 column_ids.append(masked_id)
+                if fill_value is not None:
+                    condition = self._create_pivot_condition(columns, uvalue)
+                    block, presence_id = block.project_expr(condition)
+                    presence_ids.append(presence_id)
 
-        block = block.select_columns(column_ids)
+        block = block.select_columns(column_ids + presence_ids)
         aggregations = [
             agg_expressions.UnaryAggregation(agg_ops.AnyValueOp(), ex.deref(col_id))
             for col_id in column_ids
+        ] + [
+            agg_expressions.UnaryAggregation(agg_ops.AnyOp(), ex.deref(col_id))
+            for col_id in presence_ids
         ]
         result_block = block.aggregate(
             by_column_ids=self.index_columns,
             aggregations=aggregations,
             dropna=True,
         )
+
+        if fill_value is not None:
+            # `column_ids` and `presence_ids` have a 1-to-1 correspondence, so
+            # `len(agg_value_cols) == len(agg_presence_cols) == len(column_ids)`.
+            agg_value_cols = result_block.value_columns[: len(column_ids)]
+            agg_presence_cols = result_block.value_columns[len(column_ids) :]
+            final_col_ids: list[str] = []
+            for value_col, presence_col in zip(agg_value_cols, agg_presence_cols):
+                # where_op(then_val, cond, else_val): keep `value_col` (even if NULL)
+                # when a matching row existed (`presence_col` is TRUE), else `fill_value`.
+                result_block, final_col = result_block.project_expr(
+                    ops.where_op.as_expr(
+                        ex.deref(value_col),
+                        ex.deref(presence_col),
+                        ex.const(fill_value),
+                    )
+                )
+                final_col_ids.append(final_col)
+            result_block = result_block.select_columns(final_col_ids)
 
         if values_in_index or len(values) > 1:
             value_labels = self._get_labels_for_columns(values)
@@ -2170,9 +2206,7 @@ class Block:
         return functools.reduce(lambda x, y: x.append(y), index_parts)
 
     @staticmethod
-    def _create_pivot_col(
-        block: Block, columns: typing.Sequence[str], value_col: str, value
-    ) -> typing.Tuple[Block, str]:
+    def _create_pivot_condition(columns: typing.Sequence[str], value) -> ex.Expression:
         condition: typing.Optional[ex.Expression] = None
         nlevels = len(columns)
         for i in range(len(columns)):
@@ -2187,6 +2221,13 @@ class Block:
                 condition = equality
 
         assert condition is not None
+        return condition
+
+    @classmethod
+    def _create_pivot_col(
+        cls, block: Block, columns: typing.Sequence[str], value_col: str, value
+    ) -> typing.Tuple[Block, str]:
+        condition = cls._create_pivot_condition(columns, value)
         return block.project_expr(
             ops.where_op.as_expr(value_col, condition, ex.const(None))
         )

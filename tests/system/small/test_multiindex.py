@@ -1327,6 +1327,55 @@ def test_series_multi_index_unstack(hockey_df, hockey_pandas_df, level):
     bigframes.testing.utils.assert_frame_equal(bf_result, pd_result, check_dtype=False)
 
 
+@pytest.mark.parametrize(
+    ("level", "fill_value"),
+    [
+        (["int64_too", "rowindex_2"], 0),
+        ("int64_too", -1),
+        ("rowindex_2", 999),
+    ],
+)
+def test_df_multi_index_unstack_fill_value(
+    scalars_df_index, scalars_pandas_df_index, level, fill_value
+):
+    columns = ["int64_col", "float64_col"]
+    bf_result = (
+        scalars_df_index.set_index(["int64_too", "rowindex_2"], append=True)[columns]
+        .unstack(level=level, fill_value=fill_value)
+        .to_pandas()
+    )
+    pd_result = scalars_pandas_df_index.set_index(
+        ["int64_too", "rowindex_2"], append=True
+    )[columns].unstack(level=level, fill_value=fill_value)
+
+    bigframes.testing.utils.assert_frame_equal(bf_result, pd_result, check_dtype=False)
+
+
+@pytest.mark.parametrize(
+    ("level", "fill_value"),
+    [
+        (["int64_too", "rowindex_2"], 0),
+        ("int64_too", -1),
+        ("rowindex_2", 999),
+    ],
+)
+def test_series_multi_index_unstack_fill_value(
+    scalars_df_index, scalars_pandas_df_index, level, fill_value
+):
+    bf_result = (
+        scalars_df_index.set_index(["int64_too", "rowindex_2"], append=True)[
+            "float64_col"
+        ]
+        .unstack(level=level, fill_value=fill_value)
+        .to_pandas()
+    )
+    pd_result = scalars_pandas_df_index.set_index(
+        ["int64_too", "rowindex_2"], append=True
+    )["float64_col"].unstack(level=level, fill_value=fill_value)
+
+    bigframes.testing.utils.assert_frame_equal(bf_result, pd_result, check_dtype=False)
+
+
 def test_column_multi_index_swaplevel(scalars_df_index, scalars_pandas_df_index):
     columns = ["int64_too", "string_col", "bool_col"]
     multi_columns = pandas.MultiIndex.from_tuples(

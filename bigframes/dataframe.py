@@ -3636,9 +3636,17 @@ class DataFrame:
 
     @validations.requires_index
     @validations.requires_ordering()
-    def unstack(self, level: LevelsType = -1):
+    def unstack(
+        self,
+        level: LevelsType = -1,
+        *,
+        fill_value: typing.Any = None,
+    ):
         if not utils.is_list_like(level):
             level = [level]
+
+        if fill_value is not None and not pandas.api.types.is_scalar(fill_value):
+            raise ValueError("fill_value must be a scalar")
 
         block = self._block
         # Special case, unstack with mono-index transpose into a series
@@ -3657,6 +3665,7 @@ class DataFrame:
             columns=unstack_ids,
             values=self._block.value_columns,
             values_in_index=True,
+            fill_value=fill_value,
         )
         return DataFrame(pivot_block)
 

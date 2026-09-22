@@ -1677,7 +1677,12 @@ class Series:
         )
 
     @validations.requires_index
-    def unstack(self, level: LevelsType = -1):
+    def unstack(
+        self,
+        level: LevelsType = -1,
+        *,
+        fill_value: typing.Any = None,
+    ):
         if isinstance(level, int) or isinstance(level, str):
             level = [level]
 
@@ -1685,6 +1690,9 @@ class Series:
 
         if self.index.nlevels == 1:
             raise ValueError("Series must have multi-index to unstack")
+
+        if fill_value is not None and not pandas.api.types.is_scalar(fill_value):
+            raise ValueError("fill_value must be a scalar")
 
         # Pivot by index levels
         unstack_ids = self._resolve_levels(level)
@@ -1697,6 +1705,7 @@ class Series:
             columns=unstack_ids,
             values=self._block.value_columns,
             values_in_index=False,
+            fill_value=fill_value,
         )
         return bigframes.dataframe.DataFrame(pivot_block)
 

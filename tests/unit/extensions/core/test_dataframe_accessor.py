@@ -15,6 +15,7 @@
 import unittest.mock as mock
 
 import pandas as pd
+import pytest
 
 import bigframes.bigquery.ai
 import bigframes.pandas as bpd
@@ -150,6 +151,166 @@ def test_bigframes_ai_predict(scalar_types_df: bpd.DataFrame, monkeypatch):
     # BigFrames accessor returns the bf_df directly without calling to_pandas
     predict_result.to_pandas.assert_not_called()
     assert actual_result is predict_result
+
+
+def test_ai_evaluate_tabfm(monkeypatch):
+    session = mock.create_autospec(bigframes.session.Session)
+    bf_df = mock.create_autospec(bpd.DataFrame)
+    session.read_pandas.return_value = bf_df
+
+    mock_evaluate = mock.MagicMock()
+    evaluate_result_df = mock.create_autospec(bpd.DataFrame)
+    mock_evaluate.return_value = evaluate_result_df
+    expected_result = mock.create_autospec(pd.DataFrame)
+    evaluate_result_df.to_pandas.return_value = expected_result
+
+    monkeypatch.setattr(bigframes.bigquery.ai, "evaluate", mock_evaluate)
+
+    df = pd.DataFrame({"feat": [1.0], "label": [2.0]})
+    prediction_df = pd.DataFrame({"feat": [3.0], "label": [4.0]})
+
+    actual_result = df.bigquery.ai.evaluate(
+        other=prediction_df,
+        label_col="label",
+        session=session,
+    )
+
+    session.read_pandas.assert_called_once()
+    mock_evaluate.assert_called_once_with(
+        bf_df,
+        prediction_df,
+        label_col="label",
+    )
+    evaluate_result_df.to_pandas.assert_called_once()
+    assert actual_result is expected_result
+
+
+def test_ai_evaluate_timesfm(monkeypatch):
+    session = mock.create_autospec(bigframes.session.Session)
+    bf_df = mock.create_autospec(bpd.DataFrame)
+    session.read_pandas.return_value = bf_df
+
+    mock_evaluate = mock.MagicMock()
+    evaluate_result_df = mock.create_autospec(bpd.DataFrame)
+    mock_evaluate.return_value = evaluate_result_df
+    expected_result = mock.create_autospec(pd.DataFrame)
+    evaluate_result_df.to_pandas.return_value = expected_result
+
+    monkeypatch.setattr(bigframes.bigquery.ai, "evaluate", mock_evaluate)
+
+    history_df = pd.DataFrame({"date": ["2020-01-01"], "value": [1.0]})
+    actual_df = pd.DataFrame({"date": ["2020-01-02"], "value": [2.0]})
+
+    actual_result = history_df.bigquery.ai.evaluate(
+        other=actual_df,
+        data_col="value",
+        timestamp_col="date",
+        horizon=5,
+        session=session,
+    )
+
+    session.read_pandas.assert_called_once()
+    mock_evaluate.assert_called_once_with(
+        bf_df,
+        actual_df,
+        data_col="value",
+        timestamp_col="date",
+        model="TimesFM 2.5",
+        id_cols=None,
+        horizon=5,
+        context_window=None,
+    )
+    evaluate_result_df.to_pandas.assert_called_once()
+    assert actual_result is expected_result
+
+
+def test_bigframes_ai_evaluate_tabfm(scalar_types_df: bpd.DataFrame, monkeypatch):
+    session = mock.create_autospec(bigframes.session.Session)
+    evaluate_result = mock.create_autospec(bpd.DataFrame)
+    mock_evaluate = mock.MagicMock()
+    mock_evaluate.return_value = evaluate_result
+
+    monkeypatch.setattr(bigframes.bigquery.ai, "evaluate", mock_evaluate)
+
+    prediction_df = mock.create_autospec(bpd.DataFrame)
+
+    actual_result = scalar_types_df.bigquery.ai.evaluate(
+        prediction_df,
+        label_col="label",
+        session=session,
+    )
+
+    session.read_pandas.assert_not_called()
+    mock_evaluate.assert_called_once_with(
+        scalar_types_df,
+        prediction_df,
+        label_col="label",
+    )
+    evaluate_result.to_pandas.assert_not_called()
+    assert actual_result is evaluate_result
+
+
+def test_bigframes_ai_evaluate_timesfm(scalar_types_df: bpd.DataFrame, monkeypatch):
+    session = mock.create_autospec(bigframes.session.Session)
+    evaluate_result = mock.create_autospec(bpd.DataFrame)
+    mock_evaluate = mock.MagicMock()
+    mock_evaluate.return_value = evaluate_result
+
+    monkeypatch.setattr(bigframes.bigquery.ai, "evaluate", mock_evaluate)
+
+    actual_df = mock.create_autospec(bpd.DataFrame)
+
+    actual_result = scalar_types_df.bigquery.ai.evaluate(
+        actual_df,
+        data_col="value",
+        timestamp_col="date",
+        horizon=10,
+        session=session,
+    )
+
+    session.read_pandas.assert_not_called()
+    mock_evaluate.assert_called_once_with(
+        scalar_types_df,
+        actual_df,
+        data_col="value",
+        timestamp_col="date",
+        model="TimesFM 2.5",
+        id_cols=None,
+        horizon=10,
+        context_window=None,
+    )
+    evaluate_result.to_pandas.assert_not_called()
+    assert actual_result is evaluate_result
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "expected_error"),
+    [
+        (
+            {"data_col": "value", "timestamp_col": "date", "label_col": "label"},
+            "Cannot specify both",
+        ),
+        (
+            {},
+            "Must specify either",
+        ),
+        (
+            {"data_col": "value"},
+            "Must specify either",
+        ),
+        (
+            {"timestamp_col": "date"},
+            "Must specify either",
+        ),
+    ],
+)
+def test_ai_evaluate_validation_errors(
+    scalar_types_df: bpd.DataFrame, kwargs, expected_error
+):
+    other_df = mock.create_autospec(bpd.DataFrame)
+
+    with pytest.raises(ValueError, match=expected_error):
+        scalar_types_df.bigquery.ai.evaluate(other_df, **kwargs)
 
 
 def test_ai_generate(monkeypatch):

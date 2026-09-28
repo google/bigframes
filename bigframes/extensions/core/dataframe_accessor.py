@@ -26,6 +26,7 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
+    overload,
 )
 
 if TYPE_CHECKING:
@@ -131,6 +132,79 @@ class AIAccessor(AbstractBigQueryDataFrameAccessor[T, S]):
             prediction_df,
             label_col=label_col,
         )
+        return self._to_dataframe(result)
+
+    @overload
+    def evaluate(
+        self,
+        other: bigframes.dataframe.DataFrame | pd.DataFrame,
+        *,
+        data_col: str,
+        timestamp_col: str,
+        model: str = "TimesFM 2.5",
+        id_cols: Iterable[str] | None = None,
+        horizon: int = 1024,
+        context_window: int | None = None,
+        session: bigframes.session.Session | None = None,
+    ) -> T: ...
+
+    @overload
+    def evaluate(
+        self,
+        other: bigframes.dataframe.DataFrame | pd.DataFrame,
+        *,
+        label_col: str,
+        session: bigframes.session.Session | None = None,
+    ) -> T: ...
+
+    def evaluate(
+        self,
+        other: bigframes.dataframe.DataFrame | pd.DataFrame,
+        *,
+        data_col: str | None = None,
+        timestamp_col: str | None = None,
+        model: str = "TimesFM 2.5",
+        id_cols: Iterable[str] | None = None,
+        horizon: int = 1024,
+        context_window: int | None = None,
+        label_col: str | None = None,
+        session: bigframes.session.Session | None = None,
+    ) -> T:
+        """
+        Evaluates TimesFM forecasted data against a reference time series based on
+        historical data, or TabFM predicted data against ground truth data.
+
+        This is an accessor for :func:`bigframes.bigquery.ai.evaluate`. See that
+        function's documentation for detailed parameter descriptions and examples.
+        """
+        import bigframes.bigquery.ai
+
+        if label_col is not None:
+            if data_col is not None or timestamp_col is not None:
+                raise ValueError(
+                    "Cannot specify both `label_col` and `data_col`/`timestamp_col`."
+                )
+            result = bigframes.bigquery.ai.evaluate(
+                self._bf_from_dataframe(session),
+                other,
+                label_col=label_col,
+            )
+        elif data_col is not None and timestamp_col is not None:
+            result = bigframes.bigquery.ai.evaluate(
+                self._bf_from_dataframe(session),
+                other,
+                data_col=data_col,
+                timestamp_col=timestamp_col,
+                model=model,
+                id_cols=id_cols,
+                horizon=horizon,
+                context_window=context_window,
+            )
+        else:
+            raise ValueError(
+                "Must specify either (`data_col` and `timestamp_col`) for time series "
+                "evaluation or `label_col` for tabular evaluation."
+            )
         return self._to_dataframe(result)
 
     def generate(

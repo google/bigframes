@@ -201,6 +201,54 @@ def test_ai_predict(
     )
 
 
+def test_ai_evaluate_timesfm(
+    base_sql_generator: ml_sql.BaseSqlGenerator,
+    mock_df: bpd.DataFrame,
+):
+    sql = base_sql_generator.ai_evaluate(
+        input_sql=mock_df.sql,
+        actual_sql=mock_df.sql,
+        options={
+            "data_col": "data1",
+            "timestamp_col": "time1",
+            "model": "TimesFM 2.5",
+            "id_cols": ("id1", "id2"),
+            "horizon": 1024,
+            "context_window": 512,
+        },
+    )
+
+    assert (
+        sql
+        == """SELECT * FROM AI.EVALUATE((input_X_y_sql),(input_X_y_sql),
+  data_col => 'data1',
+  timestamp_col => 'time1',
+  model => 'TimesFM 2.5',
+  id_cols => ['id1', 'id2'],
+  horizon => 1024,
+  context_window => 512)"""
+    )
+
+
+def test_ai_evaluate_tabfm(
+    base_sql_generator: ml_sql.BaseSqlGenerator,
+    mock_df: bpd.DataFrame,
+):
+    sql = base_sql_generator.ai_evaluate(
+        input_sql=mock_df.sql,
+        actual_sql=mock_df.sql,
+        options={
+            "label_col": "label1",
+        },
+    )
+
+    assert (
+        sql
+        == """SELECT * FROM AI.EVALUATE((input_X_y_sql),(input_X_y_sql),
+  label_col => 'label1')"""
+    )
+
+
 def test_create_model_correct(
     model_creation_sql_generator: ml_sql.ModelCreationSqlGenerator,
     mock_df: bpd.DataFrame,

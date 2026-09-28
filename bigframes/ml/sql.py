@@ -227,6 +227,19 @@ class BaseSqlGenerator:
 
         return f"""SELECT * FROM AI.PREDICT(({training_sql}),({prediction_sql}),{named_parameters_sql})"""
 
+    def ai_evaluate(
+        self,
+        input_sql: str,
+        actual_sql: str,
+        options: Mapping[str, str | int | float | bool | Iterable[str]],
+    ):
+        """Encode AI.EVALUATE.
+        https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-ai-evaluate
+        """
+        named_parameters_sql = self.build_named_parameters(**options)
+
+        return f"""SELECT * FROM AI.EVALUATE(({input_sql}),({actual_sql}),{named_parameters_sql})"""
+
 
 class ModelCreationSqlGenerator(BaseSqlGenerator):
     """Sql generator for creating a model entity. Model id is the standalone id without project id and dataset id."""

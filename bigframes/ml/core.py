@@ -69,6 +69,23 @@ class BaseBqml:
         # data size is large.
         return self._session.read_gbq_query(query, allow_large_results=True)
 
+    def ai_evaluate(
+        self,
+        input_data: bpd.DataFrame,
+        actual_data: bpd.DataFrame,
+        options: Mapping[str, str | int | float | Iterable[str]],
+    ) -> bpd.DataFrame:
+        query = self._sql_generator.ai_evaluate(
+            input_sql=input_data.sql,
+            actual_sql=actual_data.sql,
+            options=options,
+        )
+
+        # TODO(b/395912450): Once the limitations with local data are
+        # resolved, consider setting allow_large_results only when expected
+        # data size is large.
+        return self._session.read_gbq_query(query, allow_large_results=True)
+
 
 class BqmlModel(BaseBqml):
     """Represents an existing BQML model in BigQuery.

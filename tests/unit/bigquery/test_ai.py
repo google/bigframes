@@ -317,3 +317,132 @@ def test_generate_text_with_pandas_dataframe(
     assert read_pandas_mock.call_args[0][0] is pandas_df
 
     mock_session.read_gbq_query.assert_called_once()
+
+
+def test_evaluate_timesfm(mock_dataframe, mock_session):
+    mock_dataframe.columns = ["time", "value", "id"]
+
+    bbq.ai.evaluate(
+        df1=mock_dataframe,
+        df2=mock_dataframe,
+        data_col="value",
+        timestamp_col="time",
+        model="TimesFM 2.5",
+        id_cols=["id"],
+        horizon=100,
+        context_window=64,
+    )
+
+    mock_session.read_gbq_query.assert_called_once()
+    query = " ".join(mock_session.read_gbq_query.call_args[0][0].split())
+
+    assert (
+        "SELECT * FROM AI.EVALUATE((SELECT * FROM my_table),(SELECT * FROM my_table),"
+        in query
+    )
+    assert "data_col => 'value'" in query
+    assert "timestamp_col => 'time'" in query
+    assert "model => 'TimesFM 2.5'" in query
+    assert "id_cols => ['id']" in query
+    assert "horizon => 100" in query
+    assert "context_window => 64" in query
+
+
+def test_evaluate_tabfm(mock_dataframe, mock_session):
+    mock_dataframe.columns = ["feat", "body_mass_g"]
+
+    bbq.ai.evaluate(
+        df1=mock_dataframe,
+        df2=mock_dataframe,
+        label_col="body_mass_g",
+    )
+
+    mock_session.read_gbq_query.assert_called_once()
+    query = " ".join(mock_session.read_gbq_query.call_args[0][0].split())
+
+    assert (
+        query
+        == "SELECT * FROM AI.EVALUATE((SELECT * FROM my_table),(SELECT * FROM my_table), label_col => 'body_mass_g')"
+    )
+
+
+def test_evaluate_timesfm_defaults(mock_dataframe, mock_session):
+    mock_dataframe.columns = ["time", "value"]
+
+    bbq.ai.evaluate(
+        mock_dataframe,
+        mock_dataframe,
+        data_col="value",
+        timestamp_col="time",
+    )
+
+    mock_session.read_gbq_query.assert_called_once()
+    query = " ".join(mock_session.read_gbq_query.call_args[0][0].split())
+
+    assert (
+        query
+        == "SELECT * FROM AI.EVALUATE((SELECT * FROM my_table),(SELECT * FROM my_table), data_col => 'value', timestamp_col => 'time', model => 'TimesFM 2.5', horizon => 1024)"
+    )
+
+
+@mock.patch("bigframes.pandas.get_global_session")
+def test_evaluate_with_pandas_dataframes(
+    mock_get_global_session, mock_dataframe, mock_session
+):
+    mock_get_global_session.return_value = mock_session
+    mock_dataframe.columns = ["feat", "body_mass_g"]
+    mock_session.read_pandas.return_value = mock_dataframe
+
+    train_pdf = pd.DataFrame({"feat": [1], "body_mass_g": [3500]})
+    pred_pdf = pd.DataFrame({"feat": [2], "body_mass_g": [4000]})
+
+    bbq.ai.evaluate(
+        train_pdf,
+        pred_pdf,
+        label_col="body_mass_g",
+    )
+
+    mock_get_global_session.assert_called_once()
+    assert mock_session.read_pandas.call_count == 2
+    mock_session.read_gbq_query.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "expected_error"),
+    [
+        (
+            {"data_col": "value", "timestamp_col": "time", "label_col": "label"},
+            "Cannot specify both",
+        ),
+        (
+            {},
+            "Must specify either",
+        ),
+        (
+            {"data_col": "value"},
+            "Must specify either",
+        ),
+        (
+            {"timestamp_col": "time"},
+            "Must specify either",
+        ),
+        (
+            {"label_col": "missing_col"},
+            "Column `missing_col` not found",
+        ),
+        (
+            {"data_col": "value", "timestamp_col": "time"},
+            "Column `value` not found",
+        ),
+    ],
+)
+def test_evaluate_validation_errors(
+    mock_dataframe, mock_session, kwargs, expected_error
+):
+    mock_dataframe.columns = ["time", "value", "label"]
+    other_df = mock.create_autospec(spec=bigframes.dataframe.DataFrame)
+    other_df._session = mock_session
+    other_df.columns = ["time", "label"]
+
+    with pytest.raises(ValueError, match=expected_error):
+        bbq.ai.evaluate(mock_dataframe, other_df, **kwargs)

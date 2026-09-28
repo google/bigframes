@@ -19,7 +19,18 @@ https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Iterable, List, Literal, Mapping, Optional, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Tuple,
+    Union,
+    overload,
+)
 
 import pandas as pd
 
@@ -1213,24 +1224,220 @@ def predict(
             A string value that specifies the name of the label column in the
             training data.
     """
-    # Find a unifying session for the subsequent operations.
-    session = None
-    for df in [training_df, prediction_df]:
-        if isinstance(df, dataframe.DataFrame):
-            session = df._session
-            break
-
-    if session is None:
-        session = bpd.get_global_session()
-
-    if isinstance(training_df, pd.DataFrame):
-        training_df = session.read_pandas(training_df)
-    if isinstance(prediction_df, pd.DataFrame):
-        prediction_df = session.read_pandas(prediction_df)
+    session, training_df, prediction_df = _to_bf_dataframes(training_df, prediction_df)
 
     return ml_core.BaseBqml(session).ai_predict(
         training_df, prediction_df, options={"label_col": label_col}
     )
+
+
+@overload
+def evaluate(
+    df1: dataframe.DataFrame | pd.DataFrame,
+    df2: dataframe.DataFrame | pd.DataFrame,
+    *,
+    data_col: str,
+    timestamp_col: str,
+    model: str = "TimesFM 2.5",
+    id_cols: Iterable[str] | None = None,
+    horizon: int = 1024,
+    context_window: int | None = None,
+) -> dataframe.DataFrame: ...
+
+
+@overload
+def evaluate(
+    df1: dataframe.DataFrame | pd.DataFrame,
+    df2: dataframe.DataFrame | pd.DataFrame,
+    *,
+    label_col: str,
+) -> dataframe.DataFrame: ...
+
+
+@log_adapter.method_logger(custom_base_name="bigquery_ai")
+def evaluate(
+    df1: dataframe.DataFrame | pd.DataFrame,
+    df2: dataframe.DataFrame | pd.DataFrame,
+    *,
+    data_col: str | None = None,
+    timestamp_col: str | None = None,
+    model: str = "TimesFM 2.5",
+    id_cols: Iterable[str] | None = None,
+    horizon: int = 1024,
+    context_window: int | None = None,
+    label_col: str | None = None,
+) -> dataframe.DataFrame:
+    """
+    Evaluates TimesFM forecasted data against a reference time series based on
+    historical data, or TabFM predicted data against ground truth data.
+
+    **Examples:**
+
+        Evaluate TimesFM forecasted data:
+
+        >>> import pandas as pd
+        >>> import bigframes.pandas as bpd
+        >>> import bigframes.bigquery as bbq
+        >>> history_df = bpd.DataFrame({
+        ...     "value": [1.0, 2.0, 3.0, 4.0],
+        ...     "time": pd.to_datetime(["2020-01-01", "2020-01-02", "2020-01-03", "2020-01-04"]),
+        ... })
+        >>> actual_df = bpd.DataFrame({
+        ...     "value": [5.0, 6.0],
+        ...     "time": pd.to_datetime(["2020-01-05", "2020-01-06"]),
+        ... })
+        >>> result = bbq.ai.evaluate(
+        ...     history_df,
+        ...     actual_df,
+        ...     data_col="value",
+        ...     timestamp_col="time",
+        ... )
+        >>> type(result)
+        <class 'bigframes.dataframe.DataFrame'>
+
+        Evaluate TabFM predicted data:
+
+        >>> df = bpd.read_gbq("bigquery-public-data.ml_datasets.penguins")
+        >>> df = df[df["body_mass_g"] > 0]
+        >>> size = len(df)
+        >>> training_size = int(size * 0.8)
+        >>> training_df = df.head(training_size)
+        >>> prediction_df = df.tail(size - training_size).dropna(subset=["body_mass_g"])
+        >>> result = bbq.ai.evaluate(
+        ...     training_df,
+        ...     prediction_df,
+        ...     label_col="body_mass_g",
+        ... )
+        >>> type(result)
+        <class 'bigframes.dataframe.DataFrame'>
+
+    Args:
+        df1 (DataFrame):
+            For TimesFM evaluation, the dataframe containing historical time
+            series data used to generate a forecast. For TabFM evaluation, the
+            dataframe containing training data (must contain ``label_col``;
+            every other column is considered a feature column of type
+            ``STRING``, ``BOOL``, ``INT64``, ``FLOAT64``, ``NUMERIC``, or
+            ``BIGNUMERIC``). Can be either a BigFrames DataFrame or a pandas
+            DataFrame. If it's a pandas DataFrame, the global BigQuery session
+            will be used to load the data.
+        df2 (DataFrame):
+            For TimesFM evaluation, the dataframe containing actual time series
+            data to evaluate against forecasted values. For TabFM evaluation,
+            the dataframe containing the data to run prediction on and evaluate
+            against ``label_col`` (must contain all feature columns in the
+            training data and ``label_col``, and can optionally contain
+            additional columns). Can be either a BigFrames DataFrame or a pandas
+            DataFrame. If it's a pandas DataFrame, the global BigQuery session
+            will be used to load the data.
+        data_col (str, optional):
+            A ``str`` value that specifies the name of the time series data
+            column (required for TimesFM evaluation). The data column must use
+            one of the following data types: ``INT64``, ``NUMERIC``,
+            ``BIGNUMERIC``, or ``FLOAT64``.
+        timestamp_col (str, optional):
+            A ``str`` value that specifies the name of the timestamp column
+            (required for TimesFM evaluation). The timestamp column must use one
+            of the following data types: ``TIMESTAMP``, ``DATE``, or ``DATETIME``.
+        model (str, default "TimesFM 2.5"):
+            A ``str`` value that specifies the name of the model to use for
+            TimesFM evaluation. Supported models include ``"TimesFM 2.0"`` and
+            ``"TimesFM 2.5"``. The default value is ``"TimesFM 2.5"``, which is
+            recommended for all new evaluation tasks.
+        id_cols (Iterable[str], optional):
+            An iterable of ``str`` values that specifies the names of one or
+            more ID columns for TimesFM evaluation. Each unique combination of
+            IDs identifies a unique time series to evaluate. Specify one or more
+            values for this argument in order to evaluate multiple time series
+            using a single query. The columns that you specify must use one of
+            the following data types: ``STRING`` or ``INT64``.
+        horizon (int, default 1024):
+            An ``int`` value that specifies the number of forecasted time points
+            to evaluate for TimesFM evaluation. The default value is ``1024``.
+            The valid input range is ``[1, 10,000]``.
+        context_window (int, optional):
+            An ``int`` value that specifies the context window length used by
+            BigQuery ML's built-in TimesFM model. The context window length
+            determines how many of the most recent data points from the input
+            time series are used by the model. If you don't specify a value, the
+            ``AI.EVALUATE`` function automatically chooses the smallest possible
+            context window length to use that is still large enough to cover the
+            number of time series data points in your input data.
+        label_col (str, optional):
+            A ``str`` value that specifies the name of the label column in the
+            training data (required for TabFM evaluation). If the column is of
+            type ``STRING`` or ``BOOL``, then classification is evaluated. If
+            the column is of type ``INT64``, ``FLOAT64``, ``NUMERIC``, or
+            ``BIGNUMERIC``, then regression is evaluated.
+
+    Returns:
+        bigframes.pandas.DataFrame:
+            A DataFrame containing the evaluation metrics from BigQuery
+            ``AI.EVALUATE``. See
+            https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-ai-evaluate
+
+    Raises:
+        ValueError: When invalid combinations of parameters are specified or
+            when any specified column does not exist in the input dataframes.
+    """
+    # 1. TabFM mode (tabular prediction evaluation)
+    if label_col is not None:
+        if data_col is not None or timestamp_col is not None:
+            raise ValueError(
+                "Cannot specify both `label_col` and `data_col`/`timestamp_col`."
+            )
+        required_cols = [label_col]
+        options: dict[str, int | float | str | Iterable[str]] = {
+            "label_col": label_col,
+        }
+    # 2. TimesFM mode (time series forecast evaluation)
+    elif data_col is not None and timestamp_col is not None:
+        required_cols = [timestamp_col, data_col, *(id_cols or ())]
+        options = {
+            "data_col": data_col,
+            "timestamp_col": timestamp_col,
+            "model": model,
+            "horizon": horizon,
+        }
+        if id_cols:
+            options["id_cols"] = id_cols
+        if context_window is not None:
+            options["context_window"] = context_window
+    else:
+        raise ValueError(
+            "Must specify either (`data_col` and `timestamp_col`) for time series "
+            "evaluation or `label_col` for tabular evaluation."
+        )
+
+    for col in required_cols:
+        if col not in df1.columns or col not in df2.columns:
+            raise ValueError(f"Column `{col}` not found")
+
+    session, df1, df2 = _to_bf_dataframes(df1, df2)
+
+    return ml_core.BaseBqml(session).ai_evaluate(df1, df2, options=options)
+
+
+def _to_bf_dataframes(
+    df1: dataframe.DataFrame | pd.DataFrame,
+    df2: dataframe.DataFrame | pd.DataFrame,
+) -> Tuple[session.Session, dataframe.DataFrame, dataframe.DataFrame]:
+    """Find a unifying session for two DataFrames and convert pandas DataFrames to BigFrames DataFrames."""
+    unifying_session = None
+    for df in [df1, df2]:
+        if isinstance(df, dataframe.DataFrame):
+            unifying_session = df._session
+            break
+
+    if unifying_session is None:
+        unifying_session = bpd.get_global_session()
+
+    if isinstance(df1, pd.DataFrame):
+        df1 = unifying_session.read_pandas(df1)
+    if isinstance(df2, pd.DataFrame):
+        df2 = unifying_session.read_pandas(df2)
+
+    return unifying_session, df1, df2
 
 
 def _separate_context_and_series(

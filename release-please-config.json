@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "python",
+  "skip-github-release": true,
+  "include-component-in-tag": false,
+  "packages": {
+    ".": {
+      "extra-files": [
+        "bigframes/version.py",
+        "third_party/bigframes_vendored/version.py"
+      ]
+    }
+  }
+}

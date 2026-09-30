@@ -323,13 +323,7 @@ def install_systemtest_dependencies(session, install_test_extra, *constraints):
     else:
         extras = []
 
-    # Use pre-release gRPC for system tests.
-    # Exclude version 1.49.0rc1 which has a known issue.
-    # See https://github.com/grpc/grpc/pull/30642
-
     session.install(
-        "--pre",
-        "grpcio!=1.49.0rc1",
         *SYSTEM_TEST_STANDARD_DEPENDENCIES,
         *SYSTEM_TEST_EXTERNAL_DEPENDENCIES,
         "-e",
@@ -577,6 +571,7 @@ def prerelease(session: nox.sessions.Session, tests_path, extra_pytest_options=(
     # PyArrow prerelease packages are published to an alternative PyPI host.
     # https://arrow.apache.org/docs/python/install.html#installing-nightly-packages
     session.install(
+        "--pre",
         "--no-deps",
         "--upgrade",
         "--extra-index-url",

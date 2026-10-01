@@ -175,8 +175,6 @@ def test_train_test_split_seeded_correct_rows(
         [148, 161, 226, 269, 278, 289, 291], dtype="Int64", name="rowindex"
     )
 
-    all_data.index.name = "_"
-
     assert (
         isinstance(X_train_sorted, pd.DataFrame)
         and isinstance(X_test_sorted, pd.DataFrame)

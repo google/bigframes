@@ -17,6 +17,7 @@ from __future__ import annotations
 import concurrent.futures
 import dataclasses
 import datetime
+import enum
 import functools
 import os
 import queue
@@ -103,6 +104,22 @@ class TableMetadata:
     modified_time: Optional[datetime.datetime] = None
 
 
+class TableKind(enum.Enum):
+    """Where a table comes from.
+
+    This is separate from TableMetadata.type, which is the BigQuery table type,
+    such as TABLE or VIEW.
+    """
+
+    # A table or view in a BigQuery dataset: project.dataset.table.
+    NATIVE = enum.auto()
+    # A BigLake Lakehouse table: project.catalog.namespace.table.
+    LAKEHOUSE = enum.auto()
+    # An INFORMATION_SCHEMA view, such as
+    # project.region-us.INFORMATION_SCHEMA.SCHEMATA.
+    INFORMATION_SCHEMA = enum.auto()
+
+
 @dataclasses.dataclass(frozen=True)
 class GbqNativeTable:
     project_id: str = dataclasses.field()
@@ -169,6 +186,17 @@ class GbqNativeTable:
     @property
     def is_physically_stored(self) -> bool:
         return self.metadata.type in ["TABLE", "MATERIALIZED_VIEW"]
+
+    @property
+    def kind(self) -> TableKind:
+        # INFORMATION_SCHEMA views are loaded with INFORMATION_SCHEMA as the
+        # dataset ID.
+        if self.dataset_id.casefold() == "INFORMATION_SCHEMA".casefold():
+            return TableKind.INFORMATION_SCHEMA
+        # Lakehouse tables have catalog.namespace in place of a dataset ID.
+        if "." in self.dataset_id:
+            return TableKind.LAKEHOUSE
+        return TableKind.NATIVE
 
     def get_table_ref(self) -> bq.TableReference:
         return bq.TableReference(

@@ -73,7 +73,6 @@ import bigframes.formatting_helpers as formatting_helpers
 import bigframes.session._io.bigquery as bf_io_bigquery
 import bigframes.session._io.bigquery.read_gbq_query as bf_read_gbq_query
 import bigframes.session._io.bigquery.read_gbq_table as bf_read_gbq_table
-import bigframes.session.iceberg
 import bigframes.session.metrics
 import bigframes.session.temporary_storage
 import bigframes.session.time as session_time
@@ -1084,10 +1083,6 @@ class GbqDataLoader:
                 default_project=default_project,
             )
             table = bq_data.GbqNativeTable.from_table(client_table)
-        elif bq_data.is_irc_table(table_id):
-            table = bigframes.session.iceberg.get_table(
-                self._bqclient.project, table_id, self._bqclient._credentials
-            )
         else:
             table_ref = google.cloud.bigquery.table.TableReference.from_string(
                 table_id, default_project=default_project

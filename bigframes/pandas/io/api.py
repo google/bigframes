@@ -58,9 +58,7 @@ import bigframes.series
 import bigframes.session
 import bigframes.session._io.bigquery
 import bigframes.session.clients
-import bigframes.session.iceberg
 import bigframes.session.metrics
-from bigframes.core import bq_data
 from bigframes.session import dry_runs
 
 # Note: the following methods are duplicated from Session. This duplication
@@ -728,13 +726,6 @@ def _set_default_session_location_if_possible_deferred_query(create_query):
                 default_project=default_project,
             )
             config.options.bigquery.location = table.location
-        elif bq_data.is_irc_table(query):
-            irc_table = bigframes.session.iceberg.get_table(
-                default_project, query, bqclient._credentials
-            )
-            config.options.bigquery.location = bq_data.get_default_bq_region(
-                irc_table.metadata.location
-            )
         else:
             table = bqclient.get_table(query)
             config.options.bigquery.location = table.location

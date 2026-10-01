@@ -33,7 +33,8 @@ import pyarrow
 import pytest
 import shapely.geometry  # type: ignore
 
-from bigframes.core import pyformat
+import bigframes.dataframe
+from bigframes.core import array_value, blocks, bq_data, pyformat
 from bigframes.testing import mocks
 
 
@@ -652,10 +653,6 @@ def test_pyformat_with_table_replaces_variables(table, expected_sql, session=ses
 
 def test_pyformat_with_bigframes_dataframe_biglake_table(session):
     # Create a real BigFrames DataFrame that points to a BigLake table.
-    import bigframes.core.array_value as array_value
-    import bigframes.core.blocks as blocks
-    import bigframes.core.bq_data as bq_data
-    import bigframes.dataframe
 
     # Define the BigLake table
     project_id = "my-project"
@@ -696,3 +693,37 @@ def test_pyformat_with_bigframes_dataframe_biglake_table(session):
     assert table_id in got_sql
     assert got_sql.startswith("SELECT * FROM (SELECT")
     assert got_sql.endswith(")")
+
+
+def test_pyformat_with_bigframes_dataframe_lakehouse_native_table(session):
+    project_id = "my-project"
+    catalog_id = "my-catalog"
+    namespace_id = "my-namespace"
+    table_id = "my-table"
+    schema = (google.cloud.bigquery.SchemaField("col", "INTEGER"),)
+
+    lakehouse_table = bq_data.GbqNativeTable(
+        project_id=project_id,
+        dataset_id=f"{catalog_id}.{namespace_id}",
+        table_id=table_id,
+        physical_schema=schema,
+        metadata=bq_data.TableMetadata(
+            location=bq_data.BigQueryRegion("us-central1"),
+            type="TABLE",
+        ),
+    )
+
+    av = array_value.ArrayValue.from_table(lakehouse_table, session)
+    block = blocks.Block(av, index_columns=[], column_labels=["col"])
+    df = bigframes.dataframe.DataFrame(block)
+
+    got_sql = pyformat.pyformat(
+        "SELECT * FROM {df}", pyformat_args={"df": df}, session=session
+    )
+
+    assert got_sql.startswith("SELECT * FROM (SELECT")
+    assert got_sql.endswith(")")
+    assert project_id in got_sql
+    assert catalog_id in got_sql
+    assert namespace_id in got_sql
+    assert table_id in got_sql

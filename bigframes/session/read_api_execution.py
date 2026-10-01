@@ -55,6 +55,15 @@ class ReadApiSemiExecutor(semi_executor.SemiExecutor):
         if not node.source.table.is_physically_stored:
             return None
 
+        # TODO(b/568786565): Remove this branch once the Read API honors
+        # snapshot_time for Lakehouse tables. Until then, time-travel reads of
+        # these tables must use SQL, since the Read API returns current data.
+        if (
+            node.source.at_time is not None
+            and node.source.table.kind == bq_data.TableKind.LAKEHOUSE
+        ):
+            return None
+
         peek = execution_spec.peek
         if limit is not None:
             if peek is None or limit < peek:

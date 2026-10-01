@@ -340,6 +340,21 @@ def test_bq_schema_to_sql(schema: Iterable[bigquery.SchemaField], expected: str)
             id="table-all_params-filter_or_operation",
         ),
         pytest.param(
+            "my-project.my_catalog.my_namespace.my_table",
+            ["col_a"],
+            [],
+            None,  # max_results
+            datetime.datetime(
+                2024, 5, 14, 12, 42, 36, 125125, tzinfo=datetime.timezone.utc
+            ),
+            (
+                "SELECT `_bf_source`.`col_a` FROM "
+                "`my-project`.`my_catalog`.`my_namespace`.`my_table` AS _bf_source "
+                "FOR SYSTEM_TIME AS OF CAST('2024-05-14T12:42:36.125125+00:00' AS TIMESTAMP)"
+            ),
+            id="lakehouse_four_part_table-time_travel",
+        ),
+        pytest.param(
             (
                 """SELECT
                     rowindex,

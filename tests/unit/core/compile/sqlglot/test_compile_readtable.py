@@ -78,6 +78,26 @@ def test_compile_readtable_w_system_time(
     snapshot.assert_match(bf_df.sql, "out.sql")
 
 
+def test_compile_readtable_lakehouse_w_system_time(
+    compiler_session, scalar_types_table_schema, snapshot
+):
+    # Time-travel reads of Lakehouse tables skip the Read API and use this SQL.
+    table_ref = bigquery.TableReference(
+        bigquery.DatasetReference("bigframes-dev", "my_catalog.my_namespace"),
+        "scalar_types",
+    )
+    table = bigquery.Table(table_ref, tuple(scalar_types_table_schema))
+    table._properties["location"] = compiler_session._location
+    compiler_session._loader._df_snapshot[str(table_ref)] = (
+        datetime.datetime(2025, 11, 9, 3, 4, 5, 678901, tzinfo=datetime.timezone.utc),
+        bq_data.GbqNativeTable.from_table(table),
+    )
+
+    bf_df = compiler_session.read_gbq_table(str(table_ref))
+
+    snapshot.assert_match(bf_df.sql, "out.sql")
+
+
 def test_compile_readtable_w_columns_filters(compiler_session, snapshot):
     columns = ["rowindex", "int64_col", "string_col"]
     filters = [("rowindex", ">", 0), ("string_col", "in", ["Hello, World!"])]

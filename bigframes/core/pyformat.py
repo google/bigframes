@@ -115,7 +115,10 @@ def _field_to_template_value(
             node: nodes.BigFrameNode, child_results: Tuple[bool, ...]
         ) -> bool:
             if isinstance(node, nodes.ReadTableNode):
-                return isinstance(node.source.table, bq_data.BiglakeIcebergTable)
+                return isinstance(node.source.table, bq_data.BiglakeIcebergTable) or (
+                    isinstance(node.source.table, bq_data.GbqNativeTable)
+                    and node.source.table.kind == bq_data.TableKind.LAKEHOUSE
+                )
             return any(child_results)
 
         contains_biglake = value._block.expr.node.reduce_up(is_biglake)

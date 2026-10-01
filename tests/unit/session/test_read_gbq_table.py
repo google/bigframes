@@ -14,6 +14,7 @@
 
 """Unit tests for read_gbq_table helper functions."""
 
+import datetime
 import unittest.mock as mock
 import warnings
 
@@ -189,3 +190,109 @@ def test_get_index_cols_warns_if_clustered_but_sequential_index():
             index_col=(),
             default_index_type=bigframes.enums.DefaultIndexKind.NULL,
         )
+
+
+def test_gbq_native_table_lakehouse_properties():
+    lakehouse_table = google.cloud.bigquery.Table.from_api_repr(
+        {
+            "tableReference": {
+                "projectId": "my-project",
+                "datasetId": "my_catalog.my_namespace",
+                "tableId": "my_table",
+            },
+            "location": "us-central1",
+        }
+    )
+    standard_table = google.cloud.bigquery.Table.from_api_repr(
+        {
+            "tableReference": {
+                "projectId": "my-project",
+                "datasetId": "my_dataset",
+                "tableId": "my_table",
+            },
+            "location": "us-central1",
+        }
+    )
+
+    native_lakehouse = bq_data.GbqNativeTable.from_table(lakehouse_table)
+    native_standard = bq_data.GbqNativeTable.from_table(standard_table)
+
+    assert native_lakehouse.kind == bq_data.TableKind.LAKEHOUSE
+    assert (
+        native_lakehouse.get_full_id(quoted=False)
+        == "my-project.my_catalog.my_namespace.my_table"
+    )
+    assert native_standard.kind == bq_data.TableKind.NATIVE
+
+
+@pytest.mark.parametrize(
+    ("table_id", "expected_project", "expected_dataset"),
+    (
+        (
+            "my-project.my_catalog.my_namespace.my_table",
+            "my-project",
+            "my_catalog.my_namespace",
+        ),
+        (
+            "example.com:my-project.my_catalog.my_namespace.my_table",
+            "example.com:my-project",
+            "my_catalog.my_namespace",
+        ),
+    ),
+)
+def test_loader_resolves_lakehouse_table_via_bqclient(
+    table_id, expected_project, expected_dataset
+):
+    api_table = google.cloud.bigquery.Table.from_api_repr(
+        {
+            "tableReference": {
+                "projectId": expected_project,
+                "datasetId": expected_dataset,
+                "tableId": "my_table",
+            },
+            "location": "us-central1",
+        }
+    )
+    api_table.schema = (google.cloud.bigquery.SchemaField("col1", "INT64"),)
+    bqclient = mock.create_autospec(google.cloud.bigquery.Client, instance=True)
+    bqclient.project = "default-project"
+    session = mocks.create_bigquery_session(
+        bqclient=bqclient, table_schema=api_table.schema, location="us-central1"
+    )
+    bqclient.get_table.return_value = api_table
+
+    _, resolved_table = session._loader._get_table_metadata(
+        table_id=table_id,
+        default_project="default-project",
+        bq_time=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
+        use_cache=False,
+    )
+
+    expected_ref = google.cloud.bigquery.TableReference(
+        google.cloud.bigquery.DatasetReference(expected_project, expected_dataset),
+        "my_table",
+    )
+    bqclient.get_table.assert_called_with(expected_ref)
+    assert isinstance(resolved_table, bq_data.GbqNativeTable)
+    assert resolved_table.kind == bq_data.TableKind.LAKEHOUSE
+    assert resolved_table.project_id == expected_project
+    assert resolved_table.dataset_id == expected_dataset
+    assert resolved_table.table_id == "my_table"
+
+
+def test_loader_information_schema_precedence_over_four_part_table_reference():
+    bqclient = mock.create_autospec(google.cloud.bigquery.Client, instance=True)
+    bqclient.project = "default-project"
+    session = mocks.create_bigquery_session(bqclient=bqclient, location="us-central1")
+
+    _, resolved_table = session._loader._get_table_metadata(
+        table_id="my-project.my_dataset.INFORMATION_SCHEMA.TABLES",
+        default_project="default-project",
+        bq_time=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
+        use_cache=False,
+    )
+
+    bqclient.get_table.assert_not_called()
+    assert isinstance(resolved_table, bq_data.GbqNativeTable)
+    assert resolved_table.table_id == "TABLES"
+    assert resolved_table.kind == bq_data.TableKind.INFORMATION_SCHEMA

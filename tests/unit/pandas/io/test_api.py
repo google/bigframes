@@ -196,3 +196,28 @@ def test_set_default_session_location_table_uses_get_table(
         assert bigframes.pandas.options.bigquery.location == "asia-northeast1"
     finally:
         bigframes.pandas.options.bigquery.location = None
+
+
+@mock.patch("bigframes.pandas.io.api._get_bqclient_and_project")
+def test_set_default_session_location_four_part_lakehouse_table(
+    mock_get_bqclient_and_project,
+):
+    bigframes.pandas.close_session()
+    bigframes.pandas.options.bigquery.location = None
+    mock_bqclient = mock.create_autospec(google.cloud.bigquery.Client, instance=True)
+    mock_table = mock.create_autospec(google.cloud.bigquery.Table, instance=True)
+    mock_table.location = "us-central1"
+    mock_bqclient.get_table.return_value = mock_table
+    mock_get_bqclient_and_project.return_value = (mock_bqclient, "default-project")
+
+    try:
+        bf_io_api._set_default_session_location_if_possible(
+            "my-project.my_catalog.my_namespace.my_table"
+        )
+
+        mock_bqclient.get_table.assert_called_once_with(
+            "my-project.my_catalog.my_namespace.my_table"
+        )
+        assert bigframes.pandas.options.bigquery.location == "us-central1"
+    finally:
+        bigframes.pandas.options.bigquery.location = None

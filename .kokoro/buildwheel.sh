@@ -46,3 +46,11 @@ twine upload \
     --repository-url "https://us-python.pkg.dev/oss-exit-gate-prod/bigframes--pypi" \
     --verbose \
     "${artifacts_dir}/*"
+
+version="$(python3 -c 'import json; print(json.load(open(".release-please-manifest.json"))["."])')"
+gcloud artifacts generic upload --project=oss-exit-gate-prod \
+  --repository=bigframes--githubreleases \
+  --location=us \
+  --package=bigframes \
+  --version="${version}" \
+  --source-directory="${artifacts_dir}"

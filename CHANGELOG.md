@@ -4,6 +4,43 @@
 
 [1]: https://pypi.org/project/bigframes/#history
 
+## [2.50.0](https://github.com/google/bigframes/compare/v2.49.0...v2.50.0) (2026-10-05)
+
+
+### Features
+
+* add `DataFrame.bigquery.ai.evaluate` accessor ([df96c47](https://github.com/google/bigframes/commit/df96c47749c7b20f2c65fe228136d8841682b9c0))
+* add bigquery.ml.arima_coefficients function. ([e6076aa](https://github.com/google/bigframes/commit/e6076aa23f81fdb86e8bdc173a54766f80147e9f))
+* add bigquery.ml.arima_evaluate function. ([2849013](https://github.com/google/bigframes/commit/28490136ef3ce913489c264fd2ff870bdc97a306))
+* add bigquery.ml.explain_forecast function ([305cb55](https://github.com/google/bigframes/commit/305cb5579ca4348462360f276f123d969b7e2495))
+* add bigquery.ml.forecast function ([791e40a](https://github.com/google/bigframes/commit/791e40a4ecb148a769ef8839f1ad6bc7b269ce90))
+* add bigquery.ml.recommend function ([5223eb4](https://github.com/google/bigframes/commit/5223eb4927b068b39ad2aad437e7e2b0036f3724))
+* implement ai.predict() ([19bf773](https://github.com/google/bigframes/commit/19bf773cd6b0f4b950b0c2fc1ca4b9aa96867ef2))
+* support `bigframes.bigquery.ai.evaluate` (`AI.EVALUATE`) ([5aca1ed](https://github.com/google/bigframes/commit/5aca1ed77c817ab8b7b82d9269fe85737bb5cfa1))
+* support fill_value parameter on DataFrame.unstack() and Series.unstack() ([6b49556](https://github.com/google/bigframes/commit/6b495568164cc33a1993977cfca9ccaa03a9804e))
+* support indicator parameter on DataFrame.merge() and bpd.merge() ([a1b243c](https://github.com/google/bigframes/commit/a1b243c2595b9a7f3ef8ed5c1e0e8e9a5f381a43))
+
+
+### Bug Fixes
+
+* avoid installing prerelease dependencies in regular system tests ([402f180](https://github.com/google/bigframes/commit/402f180dd4fd34e7cf7a92575d20593a61fe9a1b))
+* Make SQLGlot properly handle JSON fields backed by strings ([3e333af](https://github.com/google/bigframes/commit/3e333af1da7c83b0ffef8456e6fda0658ac7ae38))
+
+
+### Documentation
+
+* add a requirements-docs.txt to fix the readthedocs build ([df6405d](https://github.com/google/bigframes/commit/df6405ddb1784836fc85019b49eadb6af610ccfe))
+* add Open in Colab Enterprise badge to remaining notebooks ([5ae4375](https://github.com/google/bigframes/commit/5ae437543bfed3e55109009b2d7c6040981d7da1))
+* add series AI accessor to the doc site ([034ea50](https://github.com/google/bigframes/commit/034ea507835f6cfe05b4aa509efd3cbadcfe591a))
+* deploy to readthedocs as an "unoffical" mirror ([251c60e](https://github.com/google/bigframes/commit/251c60ed1a602aab27a1c7ae6ec468e21752ecaa))
+* enhance repository introduction page in README.rst ([2ba6788](https://github.com/google/bigframes/commit/2ba678895e04918bf8e96567a5a594735e02b650))
+* expand landing page with sample notebooks ([52469d0](https://github.com/google/bigframes/commit/52469d0a6ecba4a8d204ca8b05b3a92d38e89fc3))
+* fix notebook header links and replace tree with blob ([75fce7d](https://github.com/google/bigframes/commit/75fce7dbf458a26a754fb02999a886b8cf352c4c))
+* migrate BigQuery DataFrames samples from python-docs-samples ([f617771](https://github.com/google/bigframes/commit/f617771f4706d6dbe44633582e9b466ee2d2ace2))
+* replace broken Open in Vertex AI Workbench links with Colab Enterprise ([bd138c5](https://github.com/google/bigframes/commit/bd138c50b000f00cdfff1f34fa11258a99fd66a1))
+* update imported ONNX and TensorFlow model snippets to use the bigframes.bigquery.ml module and partial ordering. ([707c097](https://github.com/google/bigframes/commit/707c09705d2e7874a9989240c2e4aae651a0c035))
+* update repo location to google/bigframes ([63defc9](https://github.com/google/bigframes/commit/63defc919b58259574aca2e021d9292bd58cdafb))
+
 ## [2.49.0](https://github.com/google/bigframes/compare/v2.48.0...v2.49.0) (2026-09-09)
 
 

@@ -14,6 +14,7 @@
 import datetime
 import functools
 import re
+import sys
 import typing
 import warnings
 from typing import Hashable, Iterable, List
@@ -253,12 +254,20 @@ def timedelta_to_micros(
 
 def get_ipython_execution_count() -> typing.Optional[int]:
     """Returns the current IPython cell execution count if running in a notebook, else None."""
-    try:
-        from IPython.core.interactiveshell import InteractiveShell
+    # Avoid importing IPython if it is not already loaded in sys.modules.
+    # When IPython is not installed (e.g. extras=False), attempting an import
+    # acquires importlib._bootstrap._ModuleLock. If triggered re-entrantly from
+    # Session.__del__ during garbage collection while another import holds a
+    # _ModuleLock, Python < 3.12 raises a KeyError on _blocking_on (gh-105979).
+    interactive_shell_mod = sys.modules.get("IPython.core.interactiveshell")
+    if interactive_shell_mod is None:
+        return None
 
-        if InteractiveShell.initialized():
-            ipy = InteractiveShell.instance()
+    try:
+        interactive_shell_cls = getattr(interactive_shell_mod, "InteractiveShell", None)
+        if interactive_shell_cls is not None and interactive_shell_cls.initialized():
+            ipy = interactive_shell_cls.instance()
             return getattr(ipy, "execution_count", None)
-    except (ImportError, NameError):
+    except NameError:
         pass
     return None

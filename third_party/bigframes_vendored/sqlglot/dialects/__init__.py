@@ -94,6 +94,8 @@ def __getattr__(name):
             module = importlib.import_module(
                 f"bigframes_vendored.sqlglot.dialects.{module_name}"
             )
-        return getattr(module, name)
+        attr = getattr(module, name)
+        globals()[name] = attr
+        return attr
 
     raise AttributeError(f"module {__name__} has no attribute {name}")

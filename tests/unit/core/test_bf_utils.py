@@ -72,3 +72,25 @@ def test_get_standardized_ids_tuple():
 )
 def test_timedelta_to_micros(input):
     assert utils.timedelta_to_micros(input) == 183604005006
+
+
+def test_get_ipython_execution_count_not_loaded(monkeypatch):
+    import sys
+
+    monkeypatch.delitem(sys.modules, "IPython.core.interactiveshell", raising=False)
+    assert utils.get_ipython_execution_count() is None
+
+
+def test_get_ipython_execution_count_initialized(monkeypatch):
+    import sys
+    import types
+    from unittest import mock
+
+    fake_mod = types.ModuleType("IPython.core.interactiveshell")
+    mock_shell_cls = mock.MagicMock()
+    mock_shell_cls.initialized.return_value = True
+    mock_shell_cls.instance.return_value.execution_count = 7
+    fake_mod.InteractiveShell = mock_shell_cls  # type: ignore[attr-defined]
+
+    monkeypatch.setitem(sys.modules, "IPython.core.interactiveshell", fake_mod)
+    assert utils.get_ipython_execution_count() == 7

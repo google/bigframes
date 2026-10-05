@@ -32,6 +32,7 @@ BigQuery DataFrames provides extensions to pandas DataFrame and Series objects.
     bigframes.extensions.core.dataframe_accessor.AIAccessor
     bigframes.extensions.core.series_accessor.BigQuerySeriesAccessor
     bigframes.extensions.core.series_accessor.AeadSeriesAccessor
+    bigframes.extensions.core.series_mixins.AIMixin
 
 ML APIs
 ~~~~~~~

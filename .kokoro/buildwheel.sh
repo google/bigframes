@@ -44,6 +44,8 @@ done
 
 twine upload \
     --repository-url "https://us-python.pkg.dev/oss-exit-gate-prod/bigframes--pypi" \
+    --skip-existing \
+    --non-interactive \
     --verbose \
     "${artifacts_dir}/*"
 

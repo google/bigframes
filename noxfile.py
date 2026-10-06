@@ -298,6 +298,8 @@ def run_unit(session, install_test_extra):
         third_party_tests_path,
         scripts_path,
         *session.posargs,
+        # Override coverage file names to avoid race conditions in parallel executions.
+        env={**ENV_OVERRIDES, "COVERAGE_FILE": f".coverage.{session.name}"},
     )
 
 
@@ -392,7 +394,9 @@ def run_system(
         )
 
     pytest_cmd.extend(extra_pytest_options)
-    session.run(*pytest_cmd, *session.posargs, test_folder, env=ENV_OVERRIDES)
+    # Override coverage file names to avoid race conditions in parallel executions.
+    env = {**ENV_OVERRIDES, "COVERAGE_FILE": f".coverage.{session.name}"}
+    session.run(*pytest_cmd, *session.posargs, test_folder, env=env)
 
 
 @nox.session(python="3.12", allow_parallel=True)

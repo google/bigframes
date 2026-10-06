@@ -36,11 +36,7 @@ pip install \
 artifacts_dir="$KOKORO_ARTIFACTS_DIR/artifacts/"
 mkdir -p "${artifacts_dir}"
 
-readarray -t pkgs < <(find -name "pyproject.toml" -or -name "setup.py")
-for pkg in "${pkgs[@]}"; do
-    pkg="$(dirname "${pkg}")"
-    python3 -m build --wheel "${pkg}" --outdir "${artifacts_dir}"
-done
+python3 -m build --sdist --wheel . --outdir "${artifacts_dir}"
 
 twine upload \
     --repository-url "https://us-python.pkg.dev/oss-exit-gate-prod/bigframes--pypi" \

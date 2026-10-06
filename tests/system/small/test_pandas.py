@@ -19,6 +19,7 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 import pytz
+from packaging.version import Version
 
 import bigframes.pandas as bpd
 import bigframes.testing
@@ -862,7 +863,15 @@ def test_cut_by_interval_bins_w_labels(scalars_dfs):
     [
         pytest.param([], None, id="empty_breaks"),
         pytest.param([1], False, id="single_int_breaks"),
-        pytest.param(pd.IntervalIndex.from_tuples([]), None, id="empty_interval_index"),
+        pytest.param(
+            pd.IntervalIndex.from_tuples([]),
+            None,
+            id="empty_interval_index",
+            marks=pytest.mark.skipif(
+                Version(pd.__version__).release >= (3, 1),
+                reason="pandas 3.1+ raises IndexError for empty IntervalIndex",
+            ),
+        ),
     ],
 )
 def test_cut_by_edge_cases_bins(scalars_dfs, bins, labels):

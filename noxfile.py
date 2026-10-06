@@ -585,8 +585,7 @@ def prerelease(session: nox.sessions.Session, tests_path, extra_pytest_options=(
         # some prerelease packages. See:
         # https://github.com/googleapis/google-cloud-python/pull/268#discussion_r1423205172
         # "pandas!=2.1.4, !=2.2.0rc0, !=2.2.0, !=2.2.1",
-        # TODO(b/568012630): Support pandas 3.1+ once breaking changes are addressed.
-        "pandas<3.1",
+        "pandas",
         # Workaround https://github.com/googleapis/python-db-dtypes-pandas/issues/178
         "db-dtypes",
         # Ensure we catch breaking changes in the client libraries early.

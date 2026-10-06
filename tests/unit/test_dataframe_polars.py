@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 import pandas.testing
 import pytest
+from packaging.version import Version
 
 import bigframes
 import bigframes._config.display_options as display_options
@@ -999,6 +1000,10 @@ def test_assign_listlike_to_empty_df(session):
 
 
 def test_assign_to_empty_df_multiindex_error(session):
+    if Version(pd.__version__).release >= (3, 1):
+        pytest.skip(
+            "pandas 3.1+ no longer raises ValueError on empty MultiIndex assign"
+        )
     empty_df = dataframe.DataFrame(session=session)
     empty_pandas_df = pd.DataFrame()
 

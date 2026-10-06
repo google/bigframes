@@ -127,3 +127,72 @@ def test_read_gbq_colab_calls_set_location(
     assert kwargs["pyformat_args"] == sample_pyformat_args
     assert not kwargs["dry_run"]
     assert isinstance(result, bigframes.dataframe.DataFrame)
+
+
+@pytest.mark.parametrize(
+    "table_id",
+    [
+        # 4 parts, the same shape as an Iceberg REST catalog table ID.
+        "my-project.region-us.INFORMATION_SCHEMA.SCHEMATA",
+        "my-project.my_dataset.INFORMATION_SCHEMA.TABLES",
+        # 3 parts, which tables.get would parse as project.dataset.table.
+        "region-us.INFORMATION_SCHEMA.SCHEMATA",
+        "my_dataset.INFORMATION_SCHEMA.TABLES",
+    ],
+)
+@mock.patch("bigframes.pandas.io.api._get_bqclient_and_project")
+def test_set_default_session_location_information_schema_uses_dry_run(
+    mock_get_bqclient_and_project, table_id
+):
+    bigframes.pandas.close_session()
+    bigframes.pandas.options.bigquery.location = None
+    mock_bqclient = mock.create_autospec(google.cloud.bigquery.Client, instance=True)
+    mock_query_job = mock.create_autospec(google.cloud.bigquery.QueryJob, instance=True)
+    mock_query_job.location = "us-east4"
+    type(mock_query_job).schema = mock.PropertyMock(return_value=[])
+    mock_bqclient.query.return_value = mock_query_job
+    mock_get_bqclient_and_project.return_value = (mock_bqclient, "default-project")
+
+    try:
+        bf_io_api._set_default_session_location_if_possible(table_id)
+
+        mock_bqclient.query.assert_called_once()
+        args, kwargs = mock_bqclient.query.call_args
+        assert table_id in args[0]
+        assert kwargs["job_config"].dry_run
+        mock_bqclient.get_table.assert_not_called()
+        assert bigframes.pandas.options.bigquery.location == "us-east4"
+    finally:
+        bigframes.pandas.options.bigquery.location = None
+
+
+@pytest.mark.parametrize(
+    "table_id",
+    [
+        "my-project.my_dataset.my_table",
+        # Names that contain INFORMATION_SCHEMA but aren't INFORMATION_SCHEMA
+        # views.
+        "my-project.MY_INFORMATION_SCHEMA.TABLES",
+        "my-project.my_dataset.INFORMATION_SCHEMA",
+    ],
+)
+@mock.patch("bigframes.pandas.io.api._get_bqclient_and_project")
+def test_set_default_session_location_table_uses_get_table(
+    mock_get_bqclient_and_project, table_id
+):
+    bigframes.pandas.close_session()
+    bigframes.pandas.options.bigquery.location = None
+    mock_bqclient = mock.create_autospec(google.cloud.bigquery.Client, instance=True)
+    mock_table = mock.create_autospec(google.cloud.bigquery.Table, instance=True)
+    mock_table.location = "asia-northeast1"
+    mock_bqclient.get_table.return_value = mock_table
+    mock_get_bqclient_and_project.return_value = (mock_bqclient, "default-project")
+
+    try:
+        bf_io_api._set_default_session_location_if_possible(table_id)
+
+        mock_bqclient.get_table.assert_called_once_with(table_id)
+        mock_bqclient.query.assert_not_called()
+        assert bigframes.pandas.options.bigquery.location == "asia-northeast1"
+    finally:
+        bigframes.pandas.options.bigquery.location = None

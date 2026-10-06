@@ -14,6 +14,8 @@
 
 import pytest
 
+import bigframes.pandas as bpd
+
 
 @pytest.mark.parametrize("include_project", [True, False])
 @pytest.mark.parametrize(
@@ -48,3 +50,18 @@ def test_read_gbq_schemata_four_parts_can_be_peeked(unordered_session):
     )
     result = df.peek()
     assert result is not None
+
+
+@pytest.mark.parametrize("include_project", [True, False])
+def test_bpd_read_gbq_information_schema_sets_location(
+    reset_default_session_and_location, project_id: str, include_project: bool
+):
+    view_id = "region-US.INFORMATION_SCHEMA.SCHEMATA"
+    if include_project:
+        view_id = f"{project_id}.{view_id}"
+    assert not bpd.options.bigquery.location
+
+    df = bpd.read_gbq(view_id, max_results=10)
+
+    assert df.dtypes is not None
+    assert bpd.options.bigquery.location == "US"

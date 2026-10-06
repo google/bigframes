@@ -687,6 +687,7 @@ def _set_default_session_location_if_possible_deferred_query(create_query):
     # Address circular imports in doctest due to bigframes/session/__init__.py
     # containing a lot of logic and samples.
     from bigframes.session._io import bigquery
+    from bigframes.session._io.bigquery import read_gbq_table as bf_read_gbq_table
 
     # Set the location as per the query if this is the first query the user is
     # running and:
@@ -715,6 +716,18 @@ def _set_default_session_location_if_possible_deferred_query(create_query):
             # aren't necessary.
             job = _dry_run(query, bqclient)
             config.options.bigquery.location = job.location
+        elif bf_read_gbq_table.is_information_schema(query):
+            # INFORMATION_SCHEMA views can't be looked up with tables.get, and
+            # 4-part IDs such as project.region-us.INFORMATION_SCHEMA.SCHEMATA
+            # look like Iceberg table IDs. Instead, dry run a query on the view
+            # and use the location of that dry run job. The session loader
+            # gets the metadata for these views the same way.
+            table = bf_read_gbq_table.get_information_schema_metadata(
+                bqclient=bqclient,
+                table_id=query,
+                default_project=default_project,
+            )
+            config.options.bigquery.location = table.location
         elif bq_data.is_irc_table(query):
             irc_table = bigframes.session.iceberg.get_table(
                 default_project, query, bqclient._credentials

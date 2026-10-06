@@ -968,18 +968,18 @@ if polars_installed:
                     pl.int_range(pl.len()).alias("_bf_join_r"),
                 ]
             )
-            if how != "cross":
+            if how == "cross":
+                joined = left.join(right, how=how, coalesce=False)
+            else:
                 joined = left.join(
                     right,
-                    how=how,
+                    how="full" if how == "outer" else how,
                     left_on=left_on,
                     right_on=right_on,
                     # Note: join_nulls renamed to nulls_equal for polars 1.24
                     join_nulls=join_nulls,  # type: ignore
                     coalesce=False,
                 )
-            else:
-                joined = left.join(right, how=how, coalesce=False)
 
             join_order = (
                 ["_bf_join_l", "_bf_join_r"]

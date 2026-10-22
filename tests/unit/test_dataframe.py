@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from unittest import mock
+
 import google.cloud.bigquery
 import pandas as pd
 import pytest
@@ -137,6 +139,34 @@ def test_dataframe_to_gbq_invalid_if_exists_no_destination(
 
     with pytest.raises(ValueError, match="append"):
         dataframe.to_gbq(if_exists="append")
+
+
+def test_dataframe_to_gbq_sets_labels_on_destination_table(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    session = mocks.create_bigquery_session()
+    dataframe = mocks.create_dataframe(monkeypatch, session=session)
+    query_job = mock.create_autospec(google.cloud.bigquery.QueryJob, instance=True)
+    query_job.destination = google.cloud.bigquery.TableReference.from_string(
+        "test-project.test_dataset.staging_table"
+    )
+    executor = mock.Mock()
+    executor.execute.return_value.query_job = query_job
+    monkeypatch.setattr(session, "_executor", executor)
+
+    dataframe.to_gbq(
+        "test-project.my_dataset.my_table",
+        if_exists="append",
+        labels={"team": "bigframes"},
+    )
+
+    session.bqclient.update_table.assert_called_once()
+    (table, fields), _ = session.bqclient.update_table.call_args
+    assert table.reference == google.cloud.bigquery.TableReference.from_string(
+        "test-project.my_dataset.my_table"
+    )
+    assert table.labels == {"team": "bigframes"}
+    assert fields == ["labels"]
 
 
 def test_dataframe_to_gbq_writes_to_anonymous_dataset(

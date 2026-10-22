@@ -4517,10 +4517,6 @@ class DataFrame:
         assert result.query_job is not None
         self._set_internal_query_job(result.query_job)
 
-        # The query job should have finished, so there should be always be a result table.
-        result_table = result.query_job.destination
-        assert result_table is not None
-
         if temp_table_ref:
             bigframes.session._io.bigquery.set_table_expiration(
                 self._session.bqclient,
@@ -4530,7 +4526,7 @@ class DataFrame:
             )
 
         if len(labels) != 0:
-            table = bigquery.Table(result_table)
+            table = bigquery.Table(destination)
             table.labels = labels
             self._session.bqclient.update_table(table, ["labels"])
 

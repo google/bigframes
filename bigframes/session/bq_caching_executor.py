@@ -194,6 +194,14 @@ class BigQueryCachingExecutor(executor.Executor):
         array_value: bigframes.core.ArrayValue,
         execution_spec: ex_spec.ExecutionSpec,
     ) -> executor.ExecuteResult:
+        """
+        Execute the ArrayValue.
+
+        For a TableOutputSpec, the executor may write the rows to a staging table
+        first and then copy them into the spec's table. In that case, the returned
+        ExecuteResult, including its query job's destination, refers to the staging
+        table. The table that is written is always the spec's table.
+        """
         # Need to grab thread local before starting async execution.
         execution_spec = execution_spec.with_compute_options(bigframes.options.compute)
         return _run_sync(

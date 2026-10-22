@@ -669,6 +669,32 @@ def test_to_gbq_if_exists_is_append(scalars_dfs, dataset_id):
     pd.testing.assert_index_equal(gcs_df.columns, scalars_df.columns)
 
 
+@pytest.mark.parametrize("if_exists", ["append", "replace"])
+def test_to_gbq_w_labels_existing_table(
+    session, dataset_id, bigquery_client, if_exists
+):
+    """Test that `to_gbq` labels an existing table that has the same schema.
+
+    That write runs the query into a staging table, then copies it to the
+    destination with DML.
+    """
+    destination_table = f"{dataset_id}.test_to_gbq_w_labels_existing_table_{if_exists}"
+    df = session.read_pandas(
+        pd.DataFrame({"int_col": [1, 2], "string_col": ["a", "b"]})
+    )
+    df.to_gbq(destination_table, index=False)
+
+    df.to_gbq(
+        destination_table,
+        if_exists=if_exists,
+        index=False,
+        labels={"test": "labels"},
+    )
+
+    table = bigquery_client.get_table(destination_table)
+    assert table.labels == {"test": "labels"}
+
+
 def test_to_gbq_w_duplicate_column_names(
     scalars_df_index, scalars_pandas_df_index, dataset_id
 ):

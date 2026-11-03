@@ -27,6 +27,7 @@ def test_and_op(scalar_types_df: bpd.DataFrame, snapshot):
     bf_df["bool_and_bool"] = bf_df["bool_col"] & bf_df["bool_col"]
     bf_df["bool_and_null"] = bf_df["bool_col"] & pd.NA  # type: ignore
     bf_df["null_and_bool"] = pd.NA & bf_df["bool_col"]  # type: ignore
+    bf_df["null_and_null"] = (bf_df["int64_col"] > pd.NA) & (bf_df["int64_col"] < pd.NA)
     snapshot.assert_match(bf_df.sql, "out.sql")
 
 
@@ -37,6 +38,7 @@ def test_or_op(scalar_types_df: bpd.DataFrame, snapshot):
     bf_df["bool_and_bool"] = bf_df["bool_col"] | bf_df["bool_col"]
     bf_df["bool_and_null"] = bf_df["bool_col"] | pd.NA  # type: ignore
     bf_df["null_and_bool"] = pd.NA | bf_df["bool_col"]  # type: ignore
+    bf_df["null_and_null"] = (bf_df["int64_col"] > pd.NA) | (bf_df["int64_col"] < pd.NA)
     snapshot.assert_match(bf_df.sql, "out.sql")
 
 
@@ -47,4 +49,5 @@ def test_xor_op(scalar_types_df: bpd.DataFrame, snapshot):
     bf_df["bool_and_bool"] = bf_df["bool_col"] ^ bf_df["bool_col"]
     bf_df["bool_and_null"] = bf_df["bool_col"] ^ pd.NA  # type: ignore
     bf_df["null_and_bool"] = pd.NA ^ bf_df["bool_col"]  # type: ignore
+    bf_df["null_and_null"] = (bf_df["int64_col"] > pd.NA) ^ (bf_df["int64_col"] < pd.NA)
     snapshot.assert_match(bf_df.sql, "out.sql")

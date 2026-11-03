@@ -242,6 +242,6 @@ SELECT
       END
     )
   END AS `float_pow_1`,
-  NULL AS `float_pow_null`,
-  NULL AS `null_pow_float`
+  CAST(NULL AS FLOAT64) AS `float_pow_null`,
+  CAST(NULL AS FLOAT64) AS `null_pow_float`
 FROM `bigframes-dev`.`sqlglot_test`.`scalar_types` AS `bft_0`

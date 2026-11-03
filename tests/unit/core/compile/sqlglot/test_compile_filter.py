@@ -48,3 +48,12 @@ def test_compile_filter_w_multiple_or(scalar_types_df: bpd.DataFrame, snapshot):
     filtered = filtered[(filtered["float64_col"] > 0) | (bf_df["string_col"] == "a")]
 
     snapshot.assert_match(filtered.sql, "out.sql")
+
+
+def test_compile_filter_w_multiple_nulls(scalar_types_df: bpd.DataFrame, snapshot):
+    bf_df = scalar_types_df[["rowindex", "int64_col"]]
+    cond = (bf_df["int64_col"] > None) & (bf_df["int64_col"] < None)
+
+    filtered = bf_df[cond]
+
+    snapshot.assert_match(filtered.sql, "out.sql")

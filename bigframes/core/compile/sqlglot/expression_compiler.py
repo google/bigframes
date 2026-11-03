@@ -115,6 +115,7 @@ class ExpressionCompiler:
     def _(self, expr: ex.OpExpression, *, dtype: typing.Any = None) -> sge.Expression:
         # Avoid circular imports since this module is also a part of
         # bigframes.core.compile.sqlglot.
+        from bigframes.core.compile.sqlglot import sql
         from bigframes.core.compile.sqlglot.expressions import typed_expr
 
         arg_specs = getattr(expr.op, "args", None)
@@ -136,7 +137,12 @@ class ExpressionCompiler:
             compiled_expr = self.compile_expression(sub_expr, dtype=sub_dtype)
             inputs.append(typed_expr.TypedExpr(compiled_expr, sub_expr.output_type))
 
-        return self.compile_row_op(expr.op, tuple(inputs))
+        result = self.compile_row_op(expr.op, tuple(inputs))
+        if isinstance(result, sge.Null):
+            # Explicitly cast the NULL to the expected output type because otherwise
+            # BigQuery will treat it as an INT64.
+            return sql.literal(None, dtype=expr.output_type)
+        return result
 
     def compile_row_op(
         self, op: ops.RowOp, inputs: typing.Sequence[typed_expr.TypedExpr]

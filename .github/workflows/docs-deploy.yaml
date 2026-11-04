@@ -5,7 +5,10 @@ on:
   push:
     branches: ["main"]
     paths:
+      - "CHANGELOG.md"
+      - "bigframes/version.py"
       - "docs/**"
+      - "notebooks/**"
       - ".github/workflows/docs-deploy.yaml"
 
   # Allows you to run this workflow manually from the Actions tab

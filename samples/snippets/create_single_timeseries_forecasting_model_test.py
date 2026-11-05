@@ -13,9 +13,16 @@
 # limitations under the License.
 
 
-def test_create_single_timeseries() -> None:
+def test_create_single_timeseries(random_model_id: str) -> None:
+    your_model_id = random_model_id
+
     # [START bigquery_dataframes_single_timeseries_forecasting_model_tutorial]
     import bigframes.pandas as bpd
+
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
 
     # Start by loading the historical data from BigQuerythat you want to analyze and forecast.
     # This clause indicates that you are querying the ga_sessions_* tables in the google_analytics_sample dataset.
@@ -41,8 +48,16 @@ def test_create_single_timeseries() -> None:
     # [END bigquery_dataframes_single_timeseries_forecasting_model_tutorial]
 
     # [START bigquery_dataframes_single_timeseries_forecasting_model_tutorial_create]
-    from bigframes.ml import forecasting
     import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
+
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
+
+    # Use the data loaded in the previous step to fit the model
+    training_data = total_visits.to_frame().reset_index(drop=False)
 
     # Create a time series model to forecast total site visits:
     # The auto_arima option defaults to True, so the auto.ARIMA algorithm automatically
@@ -51,23 +66,37 @@ def test_create_single_timeseries() -> None:
     # process automatically infers the data frequency of the input time series.
     # The decompose_time_series option defaults to True, so that information about
     # the time series data is returned when you evaluate the model in the next step.
-    model = forecasting.ARIMAPlus()
-    model.auto_arima = True
-    model.data_frequency = "auto_frequency"
-    model.decompose_time_series = True
-
-    # Use the data loaded in the previous step to fit the model
-    training_data = total_visits.to_frame().reset_index(drop=False)
-
-    X = training_data[["parsed_date"]]
-    y = training_data[["total_visits"]]
-
-    model.fit(X, y)
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.create_model.html#bigframes.bigquery.ml.create_model
+    ml.create_model(
+        your_model_id,  # For example: "bqml_tutorial.ga_arima_model"
+        options={
+            "model_type": "ARIMA_PLUS",
+            "time_series_timestamp_col": "parsed_date",
+            "time_series_data_col": "total_visits",
+            "auto_arima": True,
+            "data_frequency": "AUTO_FREQUENCY",
+            "decompose_time_series": True,
+        },
+        training_data=training_data,
+        replace=True,
+    )
     # [END bigquery_dataframes_single_timeseries_forecasting_model_tutorial_create]
 
     # [START bigquery_dataframes_single_timeseries_forecasting_model_tutorial_coef]
-    coef = model.coef_
-    print(coef.peek())
+    import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
+
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
+
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.arima_coefficients.html#bigframes.bigquery.ml.arima_coefficients
+    ml.arima_coefficients(
+        your_model_id,  # For example: "bqml_tutorial.ga_arima_model"
+    )
 
     # Expected output:
     #       ar_coefficients   ma_coefficients   intercept_or_drift
@@ -75,13 +104,20 @@ def test_create_single_timeseries() -> None:
     # [END bigquery_dataframes_single_timeseries_forecasting_model_tutorial_coef]
 
     # [START bigquery_dataframes_single_timeseries_forecasting_model_tutorial_evaluate]
-    # Evaluate the time series models by using the summary() function. The summary()
-    # function shows you the evaluation metrics of all the candidate models evaluated
-    # during the process of automatic hyperparameter tuning.
-    summary = model.summary(
+    import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
+
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
+
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.arima_evaluate.html#bigframes.bigquery.ml.arima_evaluate
+    ml.arima_evaluate(
+        your_model_id,  # For example: "bqml_tutorial.ga_arima_model"
         show_all_candidate_models=True,
     )
-    print(summary.peek())
 
     # Expected output:
     # row   non_seasonal_p	non_seasonal_d	non_seasonal_q	has_drift	log_likelihood	AIC	variance	seasonal_periods	has_holiday_effect	has_spikes_and_dips	has_step_changes	error_message
@@ -93,9 +129,21 @@ def test_create_single_timeseries() -> None:
     # [END bigquery_dataframes_single_timeseries_forecasting_model_tutorial_evaluate]
 
     # [START bigquery_dataframes_single_timeseries_forecasting_model_tutorial_forecast]
-    prediction = model.predict(horizon=30, confidence_level=0.8)
+    import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
 
-    print(prediction.peek())
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
+
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.forecast.html#bigframes.bigquery.ml.forecast
+    ml.forecast(
+        your_model_id,  # For example: "bqml_tutorial.ga_arima_model"
+        horizon=30,
+        confidence_level=0.8,
+    )
     # Expected output:
     #           forecast_timestamp	   forecast_value	standard_error	confidence_level	prediction_interval_lower_bound	    prediction_interval_upper_bound	    confidence_interval_lower_bound	    confidence_interval_upper_bound
     # 11	2017-08-13 00:00:00+00:00	1845.439732	      328.060405	      0.8	                 1424.772257	                      2266.107208	                     1424.772257	                     2266.107208
@@ -106,9 +154,21 @@ def test_create_single_timeseries() -> None:
     # [END bigquery_dataframes_single_timeseries_forecasting_model_tutorial_forecast]
 
     # [START bigquery_dataframes_single_timeseries_forecasting_model_tutorial_explain_forecast]
-    ex_pred = model.predict_explain(horizon=30, confidence_level=0.8)
+    import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
 
-    print(ex_pred.head(4))
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
+
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.explain_forecast.html#bigframes.bigquery.ml.explain_forecast
+    ml.explain_forecast(
+        your_model_id,  # For example: "bqml_tutorial.ga_arima_model"
+        horizon=30,
+        confidence_level=0.8,
+    )
     # Expected output:
     #       time_series_timestamp	  time_series_type	    time_series_data	time_series_adjusted_data	 standard_error	   confidence_level	   prediction_interval_lower_bound	   prediction_interval_upper_bound	  trend	   seasonal_period_yearly	  seasonal_period_quarterly	    seasonal_period_monthly	   seasonal_period_weekly	  seasonal_period_daily	    holiday_effect	   spikes_and_dips	   step_changes	   residual
     # 0	  2016-08-01 00:00:00+00:00	      history	             1711.0	               505.716474	           206.939556	         <NA>	                    <NA>	                            <NA>	               0.0	           <NA>	                        <NA>	                     <NA>	                 169.611938	                  <NA>	                <NA>	            <NA>	       1205.283526	   336.104536
@@ -118,10 +178,5 @@ def test_create_single_timeseries() -> None:
     # 4	  2016-08-05 00:00:00+00:00	      history	             2702.0	               1394.395741	           206.939556	         <NA>	                    <NA>	                            <NA>	            1248.707386	       <NA>	                        <NA>	                     <NA>	                 145.688355	                  <NA>	                <NA>	            <NA>	       1205.283526	   102.320733
     # 5	  2016-08-06 00:00:00+00:00	      history	             1663.0	               437.09243	           206.939556	         <NA>	                    <NA>	                            <NA>	            1188.59004	       <NA>	                        <NA>	                     <NA>	                 -751.49761	                  <NA>	                <NA>	            <NA>	       1205.283526	    20.624044
     # [END bigquery_dataframes_single_timeseries_forecasting_model_tutorial_explain_forecast]
-    assert coef is not None
-    assert ex_pred is not None
-    assert summary is not None
-    assert model is not None
     assert parsed_date is not None
-    assert prediction is not None
     assert total_visits is not None

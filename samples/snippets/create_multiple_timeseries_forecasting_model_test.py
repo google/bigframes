@@ -20,6 +20,11 @@ def test_multiple_timeseries_forecasting_model(random_model_id: str) -> None:
 
     import bigframes.pandas as bpd
 
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
+
     df = bpd.read_gbq("bigquery-public-data.new_york.citibike_trips")
 
     features = bpd.DataFrame(
@@ -70,16 +75,13 @@ def test_multiple_timeseries_forecasting_model(random_model_id: str) -> None:
     # [END bigquery_dataframes_bqml_arima_multiple_step_2_visualize]
 
     # [START bigquery_dataframes_bqml_arima_multiple_step_3_fit]
-    from bigframes.ml import forecasting
     import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
 
-    model = forecasting.ARIMAPlus(
-        # To reduce the query runtime with the compromise of a potential slight
-        # drop in model quality, you could decrease the value of the
-        # auto_arima_max_order. This shrinks the search space of hyperparameter
-        # tuning in the auto.ARIMA algorithm.
-        auto_arima_max_order=5,
-    )
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
 
     df = bpd.read_gbq("bigquery-public-data.new_york.citibike_trips")
 
@@ -100,32 +102,43 @@ def test_multiple_timeseries_forecasting_model(random_model_id: str) -> None:
         as_index=False,
     ).count()
 
-    X = num_trips["date"].to_frame()
-    y = num_trips["num_trips"].to_frame()
-
-    model.fit(
-        X,
-        y,
-        # The input data that you want to get forecasts for,
-        # in this case the Citi Bike station, as represented by the
-        # start_station_name column.
-        id_col=num_trips["start_station_name"].to_frame(),
-    )
-
-    # The model.fit() call above created a temporary model.
-    # Use the to_gbq() method to write to a permanent location.
-    model.to_gbq(
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.create_model.html#bigframes.bigquery.ml.create_model
+    ml.create_model(
         your_model_id,  # For example: "bqml_tutorial.nyc_citibike_arima_model",
+        options={
+            "model_type": "ARIMA_PLUS",
+            "time_series_timestamp_col": "date",
+            "time_series_data_col": "num_trips",
+            # The input data that you want to get forecasts for,
+            # in this case the Citi Bike station, as represented by the
+            # start_station_name column.
+            "time_series_id_col": "start_station_name",
+            # To reduce the query runtime with the compromise of a potential slight
+            # drop in model quality, you could decrease the value of the
+            # auto_arima_max_order. This shrinks the search space of hyperparameter
+            # tuning in the auto.ARIMA algorithm.
+            "auto_arima_max_order": 5,
+        },
+        training_data=num_trips,
         replace=True,
     )
     # [END bigquery_dataframes_bqml_arima_multiple_step_3_fit]
 
     # [START bigquery_dataframes_bqml_arima_multiple_step_4_evaluate]
-    # Evaluate the time series models by using the summary() function. The summary()
-    # function shows you the evaluation metrics of all the candidate models evaluated
-    # during the process of automatic hyperparameter tuning.
-    summary = model.summary()
-    print(summary.peek())
+    import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
+
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
+
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.arima_evaluate.html#bigframes.bigquery.ml.arima_evaluate
+    ml.arima_evaluate(
+        your_model_id,  # For example: "bqml_tutorial.nyc_citibike_arima_model",
+    )
 
     # Expected output:
     #    start_station_name                  non_seasonal_p  non_seasonal_d   non_seasonal_q  has_drift  log_likelihood           AIC     variance ...
@@ -137,8 +150,19 @@ def test_multiple_timeseries_forecasting_model(random_model_id: str) -> None:
     # [END bigquery_dataframes_bqml_arima_multiple_step_4_evaluate]
 
     # [START bigquery_dataframes_bqml_arima_multiple_step_5_coefficients]
-    coef = model.coef_
-    print(coef.peek())
+    import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
+
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
+
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.arima_coefficients.html#bigframes.bigquery.ml.arima_coefficients
+    ml.arima_coefficients(
+        your_model_id,  # For example: "bqml_tutorial.nyc_citibike_arima_model",
+    )
 
     # Expected output:
     #    start_station_name                                              ar_coefficients                                   ma_coefficients intercept_or_drift
@@ -150,9 +174,21 @@ def test_multiple_timeseries_forecasting_model(random_model_id: str) -> None:
     # [END bigquery_dataframes_bqml_arima_multiple_step_5_coefficients]
 
     # [START bigquery_dataframes_bqml_arima_multiple_step_6_forecast]
-    prediction = model.predict(horizon=3, confidence_level=0.9)
+    import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
 
-    print(prediction.peek())
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
+
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.forecast.html#bigframes.bigquery.ml.forecast
+    ml.forecast(
+        your_model_id,  # For example: "bqml_tutorial.nyc_citibike_arima_model",
+        horizon=3,
+        confidence_level=0.9,
+    )
     # Expected output:
     #            forecast_timestamp                             start_station_name  forecast_value  standard_error  confidence_level ...
     # 4   2016-10-01 00:00:00+00:00                         Central Park S & 6 Ave      302.377201       32.572948               0.9 ...
@@ -162,9 +198,21 @@ def test_multiple_timeseries_forecasting_model(random_model_id: str) -> None:
     # 12  2016-10-01 00:00:00+00:00                   W 106 St & Central Park West        63.88163       18.088868               0.9 ...
     # [END bigquery_dataframes_bqml_arima_multiple_step_6_forecast]
     # [START bigquery_dataframes_bqml_arima_multiple_step_7_explain]
-    explain = model.predict_explain(horizon=3, confidence_level=0.9)
+    import bigframes.pandas as bpd
+    from bigframes.bigquery import ml
 
-    print(explain.peek(5))
+    # Set partial ordering mode for BigQuery DataFrames.
+    # For more information, see the BigQuery DataFrames performance documentation:
+    # https://cloud.google.com/bigquery/docs/dataframes-performance#partial-ordering-mode
+    bpd.options.bigquery.ordering_mode = "partial"
+
+    # For more information, see the BigQuery DataFrames API reference documentation:
+    # https://dataframes.bigquery.dev/reference/api/bigframes.bigquery.ml.explain_forecast.html#bigframes.bigquery.ml.explain_forecast
+    ml.explain_forecast(
+        your_model_id,  # For example: "bqml_tutorial.nyc_citibike_arima_model",
+        horizon=3,
+        confidence_level=0.9,
+    )
     # Expected output:
     #   time_series_timestamp	        start_station_name	            time_series_type	    time_series_data	    time_series_adjusted_data	    standard_error	    confidence_level	    prediction_interval_lower_bound	    prediction_interval_upper_bound	    trend	    seasonal_period_yearly	    seasonal_period_quarterly	    seasonal_period_monthly	    seasonal_period_weekly	    seasonal_period_daily	    holiday_effect	    spikes_and_dips	    step_changes	    residual
     # 0	2013-07-01 00:00:00+00:00	Central Park S & 6 Ave	                history	                  69.0	                   154.168527	              32.572948	             <NA>	                        <NA>	                            <NA>	                 0.0	          35.477484	                       <NA>	                        <NA>	                  -28.402102	                 <NA>	                <NA>	               0.0	         -85.168527	        147.093145

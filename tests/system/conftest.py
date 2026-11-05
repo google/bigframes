@@ -613,7 +613,7 @@ def nested_structs_pandas_df(nested_structs_pandas_type: pd.ArrowDtype) -> pd.Da
         if val is None:
             datetime_vals.append(None)
         else:
-            datetime_vals.append(datetime.datetime.fromisoformat(val.replace(" ", "T")))
+            datetime_vals.append(datetime.datetime.fromisoformat(val))
     datetime_arr = pa.array(datetime_vals, type=pa.timestamp("us"))
     datetime_ser = pd.Series(
         datetime_arr, index=ids, dtype=pd.ArrowDtype(pa.timestamp("us"))
@@ -621,9 +621,7 @@ def nested_structs_pandas_df(nested_structs_pandas_type: pd.ArrowDtype) -> pd.Da
 
     # timestamp_col
     timestamp_vals = [
-        datetime.datetime.fromisoformat(
-            get_val(row, "timestamp_col").replace("Z", "+00:00")
-        )
+        datetime.datetime.fromisoformat(get_val(row, "timestamp_col"))
         if get_val(row, "timestamp_col") is not None
         else None
         for row in raw_rows

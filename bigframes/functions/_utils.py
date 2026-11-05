@@ -20,7 +20,7 @@ import json
 import sys
 import typing
 import warnings
-from typing import Any, Mapping, Optional, Sequence, Set, cast
+from typing import Any, Optional, Sequence, Set, cast
 
 import cloudpickle
 import google.api_core.exceptions
@@ -312,16 +312,11 @@ def get_func_signature(
     input_types: type | Sequence[type] | None = None,
     output_type: type | None = None,
 ) -> udf_def.UdfSignature:
-    if sys.version_info >= (3, 10):
-        # Add `eval_str = True` so that deferred annotations are turned into their
-        # corresponding type objects. Need Python 3.10 for eval_str parameter.
-        # https://docs.python.org/3/library/inspect.html#inspect.signature
-        signature_kwargs: Mapping[str, Any] = {"eval_str": True}
-    else:
-        signature_kwargs = {}  # type: ignore
-
+    # Add `eval_str = True` so that deferred annotations are turned into their
+    # corresponding type objects.
+    # https://docs.python.org/3/library/inspect.html#inspect.signature
     py_sig = resolve_signature(
-        inspect.signature(func, **signature_kwargs),
+        inspect.signature(func, eval_str=True),
         input_types,
         output_type,
     )

@@ -69,7 +69,7 @@ def test_method_matches_session(method_name: str):
     )
 
     # Add `eval_str = True` so that deferred annotations are turned into their
-    # corresponding type objects. Need Python 3.10 for eval_str parameter.
+    # corresponding type objects.
     session_signature = inspect.signature(
         session_method,
         eval_str=True,

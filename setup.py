@@ -33,8 +33,8 @@ description = (
 # 'Development Status :: 5 - Production/Stable'
 release_status = "Development Status :: 5 - Production/Stable"
 dependencies = [
-    # please keep these in sync with the minimum versions in testing/constraints-3.10.txt
-    "cloudpickle >= 2.0.0",
+    # please keep these in sync with the minimum versions in testing/constraints-3.11.txt
+    "cloudpickle >= 2.1.0",
     "fsspec >=2023.3.0",
     "gcsfs >=2023.3.0, !=2025.5.0, !=2026.2.0, !=2026.3.0",
     "geopandas >=0.12.2",
@@ -142,7 +142,6 @@ setuptools.setup(
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
@@ -158,7 +157,7 @@ setuptools.setup(
         "bigframes_vendored": "third_party/bigframes_vendored",
     },
     packages=packages,
-    python_requires=">=3.10",
+    python_requires=">=3.11",
     include_package_data=True,
     zip_safe=False,
 )

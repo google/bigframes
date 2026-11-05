@@ -21,8 +21,8 @@ cd "%~dp0"\..\..
 
 set PYTHON_VERSION=%1
 if "%PYTHON_VERSION%"=="" (
-  echo "Python version was not provided, using Python 3.10"
-  set PYTHON_VERSION=3.10
+  echo "Python version was not provided, using Python 3.11"
+  set PYTHON_VERSION=3.11
 )
 
 py -%PYTHON_VERSION%-64 -m pip install nox || goto :error

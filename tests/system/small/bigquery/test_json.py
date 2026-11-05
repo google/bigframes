@@ -422,15 +422,15 @@ def test_to_json_string_from_int():
 def test_to_json_string_from_struct():
     s = bpd.Series(
         [
-            {"version": 1, "project": "pandas"},
-            {"version": 2, "project": "numpy"},
+            {"project": "pandas", "version": 1},
+            {"project": "numpy", "version": 2},
         ]
     )
     assert dtypes.is_struct_like(s.dtype)
 
     actual = bbq.to_json_string(s)
     expected = bpd.Series(
-        ['{"version":1,"project":"pandas"}', '{"version":2,"project":"numpy"}'],
+        ['{"project":"pandas","version":1}', '{"project":"numpy","version":2}'],
         dtype=dtypes.STRING_DTYPE,
     )
 

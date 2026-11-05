@@ -43,23 +43,6 @@ _COMPARE_OP_MAP = {
     ">=": operator.ge,
 }
 
-_OLD_BINARY_OP_MAP = {
-    "BINARY_ADD": operator.add,
-    "INPLACE_ADD": operator.add,
-    "BINARY_SUBTRACT": operator.sub,
-    "INPLACE_SUBTRACT": operator.sub,
-    "BINARY_MULTIPLY": operator.mul,
-    "INPLACE_MULTIPLY": operator.mul,
-    "BINARY_TRUE_DIVIDE": operator.truediv,
-    "INPLACE_TRUE_DIVIDE": operator.truediv,
-    "BINARY_FLOOR_DIVIDE": operator.floordiv,
-    "INPLACE_FLOOR_DIVIDE": operator.floordiv,
-    "BINARY_MODULO": operator.mod,
-    "INPLACE_MODULO": operator.mod,
-    "BINARY_POWER": operator.pow,
-    "INPLACE_POWER": operator.pow,
-}
-
 
 _NULL = py_exprs.PyObject(None)
 
@@ -68,7 +51,6 @@ _RETURN_OPNAMES = {"RETURN_VALUE", "RETURN_CONST"}
 
 _UNCONDITIONAL_JUMP_OPNAMES = {
     "JUMP_FORWARD",
-    "JUMP_ABSOLUTE",
     "JUMP_BACKWARD",
     "JUMP_BACKWARD_NO_INTERRUPT",
     "JUMP",
@@ -392,11 +374,7 @@ def _compile_bytecode_to_py_expr(func: Callable) -> expression.Expression:
                         stack.append(expression.UnboundVariableExpression(name))
 
                 case "LOAD_GLOBAL":
-                    if (
-                        sys.version_info >= (3, 11)
-                        and inst.arg is not None
-                        and (inst.arg & 1)
-                    ):
+                    if inst.arg is not None and (inst.arg & 1):
                         stack.append(_NULL)
                     name = inst.argval
                     found = False
@@ -545,21 +523,6 @@ def _compile_bytecode_to_py_expr(func: Callable) -> expression.Expression:
                         )
                     stack[-1], stack[-idx] = stack[-idx], stack[-1]
 
-                case "ROT_TWO":
-                    if len(stack) < 2:
-                        raise ValueError("Stack has < 2 elements")
-                    stack[-1], stack[-2] = stack[-2], stack[-1]
-
-                case "ROT_THREE":
-                    if len(stack) < 3:
-                        raise ValueError("Stack has < 3 elements")
-                    stack[-1], stack[-2], stack[-3] = stack[-2], stack[-3], stack[-1]
-
-                case "DUP_TOP":
-                    if not stack:
-                        raise ValueError("Stack is empty")
-                    stack.append(stack[-1])
-
                 case "BINARY_OP":
                     if len(stack) < 2:
                         raise ValueError("Stack is empty")
@@ -589,18 +552,6 @@ def _compile_bytecode_to_py_expr(func: Callable) -> expression.Expression:
                         py_exprs.Call(
                             py_exprs.PyObject(operator.getitem),
                             (container, key),
-                        )
-                    )
-
-                case name if name in _OLD_BINARY_OP_MAP:
-                    if len(stack) < 2:
-                        raise ValueError("Stack has < 2 elements")
-                    right = stack.pop()
-                    left = stack.pop()
-                    stack.append(
-                        py_exprs.Call(
-                            py_exprs.PyObject(_OLD_BINARY_OP_MAP[opname]),
-                            (left, right),
                         )
                     )
 
@@ -689,24 +640,20 @@ def _compile_bytecode_to_py_expr(func: Callable) -> expression.Expression:
                     else:
                         raise ValueError(f"Unsupported intrinsic: {inst.argrepr}")
 
-                case "CALL" | "CALL_FUNCTION" | "CALL_METHOD":
+                case "CALL":
                     num_args = inst.arg
                     assert num_args is not None
                     if len(stack) < num_args:
                         raise ValueError(f"Stack has fewer than {num_args} elements")
                     args = [stack.pop() for _ in range(num_args)][::-1]
 
-                    is_method_call = False
-                    if opname == "CALL" or opname == "CALL_METHOD":
-                        if len(stack) >= 2 and stack[-2] == _NULL:
-                            stack[-1], stack[-2] = stack[-2], stack[-1]
-                        if stack and stack[-1] == _NULL:
-                            stack.pop()
-                            is_method_call = False
-                        else:
-                            is_method_call = True
-                    elif opname == "CALL_FUNCTION":
+                    if len(stack) >= 2 and stack[-2] == _NULL:
+                        stack[-1], stack[-2] = stack[-2], stack[-1]
+                    if stack and stack[-1] == _NULL:
+                        stack.pop()
                         is_method_call = False
+                    else:
+                        is_method_call = True
 
                     if is_method_call:
                         if (

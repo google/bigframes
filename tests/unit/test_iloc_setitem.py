@@ -28,7 +28,7 @@ pytest.importorskip("polars")
 
 @pytest.fixture(scope="module", autouse=True)
 def session() -> Generator[bigframes.Session, None, None]:
-    # Perform Polars imports here because the library is not available in 3.10 test envs.
+    # Perform Polars imports here to allow polars importorskip to happen first.
     import bigframes.core.global_session
     from bigframes.testing import polars_session
 

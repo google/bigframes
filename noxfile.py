@@ -65,7 +65,7 @@ LINT_PATHS = [
 DEFAULT_PYTHON_VERSION = "3.14"
 
 # TODO(tswast): include Python 3.15 when there are pyarrow wheels.
-ALL_PYTHON = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+ALL_PYTHON = ["3.11", "3.12", "3.13", "3.14"]
 UNIT_TEST_STANDARD_DEPENDENCIES = [
     "mock",
     PYTEST_VERSION,
@@ -77,18 +77,14 @@ UNIT_TEST_EXTERNAL_DEPENDENCIES: List[str] = []
 UNIT_TEST_DEPENDENCIES: List[str] = []
 UNIT_TEST_EXTRAS: List[str] = ["tests"]
 UNIT_TEST_EXTRAS_BY_PYTHON: Dict[str, List[str]] = {
-    "3.10": ["tests", "scikit-learn", "anywidget"],
-    "3.11": ["tests", "polars", "scikit-learn", "anywidget"],
+    "3.11": ["tests", "scikit-learn", "anywidget"],
+    "3.12": ["tests", "polars", "scikit-learn", "anywidget"],
     # Make sure we leave some versions without "extras" so we know those
     # dependencies are actually optional.
-    "3.13": ["tests", "polars", "scikit-learn", "anywidget"],
     "3.14": ["tests", "polars", "scikit-learn", "anywidget"],
 }
 
-# 3.11 is used by colab.
-# 3.10 is needed for Windows tests as it is the only version installed in the
-# bigframes-windows container image. For more information, search
-# bigframes/windows-docker, internally.
+# 3.12 is used by colab.
 SYSTEM_TEST_PYTHON_VERSIONS: List[str] = ALL_PYTHON
 SYSTEM_TEST_STANDARD_DEPENDENCIES = [
     "jinja2",
@@ -110,7 +106,7 @@ SYSTEM_TEST_EXTRAS: List[str] = []
 SYSTEM_TEST_EXTRAS_BY_PYTHON: Dict[str, List[str]] = {
     # Make sure we leave some versions without "extras" so we know those
     # dependencies are actually optional.
-    "3.10": ["tests", "scikit-learn", "anywidget"],
+    "3.11": ["tests", "scikit-learn", "anywidget"],
     "3.12": ["tests", "scikit-learn", "polars", "anywidget"],
     "3.13": ["tests", "polars", "anywidget"],
     "3.14": ["tests", "polars", "anywidget"],
@@ -519,7 +515,7 @@ def cover(session):
     session.run("coverage", "erase")
 
 
-@nox.session(python="3.10")
+@nox.session(python="3.11")
 def docs(session):
     """Build the docs for this library."""
     session.install("-e", ".[scikit-learn]")
@@ -948,7 +944,7 @@ def core_deps_from_source(session, protobuf_implementation):
     # version, the first version we test with in the unit tests sessions has a
     # constraints file containing all dependencies and extras.
     with open(
-        CURRENT_DIRECTORY / "testing" / "constraints-3.10.txt",
+        CURRENT_DIRECTORY / "testing" / "constraints-3.11.txt",
         encoding="utf-8",
     ) as constraints_file:
         constraints_text = constraints_file.read()

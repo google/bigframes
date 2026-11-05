@@ -31,13 +31,13 @@ repos:
         args:
           - --fix
           - --select=I,F
-          - --target-version=py310
+          - --target-version=py311
           - --line-length=88
         files: ^(docs|bigframes|scripts|tests|third_party)/|^(noxfile|setup)\.py$
       - id: ruff-format
         name: ruff format
         args:
-          - --target-version=py310
+          - --target-version=py311
           - --line-length=88
         files: ^(docs|bigframes|scripts|tests|third_party)/|^(noxfile|setup)\.py$
 

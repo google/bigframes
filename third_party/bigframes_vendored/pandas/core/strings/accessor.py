@@ -539,7 +539,7 @@ class StringMethods:
             >>> s.str.rstrip()
             0      Ant
             1      Bee
-            2    \tCat
+            2     	Cat
             3     <NA>
             dtype: string
 
@@ -569,10 +569,11 @@ class StringMethods:
 
             >>> s = bpd.Series(['Ant', '  Bee ', '\tCat\n', pd.NA])
             >>> s.str.lstrip()
-            0      Ant
-            1     Bee
-            2    Cat\n
-            3     <NA>
+            0     Ant
+            1    Bee
+            2    Cat
+            <BLANKLINE>
+            3    <NA>
             dtype: string
 
         Args:

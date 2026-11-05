@@ -212,7 +212,7 @@ def nested_structs_pandas_df() -> pd.DataFrame:
         if pd.isna(val):
             return None
         if isinstance(val, str):
-            return datetime.datetime.fromisoformat(val.replace("Z", "+00:00"))
+            return datetime.datetime.fromisoformat(val)
         if hasattr(val, "to_pydatetime"):
             return val.to_pydatetime()
         return val

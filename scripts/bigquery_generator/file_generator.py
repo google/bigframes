@@ -50,7 +50,7 @@ def _run_ruff() -> None:
         constants.CODE_ROOT / "extensions",
     ]
     ruff_common_args = [
-        "--target-version=py310",
+        "--target-version=py311",
         "--line-length=88",
     ]
 

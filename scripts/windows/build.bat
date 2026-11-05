@@ -19,14 +19,14 @@ cd "%~dp0"\..\..
 echo "Listing available Python versions'
 py -0 || goto :error
 
-py -3.10 -m pip install --upgrade pip || goto :error
-py -3.10 -m pip install --upgrade pip setuptools wheel || goto :error
+py -3.11 -m pip install --upgrade pip || goto :error
+py -3.11 -m pip install --upgrade pip setuptools wheel || goto :error
 
 echo "Building Wheel"
-py -3.10 -m pip wheel . --wheel-dir wheels || goto :error/
+py -3.11 -m pip wheel . --wheel-dir wheels || goto :error/
 
 echo "Built wheel, now running tests."
-call "%script_dir%"/test.bat 3.10 || goto :error
+call "%script_dir%"/test.bat 3.11 || goto :error
 
 echo "Windows build has completed successfully"
 

@@ -307,10 +307,7 @@ def test_generate_batch_all_datatypes(rng):
 
         assert isinstance(row["c_timestamp"], str)
         assert timestamp_pattern.match(row["c_timestamp"])
-        # datetime.fromisoformat can parse 'Z' if Python >= 3.11, or needs replace('Z', '+00:00')
-        dt_obj = datetime.datetime.fromisoformat(
-            row["c_timestamp"].replace("Z", "+00:00")
-        )
+        dt_obj = datetime.datetime.fromisoformat(row["c_timestamp"])
         assert dt_obj.tzinfo == datetime.timezone.utc
 
         assert isinstance(row["c_time"], str)

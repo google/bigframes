@@ -17,7 +17,7 @@
 import warnings
 
 # Suppress Python version support warnings from google-cloud libraries.
-# These are particularly noisy in Colab which still uses Python 3.10.
+# These can be noisy in environments like Colab when a Python version nears end of support.
 warnings.filterwarnings(
     "ignore",
     category=FutureWarning,

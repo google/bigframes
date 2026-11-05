@@ -65,8 +65,8 @@ from bigframes.session import dry_runs
 # enables the following:
 #
 # 1. Static type checking knows the argument and return types, which is
-#    difficult to do with decorators. Aside: When we require Python 3.10, we
-#    can use Concatenate for generic typing in decorators. See:
+#    difficult to do with decorators. Aside: Concatenate can be used for
+#    generic typing in decorators. See:
 #    https://stackoverflow.com/a/68290080/101923
 # 2. docstrings get processed by static processing tools, such as VS Code's
 #    autocomplete.

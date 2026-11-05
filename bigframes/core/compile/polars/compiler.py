@@ -295,7 +295,15 @@ if polars_installed:
 
         @compile_op.register(num_ops.MulOp)
         def _(self, op: ops.ScalarOp, l_input: pl.Expr, r_input: pl.Expr) -> pl.Expr:
-            return l_input * r_input
+            res = l_input * r_input
+            l_type = self._expr_types.get(id(l_input))
+            r_type = self._expr_types.get(id(r_input))
+            if (
+                bigframes.dtypes.NUMERIC_DTYPE in (l_type, r_type)
+                and op.output_type(l_type, r_type) == bigframes.dtypes.NUMERIC_DTYPE
+            ):
+                return res.round(9).cast(pl.Decimal(38, 9))
+            return res
 
         @compile_op.register(num_ops.DivOp)
         def _(self, op: ops.ScalarOp, l_input: pl.Expr, r_input: pl.Expr) -> pl.Expr:

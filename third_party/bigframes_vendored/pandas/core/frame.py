@@ -66,7 +66,7 @@ class DataFrame(generic.NDFrame):
 
             >>> df = bpd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
             >>> df.axes[1:]
-            [Index(['col1', 'col2'], dtype='str')]
+            [Index(['col1', 'col2'], dtype='object')]
         """
         raise NotImplementedError(constants.ABSTRACT_METHOD_ERROR_MESSAGE)
 
@@ -1963,7 +1963,7 @@ class DataFrame(generic.NDFrame):
             ...     'B': [4, 5, 6],
             ...     })
             >>> df.keys()
-            Index(['A', 'B'], dtype='str')
+            Index(['A', 'B'], dtype='object')
 
         Returns:
             pandas.Index: Info axis.
@@ -6700,7 +6700,7 @@ class DataFrame(generic.NDFrame):
             <BLANKLINE>
             [3 rows x 3 columns]
             >>> df.columns
-            Index(['Name', 'Age', 'Location'], dtype='str')
+            Index(['Name', 'Age', 'Location'], dtype='object')
 
         You can also set new labels for columns.
 
@@ -6713,7 +6713,7 @@ class DataFrame(generic.NDFrame):
             <BLANKLINE>
             [3 rows x 3 columns]
             >>> df.columns
-            Index(['NewName', 'NewAge', 'NewLocation'], dtype='str')
+            Index(['NewName', 'NewAge', 'NewLocation'], dtype='object')
 
         """
         raise NotImplementedError(constants.ABSTRACT_METHOD_ERROR_MESSAGE)

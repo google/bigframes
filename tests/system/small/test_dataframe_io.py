@@ -1035,6 +1035,36 @@ def test_to_gbq_timedelta_tag_ignored_when_appending(bigquery_client, dataset_id
     assert table.schema[0].description is None
 
 
+def test_to_gbq_replace_same_schema_keeps_table_schema(
+    session, dataset_id, bigquery_client
+):
+    destination_table = (
+        f"{dataset_id}.test_to_gbq_replace_same_schema_keeps_table_schema"
+    )
+    elapsed_description = f"time spent {dtypes.TIMEDELTA_DESCRIPTION_TAG}"
+    schema = [
+        bigquery.SchemaField("id", "INTEGER", mode="REQUIRED", description="user id"),
+        bigquery.SchemaField("elapsed", "INTEGER", description=elapsed_description),
+    ]
+    bigquery_client.create_table(bigquery.Table(destination_table, schema))
+    df = pd.DataFrame(
+        {
+            "id": [1, 2],
+            "elapsed": [pd.Timedelta(1, "s"), pd.Timedelta(2, "s")],
+        }
+    )
+
+    bpd.DataFrame(df).to_gbq(destination_table, if_exists="replace", index=False)
+
+    table = bigquery_client.get_table(destination_table)
+    assert table.schema[0].mode == "REQUIRED"
+    assert table.schema[0].description == "user id"
+    assert table.schema[1].description == elapsed_description
+    result = session.read_gbq(destination_table)
+    assert len(result) == 2
+    assert result["elapsed"].dtype == dtypes.TIMEDELTA_DTYPE
+
+
 def test_to_gbq_obj_ref(session, dataset_id: str, bigquery_client):
     import uuid
 

@@ -328,14 +328,21 @@ class BigQueryCachingExecutor(executor.Executor):
                 execution_spec,
             )
 
-        has_special_dtype_col = any(
-            t in (bigframes.dtypes.TIMEDELTA_DTYPE, bigframes.dtypes.OBJ_REF_DTYPE)
-            for t in array_value.schema.dtypes
-        )
-        if dest_spec.if_exists != "append" and has_special_dtype_col:
-            table = await asyncio.to_thread(self.bqclient.get_table, dest_spec.table)
-            table.schema = array_value.schema.to_bigquery()
-            await asyncio.to_thread(self.bqclient.update_table, table, ["schema"])
+            # Only the direct write needs this schema update. It replaces the
+            # table's whole schema with the DataFrame's, to add the descriptions
+            # that mark TIMEDELTA and ObjectRef columns. The DML path doesn't
+            # need it, because the table's columns already have the DataFrame's
+            # names and dtypes.
+            has_special_dtype_col = any(
+                t in (bigframes.dtypes.TIMEDELTA_DTYPE, bigframes.dtypes.OBJ_REF_DTYPE)
+                for t in array_value.schema.dtypes
+            )
+            if dest_spec.if_exists != "append" and has_special_dtype_col:
+                table = await asyncio.to_thread(
+                    self.bqclient.get_table, dest_spec.table
+                )
+                table.schema = array_value.schema.to_bigquery()
+                await asyncio.to_thread(self.bqclient.update_table, table, ["schema"])
 
         return result
 

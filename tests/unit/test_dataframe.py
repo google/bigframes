@@ -19,6 +19,7 @@ import pandas as pd
 import pytest
 
 import bigframes.dataframe
+import bigframes.dtypes
 import bigframes.session
 from bigframes.testing import mocks
 
@@ -167,6 +168,70 @@ def test_dataframe_to_gbq_sets_labels_on_destination_table(
     )
     assert table.labels == {"team": "bigframes"}
     assert fields == ["labels"]
+
+
+def test_dataframe_to_gbq_replace_same_schema_skips_schema_update(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    session = mocks.create_bigquery_session(
+        table_schema=(
+            google.cloud.bigquery.SchemaField("id", "INTEGER"),
+            google.cloud.bigquery.SchemaField(
+                "elapsed",
+                "INTEGER",
+                description=bigframes.dtypes.TIMEDELTA_DESCRIPTION_TAG,
+            ),
+        )
+    )
+    # to_gbq runs the query into a staging table, then MERGEs from it. The
+    # executor only returns that table if the rows weren't already
+    # downloaded, which it checks with _is_almost_completely_cached(). On
+    # the fake QueryJob, that check returns a MagicMock, which counts as
+    # true, so set it to False. Otherwise to_gbq fails before the MERGE.
+    query = session.bqclient.query.side_effect
+
+    def query_with_uncached_results(*args, **kwargs):
+        query_job = query(*args, **kwargs)
+        query_job.result.return_value._is_almost_completely_cached.return_value = False
+        return query_job
+
+    session.bqclient.query.side_effect = query_with_uncached_results
+    dataframe = mocks.create_dataframe(
+        monkeypatch,
+        session=session,
+        data={"id": [1, 2], "elapsed": [pd.Timedelta(1, "s"), pd.Timedelta(2, "s")]},
+    )
+
+    dataframe.to_gbq(
+        "test-project.my_dataset.my_table", if_exists="replace", index=False
+    )
+
+    queries = session._queries  # type: ignore
+    assert any(sql.startswith("MERGE") for sql in queries)
+    session.bqclient.update_table.assert_not_called()
+
+
+def test_dataframe_to_gbq_replace_different_schema_updates_schema(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    session = mocks.create_bigquery_session(
+        table_schema=(google.cloud.bigquery.SchemaField("other", "STRING"),)
+    )
+    dataframe = mocks.create_dataframe(
+        monkeypatch,
+        session=session,
+        data={"id": [1, 2], "elapsed": [pd.Timedelta(1, "s"), pd.Timedelta(2, "s")]},
+    )
+
+    dataframe.to_gbq(
+        "test-project.my_dataset.my_table", if_exists="replace", index=False
+    )
+
+    queries = session._queries  # type: ignore
+    assert not any(sql.startswith("MERGE") for sql in queries)
+    session.bqclient.update_table.assert_called_once()
+    (_, fields), _ = session.bqclient.update_table.call_args
+    assert fields == ["schema"]
 
 
 def test_dataframe_to_gbq_writes_to_anonymous_dataset(

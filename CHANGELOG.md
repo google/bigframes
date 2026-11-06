@@ -4,6 +4,20 @@
 
 [1]: https://pypi.org/project/bigframes/#history
 
+## [2.52.1](https://github.com/google/bigframes/compare/v2.52.0...v2.52.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* drop support for end-of-life Python 3.10 ([e8995b7](https://github.com/google/bigframes/commit/e8995b722dfdfc35f136fd3ea968d08cfa50bf7c))
+* skip the table schema update after staged to_gbq writes ([70a073b](https://github.com/google/bigframes/commit/70a073b9cbf834f8f6464e8a1ddf3673dbd1564e))
+* type cast boolean op result if both arguments are null. ([2120509](https://github.com/google/bigframes/commit/21205093fb5284a497f6ba0482d9f39fa1c7ed97))
+
+
+### Documentation
+
+* update BigQuery DataFrames matrix factorization snippet to use the bigframes.bigquery.ml module. ([03f4d85](https://github.com/google/bigframes/commit/03f4d856560aec942218375617b9ae75bb3ad7a3))
+
 ## [2.52.0](https://github.com/google/bigframes/compare/v2.51.0...v2.52.0) (2026-10-28)
 
 

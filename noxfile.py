@@ -78,13 +78,16 @@ UNIT_TEST_DEPENDENCIES: List[str] = []
 UNIT_TEST_EXTRAS: List[str] = ["tests"]
 UNIT_TEST_EXTRAS_BY_PYTHON: Dict[str, List[str]] = {
     "3.11": ["tests", "scikit-learn", "anywidget"],
-    "3.12": ["tests", "polars", "scikit-learn", "anywidget"],
     # Make sure we leave some versions without "extras" so we know those
     # dependencies are actually optional.
+    "3.12": ["tests"],
+    # Make sure we run anywidget and polars tests on the Python version(s) used
+    # in Colab.
+    "3.13": ["tests", "polars", "scikit-learn", "anywidget"],
     "3.14": ["tests", "polars", "scikit-learn", "anywidget"],
 }
 
-# 3.12 is used by colab.
+# 3.13 is used by colab.
 SYSTEM_TEST_PYTHON_VERSIONS: List[str] = ALL_PYTHON
 SYSTEM_TEST_STANDARD_DEPENDENCIES = [
     "jinja2",
@@ -104,11 +107,13 @@ SYSTEM_TEST_EXTERNAL_DEPENDENCIES = [
 ]
 SYSTEM_TEST_EXTRAS: List[str] = []
 SYSTEM_TEST_EXTRAS_BY_PYTHON: Dict[str, List[str]] = {
+    "3.11": ["tests", "scikit-learn", "anywidget"],
     # Make sure we leave some versions without "extras" so we know those
     # dependencies are actually optional.
-    "3.11": ["tests", "scikit-learn", "anywidget"],
-    "3.12": ["tests", "scikit-learn", "polars", "anywidget"],
-    "3.13": ["tests", "polars", "anywidget"],
+    "3.12": ["tests"],
+    # Make sure we run anywidget and polars tests on the Python version(s) used
+    # in Colab.
+    "3.13": ["tests", "scikit-learn", "polars", "anywidget"],
     "3.14": ["tests", "polars", "anywidget"],
 }
 
@@ -124,7 +129,7 @@ nox.options.sessions = [
     # TODO(tswast): Consider removing this when unit_noextras and cover is run
     # from GitHub actions.
     "unit_noextras",
-    "system-3.12",  # No extras.
+    "system-3.13",
     "cover",
     # TODO(b/401609005): remove
     "cleanup",
@@ -385,7 +390,7 @@ def run_system(
     session.run(*pytest_cmd, *session.posargs, test_folder, env=env)
 
 
-@nox.session(python="3.12", allow_parallel=True)
+@nox.session(python="3.13", allow_parallel=True)
 def system(session: nox.sessions.Session):
     """Run the system test suite."""
     run_system(
@@ -407,7 +412,7 @@ def system_noextras(session: nox.sessions.Session):
     )
 
 
-@nox.session(python="3.12")
+@nox.session(python="3.13")
 def doctest(session: nox.sessions.Session):
     """Run the system test suite."""
 
@@ -427,6 +432,8 @@ def doctest(session: nox.sessions.Session):
             "bigframes/testing",
             "--ignore",
             "bigframes/display/anywidget.py",
+            "--ignore",
+            "bigframes/_magics.py",
             "--ignore",
             "bigframes/bigquery/_operations/ai.py",
             "--ignore",

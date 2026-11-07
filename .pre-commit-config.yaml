@@ -52,27 +52,27 @@ repos:
         files: ^(bigframes|tests/(system|unit))/
         exclude: ^third_party/
         additional_dependencies:
-          - anywidget>=0.9.18
-          - atpublic>=2.3,<6
-          - db-dtypes>=1.4.2
-          - freezegun
+          - anywidget>=0.9.21
+          - atpublic>=5.1,<6
+          - db-dtypes>=1.9.0
+          - freezegun>=1.5.5
           - fsspec>=2023.3.0
           - gcsfs>=2023.3.0,!=2025.5.0,!=2026.2.0,!=2026.3.0
-          - geopandas>=0.12.2
-          - google-cloud-bigquery-connection>=1.18.2
-          - google-cloud-bigquery-storage>=2.30.0,<3.0.0
-          - google-cloud-bigquery[bqstorage,pandas]>=3.42.0
-          - google-cloud-functions>=1.20.2
-          - google-cloud-resource-manager>=1.14.2
+          - geopandas>=1.0.0
+          - google-cloud-bigquery-connection>=1.23.0
+          - google-cloud-bigquery-storage>=2.43.0,<3.0.0
+          - google-cloud-bigquery[bqstorage,pandas]>=3.47.0
+          - google-cloud-functions>=1.25.0
+          - google-cloud-resource-manager>=1.19.0
           - google-cloud-storage>=2.0.0
           - google-cloud-testutils
-          - google-crc32c>=1.0.0,<2.0.0
-          - grpc-google-iam-v1>=0.14.2
+          - google-crc32c>=1.8.0,<2.0.0
+          - grpc-google-iam-v1>=0.14.6
           - humanize>=4.6.0
           - jinja2
           - matplotlib>=3.7.1
           - mock
-          - numpy>=1.24.0
+          - numpy>=1.24.1
           - openpyxl
           - pandas-gbq>=0.26.1
           - pandas-stubs<=2.2.3.241126
@@ -81,15 +81,15 @@ repos:
           - polars>=1.21.0,<2.0.0
           - pytest-cov
           - pytest-retry
-          - pytest-snapshot
+          - pytest-snapshot>=0.9.0
           - pytest-timeout
           - pytest-xdist
           - pytest==8.4.2
           - python-dateutil>=2.8.2,<3
-          - requests>=2.27.1
-          - rich>=12.4.4,<14
-          - scikit-learn>=1.2.2
-          - shapely>=1.8.5
+          - requests>=2.34.2
+          - rich>=13.9.4,<14
+          - scikit-learn>=1.8.0
+          - shapely>=2.0.0
           - tabulate>=0.9
           - toolz>=0.11,<2
           - traitlets>=5.0.0
@@ -99,8 +99,8 @@ repos:
           - types-requests
           - types-setuptools
           - types-tabulate
-          - typing-extensions>=4.5.0,<5
-          - tzdata
+          - typing-extensions>=4.6.1,<5
+          - tzdata>=2025.2
           - xarray
 
   - repo: https://github.com/compilerla/conventional-pre-commit

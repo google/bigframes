@@ -16,6 +16,7 @@ import datetime
 import decimal
 from typing import Generator
 
+import google.api_core.exceptions
 import google.cloud.bigquery as bigquery
 import pandas as pd
 import pyarrow as pa
@@ -43,14 +44,24 @@ def _quoted(table_id: str) -> str:
     return f"`{project}`.`{catalog}.{namespace}`.`{table}`"
 
 
-def _create_lakehouse_table(bqclient: bigquery.Client, select_sql: str) -> str:
+def _create_lakehouse_table(
+    bqclient: bigquery.Client, select_sql: str, *, column_definitions: str = ""
+) -> str:
     table_id = f"{LAKEHOUSE_PROJECT}.{LAKEHOUSE_DATASET}.{prefixer.create_prefix()}"
-    bqclient.query_and_wait(f"CREATE TABLE {_quoted(table_id)} AS {select_sql}")
+    columns_sql = f" ({column_definitions})" if column_definitions else ""
+    bqclient.query_and_wait(
+        f"CREATE TABLE {_quoted(table_id)}{columns_sql} AS {select_sql}"
+    )
     return table_id
 
 
 def _drop_lakehouse_table(bqclient: bigquery.Client, table_id: str) -> None:
     bqclient.query_and_wait(f"DROP TABLE IF EXISTS {_quoted(table_id)}")
+
+
+def _read_ids(bqclient: bigquery.Client, table_id: str) -> list[int]:
+    rows = bqclient.query_and_wait(f"SELECT id FROM {_quoted(table_id)} ORDER BY id")
+    return [row["id"] for row in rows]
 
 
 @pytest.fixture(scope="module", params=["strict", "partial"])
@@ -116,6 +127,30 @@ def lakehouse_mutable_table_id(
         yield table_id
     finally:
         _drop_lakehouse_table(lakehouse_bqclient, table_id)
+
+
+@pytest.fixture(scope="module")
+def regular_table_id(
+    lakehouse_bqclient: bigquery.Client,
+) -> Generator[str, None, None]:
+    """A regular BigQuery table, in the same location as the Lakehouse tables."""
+    dataset = bigquery.Dataset(f"{LAKEHOUSE_PROJECT}.{prefixer.create_prefix()}")
+    dataset.location = LAKEHOUSE_LOCATION
+    lakehouse_bqclient.create_dataset(dataset)
+    table_id = f"{LAKEHOUSE_PROJECT}.{dataset.dataset_id}.parities"
+    try:
+        lakehouse_bqclient.query_and_wait(
+            f"""
+            CREATE TABLE `{table_id}` AS
+            SELECT * FROM UNNEST([
+              STRUCT(TRUE AS flag, 'even' AS parity),
+              (FALSE, 'odd')
+            ])
+            """
+        )
+        yield table_id
+    finally:
+        lakehouse_bqclient.delete_dataset(dataset, delete_contents=True)
 
 
 def test_read_gbq_lakehouse_w_location():
@@ -300,3 +335,215 @@ def test_read_gbq_table_lakehouse_pinned_to_read_time(
     with pytest.warns(bfe.TimeTravelCacheWarning):
         reread = lakehouse_session.read_gbq_table(lakehouse_mutable_table_id)
     assert len(reread.to_pandas()) == 3
+
+
+@pytest.mark.parametrize(
+    ("write_engine", "num_rows"),
+    [
+        pytest.param("bigquery_inline", 3, id="inline"),
+        pytest.param("bigquery_load", 3, id="load"),
+        # Over 5,000 bytes, so the data stays local until to_gbq() uploads it.
+        pytest.param("_deferred", 1_000, id="deferred"),
+        # TODO(b/502298527): Reenable bigquery_write test
+        # pytest.param("bigquery_write", 3, id="write_api"),
+    ],
+)
+def test_to_gbq_lakehouse_append_w_local_data(
+    lakehouse_session,
+    lakehouse_bqclient,
+    lakehouse_mutable_table_id,
+    write_engine,
+    num_rows,
+):
+    new_ids = list(range(100, 100 + num_rows))
+    df = lakehouse_session.read_pandas(
+        pd.DataFrame({"id": new_ids}), write_engine=write_engine
+    )
+
+    destination = df.to_gbq(lakehouse_mutable_table_id, if_exists="append", index=False)
+
+    assert destination == lakehouse_mutable_table_id
+    assert _read_ids(lakehouse_bqclient, lakehouse_mutable_table_id) == (
+        [1, 2, 3] + new_ids
+    )
+
+
+def test_to_gbq_lakehouse_replace_keeps_history(
+    lakehouse_session, lakehouse_bqclient, lakehouse_mutable_table_id
+):
+    now = lakehouse_bqclient.query_and_wait("SELECT CURRENT_TIMESTAMP() AS now")
+    before_replace = next(iter(now))["now"]
+    df = lakehouse_session.read_pandas(pd.DataFrame({"id": [7, 8]}))
+
+    df.to_gbq(lakehouse_mutable_table_id, if_exists="replace", index=False)
+
+    # Confirm the replace happened, so the check below can't pass vacuously.
+    assert _read_ids(lakehouse_bqclient, lakehouse_mutable_table_id) == [7, 8]
+    history = lakehouse_bqclient.query_and_wait(
+        f"SELECT id FROM {_quoted(lakehouse_mutable_table_id)} "
+        f"FOR SYSTEM_TIME AS OF '{before_replace.isoformat()}' ORDER BY id"
+    )
+    assert [row["id"] for row in history] == [1, 2, 3]
+
+
+def test_to_gbq_lakehouse_w_transformed_lakehouse_table(
+    lakehouse_session, lakehouse_bqclient, lakehouse_table_id, regular_table_id
+):
+    destination = _create_lakehouse_table(
+        lakehouse_bqclient,
+        "SELECT TRUE AS flag, 0 AS total, 'even' AS parity, 'E' AS label",
+    )
+    try:
+        df = lakehouse_session.read_gbq_table(lakehouse_table_id)
+        parities = lakehouse_session.read_gbq_table(regular_table_id)
+        labels = lakehouse_session.read_pandas(
+            pd.DataFrame({"parity": ["even", "odd"], "label": ["E", "O"]})
+        )
+        totals = (
+            df[df["id"] > 2]
+            .groupby("flag", as_index=False)["id"]
+            .sum()
+            .rename(columns={"id": "total"})
+        )
+        result = totals.merge(parities, on="flag").merge(labels, on="parity")
+
+        result.to_gbq(destination, if_exists="replace", index=False)
+
+        rows = lakehouse_bqclient.query_and_wait(
+            f"SELECT * FROM {_quoted(destination)} ORDER BY flag"
+        )
+        assert [tuple(row.values()) for row in rows] == [
+            (False, 15, "odd", "O"),
+            (True, 18, "even", "E"),
+        ]
+    finally:
+        _drop_lakehouse_table(lakehouse_bqclient, destination)
+
+
+@pytest.mark.parametrize(
+    ("if_exists", "expected_ids"),
+    [
+        ("append", [1, 2, 3, 11, 12, 13]),
+        ("replace", [11, 12, 13]),
+    ],
+)
+def test_to_gbq_lakehouse_into_source_table(
+    lakehouse_session,
+    lakehouse_bqclient,
+    lakehouse_mutable_table_id,
+    if_exists,
+    expected_ids,
+):
+    df = lakehouse_session.read_gbq_table(lakehouse_mutable_table_id)
+    df["id"] = df["id"] + 10
+
+    df.to_gbq(lakehouse_mutable_table_id, if_exists=if_exists, index=False)
+
+    assert _read_ids(lakehouse_bqclient, lakehouse_mutable_table_id) == expected_ids
+
+
+def test_to_gbq_lakehouse_replace_w_timedelta(lakehouse_session, lakehouse_bqclient):
+    table_id = _create_lakehouse_table(
+        lakehouse_bqclient,
+        "SELECT 1 AS id, 1000000 AS elapsed",
+        column_definitions=(
+            "id INT64, elapsed INT64 OPTIONS (description = "
+            f"'{bigframes.dtypes.TIMEDELTA_DESCRIPTION_TAG}')"
+        ),
+    )
+    try:
+        df = lakehouse_session.read_pandas(
+            pd.DataFrame(
+                {
+                    "id": [2, 3],
+                    "elapsed": [pd.Timedelta(2, "s"), pd.Timedelta(3, "s")],
+                }
+            )
+        )
+
+        df.to_gbq(table_id, if_exists="replace", index=False)
+
+        table = lakehouse_bqclient.get_table(table_id)
+        assert table.schema[1].description == bigframes.dtypes.TIMEDELTA_DESCRIPTION_TAG
+        result = lakehouse_session.read_gbq_table(table_id).to_pandas()
+        result = result.sort_values("id")
+        assert result["elapsed"].dtype == bigframes.dtypes.TIMEDELTA_DTYPE
+        assert result["elapsed"].tolist() == [
+            pd.Timedelta(2, "s"),
+            pd.Timedelta(3, "s"),
+        ]
+    finally:
+        _drop_lakehouse_table(lakehouse_bqclient, table_id)
+
+
+def test_to_gbq_lakehouse_w_sql_cell_result(
+    lakehouse_session,
+    lakehouse_bqclient,
+    lakehouse_table_id,
+    lakehouse_mutable_table_id,
+):
+    df = lakehouse_session.read_gbq_table(lakehouse_table_id)
+    result = lakehouse_session._read_gbq_colab(
+        "SELECT id FROM {df} WHERE id > 6", pyformat_args={"df": df}
+    )
+
+    # SQL cell results have no index, so there's no index column to leave out.
+    result.to_gbq(lakehouse_mutable_table_id, if_exists="append")
+
+    assert _read_ids(lakehouse_bqclient, lakehouse_mutable_table_id) == [1, 2, 3, 7, 8]
+
+
+def test_read_gbq_colab_lakehouse_create_table_as_select(
+    lakehouse_session, lakehouse_bqclient, lakehouse_table_id
+):
+    df = lakehouse_session.read_gbq_table(lakehouse_table_id)
+    table_id = f"{LAKEHOUSE_PROJECT}.{LAKEHOUSE_DATASET}.{prefixer.create_prefix()}"
+    try:
+        lakehouse_session._read_gbq_colab(
+            f"CREATE TABLE {_quoted(table_id)} AS SELECT id FROM {{df}} WHERE flag",
+            pyformat_args={"df": df},
+        )
+
+        assert _read_ids(lakehouse_bqclient, table_id) == [2, 4, 6, 8]
+    finally:
+        _drop_lakehouse_table(lakehouse_bqclient, table_id)
+
+
+def test_read_gbq_colab_lakehouse_insert(
+    lakehouse_session,
+    lakehouse_bqclient,
+    lakehouse_table_id,
+    lakehouse_mutable_table_id,
+):
+    df = lakehouse_session.read_gbq_table(lakehouse_table_id)
+
+    lakehouse_session._read_gbq_colab(
+        f"INSERT INTO {_quoted(lakehouse_mutable_table_id)} (id) "
+        f"SELECT id FROM {{df}} WHERE id > 6",
+        pyformat_args={"df": df},
+    )
+
+    assert _read_ids(lakehouse_bqclient, lakehouse_mutable_table_id) == [1, 2, 3, 7, 8]
+
+
+def test_to_gbq_lakehouse_w_wrong_location(
+    lakehouse_bqclient, lakehouse_mutable_table_id
+):
+    session = bigframes.Session(
+        context=bigframes.BigQueryOptions(location="europe-west1")
+    )
+    try:
+        df = session.read_pandas(pd.DataFrame({"id": [4]}))
+        with pytest.raises(google.api_core.exceptions.NotFound, match="europe-west1"):
+            df.to_gbq(lakehouse_mutable_table_id, if_exists="append", index=False)
+    finally:
+        session.close()
+
+    assert _read_ids(lakehouse_bqclient, lakehouse_mutable_table_id) == [1, 2, 3]
+
+
+def test_to_gbq_lakehouse_table_already_exists(lakehouse_session, lakehouse_table_id):
+    df = lakehouse_session.read_pandas(pd.DataFrame({"id": [4]}))
+
+    with pytest.raises(ValueError, match="Table already exists"):
+        df.to_gbq(lakehouse_table_id)

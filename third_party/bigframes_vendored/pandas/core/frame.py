@@ -444,7 +444,10 @@ class DataFrame(generic.NDFrame):
         Args:
             destination_table (Optional[str]):
                 Name of table to be written, in the form ``dataset.tablename``
-                or ``project.dataset.tablename``.
+                or ``project.dataset.tablename``. For a Lakehouse table, use
+                ``project.catalog.namespace.tablename``. Lakehouse tables
+                currently support only appending to or replacing the rows of an
+                existing table that has the same columns, in the same order.
 
                 If no ``destination_table`` is set, a new temporary table is
                 created in the BigQuery anonymous dataset.
@@ -479,11 +482,14 @@ class DataFrame(generic.NDFrame):
                 specified in `clustering_columns`.
 
             labels (dict[str, str], default None):
-                Specifies table labels within BigQuery
+                Specifies table labels within BigQuery. Lakehouse tables don't
+                support labels: the rows are written, and then setting the
+                labels raises an error.
 
         Returns:
             str:
-                The fully-qualified ID for the written table, in the form
+                The ID of the written table: ``destination_table`` as given, or
+                the ID of the new temporary table, in the form
                 ``project.dataset.tablename``.
 
         Raises:
@@ -492,7 +498,8 @@ class DataFrame(generic.NDFrame):
                 is ``None``. ``None`` or ``replace`` are the only valid values for ``if_exists``.
             ValueError:
                 If an invalid value is provided for ``destination_table`` that is
-                not one of ``datasetID.tableId`` or ``projectId.datasetId.tableId``.
+                not one of ``datasetId.tableId``, ``projectId.datasetId.tableId``,
+                or ``projectId.catalogId.namespaceId.tableId``.
             ValueError:
                 If an invalid value is provided for ``if_exists`` that is not one of
                 ``fail``, ``replace``, or ``append``.

@@ -123,6 +123,67 @@ def test_dataframe_to_gbq_invalid_destination(monkeypatch: pytest.MonkeyPatch):
         dataframe.to_gbq("no_dataset_or_project")
 
 
+def test_dataframe_to_gbq_invalid_destination_raises_before_dataset_calls(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    session = mocks.create_bigquery_session()
+    dataframe = mocks.create_dataframe(monkeypatch, session=session)
+
+    with pytest.raises(
+        ValueError,
+        match="Got invalid value for destination_table 'test-project.my_dataset.'",
+    ):
+        dataframe.to_gbq("test-project.my_dataset.")
+
+    session.bqclient.get_dataset.assert_not_called()
+    session.bqclient.create_dataset.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("destination_table", "expected_project", "expected_dataset"),
+    [
+        ("my_dataset.my_table", "test-project", "my_dataset"),
+        ("test-project.my_dataset.my_table", "test-project", "my_dataset"),
+        (
+            "example.com:test-project.my_dataset.my_table",
+            "example.com:test-project",
+            "my_dataset",
+        ),
+        (
+            "test-project.my_catalog.my_namespace.my_table",
+            "test-project",
+            "my_catalog.my_namespace",
+        ),
+        (
+            "example.com:test-project.my_catalog.my_namespace.my_table",
+            "example.com:test-project",
+            "my_catalog.my_namespace",
+        ),
+    ],
+)
+def test_dataframe_to_gbq_parses_destination_table(
+    monkeypatch: pytest.MonkeyPatch,
+    destination_table,
+    expected_project,
+    expected_dataset,
+):
+    session = mocks.create_bigquery_session()
+    dataframe = mocks.create_dataframe(monkeypatch, session=session)
+    executor = mock.Mock()
+    monkeypatch.setattr(session, "_executor", executor)
+
+    dataframe.to_gbq(destination_table)
+
+    expected_dataset_ref = google.cloud.bigquery.DatasetReference(
+        expected_project, expected_dataset
+    )
+    session.bqclient.get_dataset.assert_called_once_with(expected_dataset_ref)
+    (_, execution_spec), _ = executor.execute.call_args
+    assert execution_spec.destination_spec.table == expected_dataset_ref.table(
+        "my_table"
+    )
+
+
 def test_dataframe_to_gbq_invalid_if_exists(monkeypatch: pytest.MonkeyPatch):
     dataframe = mocks.create_dataframe(monkeypatch)
 
@@ -170,6 +231,25 @@ def test_dataframe_to_gbq_sets_labels_on_destination_table(
     assert fields == ["labels"]
 
 
+def _return_uncached_query_results(session: bigframes.session.Session) -> None:
+    """Lets to_gbq() run the staged write on a mock session.
+
+    to_gbq runs the query into a staging table, then INSERTs or MERGEs from it.
+    The executor only returns that table if the rows weren't already
+    downloaded, which it checks with _is_almost_completely_cached(). On the
+    fake QueryJob, that check returns a MagicMock, which counts as true, so set
+    it to False. Otherwise to_gbq fails before the INSERT or MERGE.
+    """
+    query = session.bqclient.query.side_effect
+
+    def query_with_uncached_results(*args, **kwargs):
+        query_job = query(*args, **kwargs)
+        query_job.result.return_value._is_almost_completely_cached.return_value = False
+        return query_job
+
+    session.bqclient.query.side_effect = query_with_uncached_results
+
+
 def test_dataframe_to_gbq_replace_same_schema_skips_schema_update(
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -183,19 +263,7 @@ def test_dataframe_to_gbq_replace_same_schema_skips_schema_update(
             ),
         )
     )
-    # to_gbq runs the query into a staging table, then MERGEs from it. The
-    # executor only returns that table if the rows weren't already
-    # downloaded, which it checks with _is_almost_completely_cached(). On
-    # the fake QueryJob, that check returns a MagicMock, which counts as
-    # true, so set it to False. Otherwise to_gbq fails before the MERGE.
-    query = session.bqclient.query.side_effect
-
-    def query_with_uncached_results(*args, **kwargs):
-        query_job = query(*args, **kwargs)
-        query_job.result.return_value._is_almost_completely_cached.return_value = False
-        return query_job
-
-    session.bqclient.query.side_effect = query_with_uncached_results
+    _return_uncached_query_results(session)
     dataframe = mocks.create_dataframe(
         monkeypatch,
         session=session,
@@ -234,10 +302,42 @@ def test_dataframe_to_gbq_replace_different_schema_updates_schema(
     assert fields == ["schema"]
 
 
-def test_dataframe_to_gbq_writes_to_anonymous_dataset(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    ("if_exists", "expected_statement"),
+    [
+        ("append", "INSERT INTO `test-project`.`my_catalog.my_namespace`.`my_table`"),
+        ("replace", "MERGE INTO `test-project`.`my_catalog.my_namespace`.`my_table`"),
+    ],
+)
+def test_dataframe_to_gbq_lakehouse_same_schema_writes_with_dml(
+    monkeypatch: pytest.MonkeyPatch, if_exists, expected_statement
 ):
-    anonymous_dataset_id = "my-anonymous-project.my_anonymous_dataset"
+    session = mocks.create_bigquery_session()
+    _return_uncached_query_results(session)
+    dataframe = mocks.create_dataframe(
+        monkeypatch, session=session, data={"col": [1, 2]}
+    )
+
+    dataframe.to_gbq(
+        "test-project.my_catalog.my_namespace.my_table",
+        if_exists=if_exists,
+        index=False,
+    )
+
+    queries = session._queries  # type: ignore
+    assert any(sql.startswith(expected_statement) for sql in queries)
+
+
+@pytest.mark.parametrize(
+    "anonymous_dataset_id",
+    [
+        "my-anonymous-project.my_anonymous_dataset",
+        "example.com:my-anonymous-project.my_anonymous_dataset",
+    ],
+)
+def test_dataframe_to_gbq_writes_to_anonymous_dataset(
+    monkeypatch: pytest.MonkeyPatch, anonymous_dataset_id
+):
     anonymous_dataset = google.cloud.bigquery.DatasetReference.from_string(
         anonymous_dataset_id
     )

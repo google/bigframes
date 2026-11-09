@@ -47,6 +47,20 @@ def test_insert_from_table(snapshot):
     snapshot.assert_match(sql, "out.sql")
 
 
+def test_insert_from_select_lakehouse_table(snapshot):
+    query = sge.select("*").from_(
+        sge.Table(this=sge.Identifier(this="source_table", quoted=True))
+    )
+    destination = bigquery.TableReference.from_string(
+        "bigframes-dev.my_catalog.my_namespace.dest_table"
+    )
+
+    expr = dml.insert(query, destination)
+    sql = base.to_sql(expr)
+
+    snapshot.assert_match(sql, "out.sql")
+
+
 def test_replace_from_select(snapshot):
     query = sge.select("*").from_(
         sge.Table(this=sge.Identifier(this="source_table", quoted=True))
@@ -65,6 +79,20 @@ def test_replace_from_table(snapshot):
     query = sge.Table(this=sge.Identifier(this="source_table", quoted=True))
     destination = bigquery.TableReference.from_string(
         "bigframes-dev.sqlglot_test.dest_table"
+    )
+
+    expr = dml.replace(query, destination)
+    sql = base.to_sql(expr)
+
+    snapshot.assert_match(sql, "out.sql")
+
+
+def test_replace_from_select_lakehouse_table(snapshot):
+    query = sge.select("*").from_(
+        sge.Table(this=sge.Identifier(this="source_table", quoted=True))
+    )
+    destination = bigquery.TableReference.from_string(
+        "bigframes-dev.my_catalog.my_namespace.dest_table"
     )
 
     expr = dml.replace(query, destination)

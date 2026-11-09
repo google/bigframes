@@ -4462,18 +4462,24 @@ class DataFrame:
             )
             destination_table = f"{temp_table_ref.project}.{temp_table_ref.dataset_id}.{temp_table_ref.table_id}"
 
-        table_parts = destination_table.split(".")
         default_project = self._block.expr.session.bqclient.project
 
-        if len(table_parts) == 2:
-            destination_dataset = f"{default_project}.{table_parts[0]}"
-        elif len(table_parts) == 3:
-            destination_dataset = f"{table_parts[0]}.{table_parts[1]}"
-        else:
+        try:
+            destination: bigquery.table.TableReference = (
+                bigquery.table.TableReference.from_string(
+                    destination_table,
+                    default_project=default_project,
+                )
+            )
+        except ValueError as e:
             raise ValueError(
                 f"Got invalid value for destination_table {repr(destination_table)}. "
-                "Should be of the form 'datasetId.tableId' or 'projectId.datasetId.tableId'."
-            )
+                "Should be of the form 'datasetId.tableId', 'projectId.datasetId.tableId', "
+                "or 'projectId.catalogId.namespaceId.tableId'."
+            ) from e
+        destination_dataset = bigquery.DatasetReference(
+            destination.project, destination.dataset_id
+        )
 
         if if_exists is None:
             if_exists = "fail"
@@ -4496,12 +4502,6 @@ class DataFrame:
 
         export_array, id_overrides = self._prepare_export(
             index=index and self._has_index, ordering_id=ordering_id
-        )
-        destination: bigquery.table.TableReference = (
-            bigquery.table.TableReference.from_string(
-                destination_table,
-                default_project=default_project,
-            )
         )
 
         result = self._session._executor.execute(

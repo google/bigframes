@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, create_autospec, patch
 
 import pandas as pd
 import pyarrow as pa
@@ -21,6 +21,7 @@ import pytest
 
 import bigframes as bf
 import bigframes.display.html as bf_html
+import bigframes.series
 
 
 @pytest.mark.parametrize(
@@ -220,3 +221,30 @@ def test_repr_mimebundle_head():
         mock_df._block.retrieve_repr_request_results.assert_called_once()
         mock_create_html.assert_called_once()
         mock_create_text.assert_called_once()
+
+
+def test_create_html_representation_series_escapes_html():
+    mock_series = create_autospec(bigframes.series.Series, instance=True)
+    pandas_df = pd.DataFrame(
+        {"col": ["<img src=x onerror=alert(1)>", "normal & text"]},
+        index=pd.Index(
+            ["<b>idx0</b>", "<i>idx1</i>"], name="<script>alert(1)</script>"
+        ),
+    )
+
+    html_output = bf_html.create_html_representation(
+        mock_series,
+        pandas_df,
+        total_rows=5,
+        total_columns=1,
+    )
+
+    assert html_output.startswith("<pre>")
+    assert "<script>" not in html_output
+    assert "<img" not in html_output
+    assert "<b>idx0</b>" not in html_output
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html_output
+    assert "&lt;img src=x onerror=alert(1)&gt;" in html_output
+    assert "normal &amp; text" in html_output
+    assert "&lt;b&gt;idx0&lt;/b&gt;" in html_output
+    assert "<p>[5 rows]</p>" in html_output

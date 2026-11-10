@@ -200,7 +200,7 @@ def create_html_representation(
             try:
                 html_string = pd_series._repr_html_()
             except AttributeError:
-                html_string = f"<pre>{pd_series.to_string()}</pre>"
+                html_string = f"<pre>{html.escape(pd_series.to_string())}</pre>"
 
             is_truncated = total_rows is not None and total_rows > len(pandas_df)
             if is_truncated:

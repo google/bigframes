@@ -870,6 +870,7 @@ class GbqDataLoader:
                 # We're executing the query, so we don't need time travel for
                 # determinism.
                 time_travel_timestamp=None,
+                allow_query=False,
             )
 
             df = self.read_gbq_query(  # type: ignore # for dry_run overload
@@ -1222,6 +1223,7 @@ class GbqDataLoader:
                 # We're executing the query, so we don't need time travel for
                 # determinism.
                 time_travel_timestamp=None,
+                allow_query=True,
             )
 
         if dry_run:

@@ -296,3 +296,74 @@ def test_loader_information_schema_precedence_over_four_part_table_reference():
     assert isinstance(resolved_table, bq_data.GbqNativeTable)
     assert resolved_table.table_id == "TABLES"
     assert resolved_table.kind == bq_data.TableKind.INFORMATION_SCHEMA
+
+
+@pytest.mark.parametrize(
+    "table_id",
+    [
+        "INFORMATION_SCHEMA.TABLES",
+        "region-us.INFORMATION_SCHEMA.JOBS",
+        "my_dataset.information_schema.tables",
+        "my-project.region-us.INFORMATION_SCHEMA.SCHEMATA",
+        "my-project.my_dataset.INFORMATION_SCHEMA.TABLES",
+        "`my-project`.`region-us`.INFORMATION_SCHEMA.JOBS",
+        "`my-project`.`region-us`.`INFORMATION_SCHEMA`.`JOBS`",
+        "`my-project.region-us.INFORMATION_SCHEMA.JOBS`",
+    ],
+)
+def test_is_information_schema_valid(table_id):
+    assert bf_read_gbq_table.is_information_schema(table_id)
+
+
+@pytest.mark.parametrize(
+    "table_id",
+    [
+        "my-project.my_dataset.my_table",
+        "my-project.MY_INFORMATION_SCHEMA.TABLES",
+        "my-project.my_dataset.INFORMATION_SCHEMA",
+        "region-us.INFORMATION_SCHEMA.JOBS.EXTRA",
+        "a.b.c.INFORMATION_SCHEMA.JOBS",
+        ".INFORMATION_SCHEMA.JOBS",
+        "region-us.INFORMATION_SCHEMA.",
+        "region-us.INFORMATION_SCHEMA.JOBS` WHERE 1=1 --",
+        "region-us.INFORMATION_SCHEMA.JOBS`/**/UNION/**/SELECT/**/1",
+        "SELECT * FROM region-us.INFORMATION_SCHEMA.JOBS",
+        "`region-us`.INFORMATION_SCHEMA.`JOBS`/**/UNION/**/SELECT/**/1`",
+        "region-us.INFORMATION_SCHEMA.JOBS\n",
+    ],
+)
+def test_is_information_schema_invalid(table_id):
+    assert not bf_read_gbq_table.is_information_schema(table_id)
+    with pytest.raises(ValueError, match="Invalid INFORMATION_SCHEMA table ID"):
+        bf_read_gbq_table._convert_information_schema_table_id_to_table_reference(
+            table_id, default_project="default-project"
+        )
+    bqclient = mock.create_autospec(google.cloud.bigquery.Client, instance=True)
+    with pytest.raises(ValueError, match="Invalid INFORMATION_SCHEMA table ID"):
+        bf_read_gbq_table.get_information_schema_metadata(
+            bqclient, table_id, default_project="default-project"
+        )
+
+
+def test_get_information_schema_metadata_strips_and_quotes_backtick_segments():
+    bqclient = mock.create_autospec(google.cloud.bigquery.Client, instance=True)
+    mock_job = mock.create_autospec(google.cloud.bigquery.QueryJob, instance=True)
+    mock_job.location = "US"
+    mock_job.schema = [google.cloud.bigquery.SchemaField("job_id", "STRING")]
+    bqclient.query.return_value = mock_job
+
+    table = bf_read_gbq_table.get_information_schema_metadata(
+        bqclient=bqclient,
+        table_id="`my-project`.`region-us`.INFORMATION_SCHEMA.JOBS",
+        default_project="default-project",
+    )
+
+    bqclient.query.assert_called_once()
+    query_sql = bqclient.query.call_args[0][0]
+    assert (
+        query_sql
+        == "SELECT * FROM `my-project`.`region-us`.`INFORMATION_SCHEMA`.`JOBS`"
+    )
+    assert table.project == "my-project.region-us"
+    assert table.dataset_id == "INFORMATION_SCHEMA"
+    assert table.table_id == "JOBS"

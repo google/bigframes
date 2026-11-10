@@ -317,6 +317,7 @@ def test_bq_schema_to_sql(schema: Iterable[bigquery.SchemaField], expected: str)
         "filters",
         "max_results",
         "time_travel_timestamp",
+        "allow_query",
         "expected_output",
     ),
     [
@@ -331,6 +332,7 @@ def test_bq_schema_to_sql(schema: Iterable[bigquery.SchemaField], expected: str)
             datetime.datetime(
                 2024, 5, 14, 12, 42, 36, 125125, tzinfo=datetime.timezone.utc
             ),
+            False,
             (
                 "SELECT `_bf_source`.`row_index`, `_bf_source`.`string_col` FROM `test_table` AS _bf_source "
                 "FOR SYSTEM_TIME AS OF CAST('2024-05-14T12:42:36.125125+00:00' AS TIMESTAMP) "
@@ -347,6 +349,7 @@ def test_bq_schema_to_sql(schema: Iterable[bigquery.SchemaField], expected: str)
             datetime.datetime(
                 2024, 5, 14, 12, 42, 36, 125125, tzinfo=datetime.timezone.utc
             ),
+            False,
             (
                 "SELECT `_bf_source`.`col_a` FROM "
                 "`my-project`.`my_catalog`.`my_namespace`.`my_table` AS _bf_source "
@@ -371,6 +374,7 @@ def test_bq_schema_to_sql(schema: Iterable[bigquery.SchemaField], expected: str)
             datetime.datetime(
                 2024, 5, 14, 12, 42, 36, 125125, tzinfo=datetime.timezone.utc
             ),
+            True,
             (
                 """SELECT `_bf_source`.`rowindex`, `_bf_source`.`string_col` FROM (SELECT
                     rowindex,
@@ -389,6 +393,7 @@ def test_bq_schema_to_sql(schema: Iterable[bigquery.SchemaField], expected: str)
             [],
             None,  # max_results
             None,  # time_travel_timestampe
+            False,
             "SELECT `_bf_source`.`col_a`, `_bf_source`.`col_b` FROM `test_table` AS _bf_source",
             id="table-columns",
         ),
@@ -398,6 +403,7 @@ def test_bq_schema_to_sql(schema: Iterable[bigquery.SchemaField], expected: str)
             [("date_col", ">", "2022-10-20")],
             None,  # max_results
             None,  # time_travel_timestampe
+            False,
             "SELECT * FROM `test_table` AS _bf_source WHERE `date_col` > '2022-10-20'",
             id="table-filter",
         ),
@@ -407,6 +413,7 @@ def test_bq_schema_to_sql(schema: Iterable[bigquery.SchemaField], expected: str)
             [],
             None,  # max_results
             None,  # time_travel_timestampe
+            False,
             "SELECT * FROM `test_table*` AS _bf_source",
             id="wildcard-no_params",
         ),
@@ -416,6 +423,7 @@ def test_bq_schema_to_sql(schema: Iterable[bigquery.SchemaField], expected: str)
             [("_TABLE_SUFFIX", ">", "2022-10-20")],
             None,  # max_results
             None,  # time_travel_timestampe
+            False,
             "SELECT * FROM `test_table*` AS _bf_source WHERE `_TABLE_SUFFIX` > '2022-10-20'",
             id="wildcard-filter",
         ),
@@ -427,6 +435,7 @@ def test_to_query(
     filters,
     max_results,
     time_travel_timestamp,
+    allow_query,
     expected_output,
 ):
     query = io_bq.to_query(
@@ -435,6 +444,7 @@ def test_to_query(
         sql_predicate=io_bq.compile_filters(filters),
         max_results=max_results,
         time_travel_timestamp=time_travel_timestamp,
+        allow_query=allow_query,
     )
     assert query == expected_output
 
@@ -457,3 +467,37 @@ def test_to_query_fails_with_bad_filters(filters, expected_message):
             max_results=None,
             time_travel_timestamp=None,
         )
+
+
+def test_to_query_escapes_identifiers_and_disallows_query_by_default():
+    query = io_bq.to_query(
+        "my-project.my_dataset.table`/**/UNION/**/SELECT/**/1",
+        columns=["col`name"],
+        sql_predicate=None,
+    )
+    assert (
+        query
+        == r"SELECT `_bf_source`.`col\`name` FROM `my-project`.`my_dataset`.`table\`/**/UNION/**/SELECT/**/1` AS _bf_source"
+    )
+
+    query_with_spaces = io_bq.to_query(
+        "my-project.my_dataset.table with spaces",
+        columns=(),
+        sql_predicate=None,
+    )
+    assert (
+        query_with_spaces
+        == "SELECT * FROM `my-project`.`my_dataset`.`table with spaces` AS _bf_source"
+    )
+
+    long_table = "t" * 1024
+    long_col = "c" * 300
+    long_identifier_query = io_bq.to_query(
+        f"my-project.my_dataset.{long_table}",
+        columns=[long_col],
+        sql_predicate=None,
+    )
+    assert (
+        long_identifier_query
+        == f"SELECT `_bf_source`.`{long_col}` FROM `my-project`.`my_dataset`.`{long_table}` AS _bf_source"
+    )

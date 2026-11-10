@@ -50,8 +50,6 @@ except ImportError:
 
 
 def identifier(name: str) -> str:
-    if len(name) > 256:
-        raise ValueError("Identifier must be less than 256 characters")
     return f"`{escape_chars(name)}`"
 
 

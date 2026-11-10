@@ -557,16 +557,37 @@ def to_query(
     sql_predicate: Optional[str],
     max_results: Optional[int] = None,
     time_travel_timestamp: Optional[datetime.datetime] = None,
+    allow_query: bool = False,
 ) -> str:
-    """Compile query_or_table with conditions(filters, wildcards) to query."""
-    if is_query(query_or_table):
+    """Compile query_or_table with conditions(filters, wildcards) to query.
+
+    Args:
+        query_or_table (str):
+            A BigQuery table ID or, when ``allow_query`` is True, a SQL query.
+        columns (Iterable[str]):
+            Columns to select from the table or query.
+        sql_predicate (Optional[str]):
+            SQL WHERE clause predicate.
+        max_results (Optional[int], default None):
+            Maximum number of rows to return.
+        time_travel_timestamp (Optional[datetime.datetime], default None):
+            Timestamp to use for ``FOR SYSTEM_TIME AS OF`` time travel.
+        allow_query (bool, default False):
+            Whether ``query_or_table`` can be treated as a SQL query string
+            when it contains whitespace. If False, ``query_or_table`` is always
+            quoted as a table ID.
+
+    Returns:
+        str: The compiled SQL query.
+    """
+    if allow_query and is_query(query_or_table):
         from_item = f"({query_or_table})"
     else:
         # Table ID can have 1, 2, 3, or 4 parts. Quoting all parts to be safe.
         # See:
         # https://cloud.google.com/bigquery/docs/reference/standard-sql/lexical#identifiers
         parts = query_or_table.split(".")
-        from_item = ".".join(f"`{part}`" for part in parts)
+        from_item = ".".join(bigframes.core.sql.identifier(part) for part in parts)
 
     # TODO(b/338111344): Generate an index based on DefaultIndexKind if we
     # don't have index columns specified.
@@ -574,7 +595,8 @@ def to_query(
         # We only reduce the selection if columns is set, but we always
         # want to make sure index_cols is also included.
         select_clause = "SELECT " + ", ".join(
-            f"`_bf_source`.`{column}`" for column in columns
+            f"`_bf_source`.{bigframes.core.sql.identifier(column)}"
+            for column in columns
         )
     else:
         select_clause = "SELECT *"

@@ -158,7 +158,8 @@ def test_set_default_session_location_information_schema_uses_dry_run(
 
         mock_bqclient.query.assert_called_once()
         args, kwargs = mock_bqclient.query.call_args
-        assert table_id in args[0]
+        expected_table_id = ".".join(f"`{part}`" for part in table_id.split("."))
+        assert expected_table_id in args[0]
         assert kwargs["job_config"].dry_run
         mock_bqclient.get_table.assert_not_called()
         assert bigframes.pandas.options.bigquery.location == "us-east4"

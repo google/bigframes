@@ -19,6 +19,7 @@ Private helpers for loading a BigQuery table as a BigQuery DataFrames DataFrame.
 from __future__ import annotations
 
 import datetime
+import re
 import typing
 import warnings
 from typing import Dict, Iterable, Optional, Sequence, Tuple
@@ -29,6 +30,7 @@ import google.cloud.bigquery as bigquery
 
 import bigframes.core
 import bigframes.core.events
+import bigframes.core.sql as bf_sql
 import bigframes.exceptions as bfe
 import bigframes.session._io.bigquery
 from bigframes.core import bq_data
@@ -36,6 +38,44 @@ from bigframes.core import bq_data
 # Avoid circular imports.
 if typing.TYPE_CHECKING:
     import bigframes.session
+
+_INFORMATION_SCHEMA_QUALIFIER_RE = re.compile(r"[A-Za-z0-9_:-]+")
+_INFORMATION_SCHEMA_VIEW_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _strip_backticks(part: str) -> str:
+    if len(part) >= 2 and part.startswith("`") and part.endswith("`"):
+        return part[1:-1]
+    return part
+
+
+def _parse_information_schema_table_id(
+    table_id: str,
+) -> Optional[Tuple[str, ...]]:
+    """Parse and validate an INFORMATION_SCHEMA table ID into unquoted segments."""
+    if (
+        len(table_id) >= 2
+        and table_id.startswith("`")
+        and table_id.endswith("`")
+        and "`" not in table_id[1:-1]
+    ):
+        table_id = table_id[1:-1]
+
+    parts = tuple(_strip_backticks(part) for part in table_id.split("."))
+    if not (2 <= len(parts) <= 4):
+        return None
+
+    if parts[-2].casefold() != "information_schema":
+        return None
+
+    if not _INFORMATION_SCHEMA_VIEW_RE.fullmatch(parts[-1]):
+        return None
+
+    for part in parts[:-2]:
+        if not _INFORMATION_SCHEMA_QUALIFIER_RE.fullmatch(part):
+            return None
+
+    return parts
 
 
 def _convert_information_schema_table_id_to_table_reference(
@@ -46,9 +86,11 @@ def _convert_information_schema_table_id_to_table_reference(
     This is kind-of a hack. INFORMATION_SCHEMA is a view that isn't available
     via the tables.get REST API.
     """
-    parts = table_id.split(".")
-    parts_casefold = [part.casefold() for part in parts]
-    dataset_index = parts_casefold.index("INFORMATION_SCHEMA".casefold())
+    parts = _parse_information_schema_table_id(table_id)
+    if parts is None:
+        raise ValueError(f"Invalid INFORMATION_SCHEMA table ID: {table_id}")
+
+    dataset_index = len(parts) - 2
 
     if dataset_index == 0:
         project = default_project
@@ -64,7 +106,7 @@ def _convert_information_schema_table_id_to_table_reference(
         raise ValueError(message)
 
     dataset = "INFORMATION_SCHEMA"
-    table_id_short = ".".join(parts[dataset_index + 1 :])
+    table_id_short = parts[-1]
     return bigquery.TableReference(
         bigquery.DatasetReference(project, dataset),
         table_id_short,
@@ -76,9 +118,14 @@ def get_information_schema_metadata(
     table_id: str,
     default_project: Optional[str],
 ) -> bigquery.Table:
+    parts = _parse_information_schema_table_id(table_id)
+    if parts is None:
+        raise ValueError(f"Invalid INFORMATION_SCHEMA table ID: {table_id}")
+
+    quoted_table_id = ".".join(bf_sql.identifier(part) for part in parts)
     job_config = bigquery.QueryJobConfig(dry_run=True)
     job = bqclient.query(
-        f"SELECT * FROM `{table_id}`",
+        f"SELECT * FROM {quoted_table_id}",
         job_config=job_config,
     )
     table_ref = _convert_information_schema_table_id_to_table_reference(
@@ -98,15 +145,8 @@ def get_information_schema_metadata(
     return table
 
 
-def is_information_schema(table_id: str):
-    table_id_casefold = table_id.casefold()
-    # Include the "."s to ensure we don't have false positives for some user
-    # defined dataset like MY_INFORMATION_SCHEMA or tables called
-    # INFORMATION_SCHEMA.
-    return (
-        ".INFORMATION_SCHEMA.".casefold() in table_id_casefold
-        or table_id_casefold.startswith("INFORMATION_SCHEMA.".casefold())
-    )
+def is_information_schema(table_id: str) -> bool:
+    return _parse_information_schema_table_id(table_id) is not None
 
 
 def is_time_travel_eligible(
@@ -189,6 +229,7 @@ def is_time_travel_eligible(
             columns=columns or (),
             sql_predicate=filter_str,
             time_travel_timestamp=snapshot_time,
+            allow_query=False,
         )
         try:
             # If this succeeds, we know that time travel will for sure work.
@@ -255,14 +296,9 @@ def check_if_index_columns_are_unique(
     *,
     publisher: bigframes.core.events.Publisher,
 ) -> Tuple[str, ...]:
-    import bigframes.core.sql
-    import bigframes.session._io.bigquery
-
     # TODO(b/337925142): Avoid a "SELECT *" subquery here by ensuring
     # table_expression only selects just index_cols.
-    is_unique_sql = bigframes.core.sql.is_distinct_sql(
-        index_cols, table.get_table_ref()
-    )
+    is_unique_sql = bf_sql.is_distinct_sql(index_cols, table.get_table_ref())
     job_config = bigquery.QueryJobConfig()
     results = bigframes.session._io.bigquery.start_query_job_optional(
         bq_client=bqclient,

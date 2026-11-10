@@ -241,6 +241,7 @@ def _table_to_ibis(
             columns=scan_cols,
             sql_predicate=source.sql_predicate,
             time_travel_timestamp=source.at_time,
+            allow_query=False,
         )
         return ibis_bigquery.Backend().sql(schema=physical_schema, query=sql)
     else:

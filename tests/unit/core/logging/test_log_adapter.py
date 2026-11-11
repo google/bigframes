@@ -120,6 +120,59 @@ def test_property_logging(test_instance):
     assert "testclass-my_field" in api_methods
 
 
+def test_class_inheritance_logging():
+    class BaseMixin:
+        def _private_helper(self) -> int:
+            raise NotImplementedError
+
+        def mixin_method(self):
+            return self._private_helper()
+
+    class BaseClass(BaseMixin):
+        def __init__(self):
+            pass
+
+        def inherited_method(self):
+            return self._private_helper()
+
+        def overridden_method(self):
+            return "base"
+
+        @property
+        def inherited_prop(self):
+            return self._private_helper()
+
+    @log_adapter.class_logger
+    class SubClass(BaseClass):
+        def __init__(self):
+            super().__init__()
+
+        def _private_helper(self):
+            return 42
+
+        def overridden_method(self):
+            return "sub"
+
+    log_adapter.get_and_reset_api_methods()
+    instance = SubClass()
+    assert instance.inherited_method() == 42
+    assert instance.mixin_method() == 42
+    assert instance.overridden_method() == "sub"
+    assert instance.inherited_prop == 42
+
+    api_methods = log_adapter.get_and_reset_api_methods()
+    assert api_methods == [
+        "subclass-inherited_prop",
+        "subclass-overridden_method",
+        "subclass-mixin_method",
+        "subclass-inherited_method",
+        "subclass-__init__",
+    ]
+    assert "subclass-_private_helper" not in api_methods
+    assert "baseclass-inherited_method" not in api_methods
+    assert "basemixin-mixin_method" not in api_methods
+
+
 def test_add_api_method_limit(test_instance):
     # Ensure that add_api_method correctly adds a method to _api_methods
     for i in range(70):

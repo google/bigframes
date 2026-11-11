@@ -134,3 +134,40 @@ def test_pandas_series_accessor_namespaced_routing_uses_series_session(
     mock_encrypt.assert_called_once_with(
         mock_bf_self, mock_bf_plaintext, additional_data
     )
+
+
+@patch("bigframes.bigquery.ai.embed")
+@patch("bigframes.operations.googlesql.aead.encrypt")
+@patch("bigframes.operations.googlesql.global_namespace.array.array_length")
+def test_pandas_series_accessor_metrics(mock_array_length, mock_encrypt, mock_embed):
+    from bigframes.core.logging import log_adapter
+
+    mock_session = MagicMock()
+    mock_bf_self = MagicMock()
+    mock_session.read_pandas.return_value = mock_bf_self
+
+    mock_bf_series = MagicMock()
+    mock_bf_series.to_pandas.return_value = pd.Series([1, 2])
+    mock_array_length.return_value = mock_bf_series
+    mock_encrypt.return_value = mock_bf_series
+    mock_embed.return_value = mock_bf_series
+
+    log_adapter.get_and_reset_api_methods()
+
+    s = pd.Series([[1, 2], [3, 4]])
+    s.bigquery.array_length(session=mock_session)
+    s.bigquery.aead.encrypt(b"secret", b"context", session=mock_session)
+    s.bigquery.ai.embed(endpoint="my_endpoint", session=mock_session)
+
+    api_methods = log_adapter.get_and_reset_api_methods()
+    assert "pandasbigqueryseriesaccessor-array_length" in api_methods
+    assert "pandasbigqueryseriesaccessor-aead" in api_methods
+    assert "pandasaeadseriesaccessor-encrypt" in api_methods
+    assert "pandasbigqueryseriesaccessor-ai" in api_methods
+    assert "pandasaiseriesaccessor-embed" in api_methods
+    assert "pandasbigqueryseriesaccessor-_bf_from_series" not in api_methods
+    assert "pandasbigqueryseriesaccessor-_to_series" not in api_methods
+    assert "pandasaeadseriesaccessor-_bf_from_series" not in api_methods
+    assert "pandasaeadseriesaccessor-_to_series" not in api_methods
+    assert "pandasaiseriesaccessor-_bf_from_series" not in api_methods
+    assert "pandasaiseriesaccessor-_to_series" not in api_methods

@@ -20,6 +20,7 @@ import pytest
 import bigframes.bigquery.ai
 import bigframes.pandas as bpd
 import bigframes.session
+from bigframes.core.logging import log_adapter
 
 
 def test_ai_forecast(monkeypatch):
@@ -743,3 +744,63 @@ def test_bigframes_ai_score(scalar_types_df: bpd.DataFrame, monkeypatch):
     }
     result_series.to_pandas.assert_not_called()
     assert actual_result is result_series
+
+
+def test_pandas_dataframe_accessor_metrics(monkeypatch):
+    session = mock.create_autospec(bigframes.session.Session)
+    bf_df = mock.create_autospec(bpd.DataFrame)
+    session.read_pandas.return_value = bf_df
+
+    mock_sql_scalar = mock.MagicMock(return_value=mock.create_autospec(bpd.Series))
+    mock_forecast = mock.MagicMock(return_value=mock.create_autospec(bpd.DataFrame))
+    monkeypatch.setattr(bigframes.bigquery, "sql_scalar", mock_sql_scalar)
+    monkeypatch.setattr(bigframes.bigquery.ai, "forecast", mock_forecast)
+
+    log_adapter.get_and_reset_api_methods()
+
+    df = pd.DataFrame({"date": ["2020-01-01"], "value": [1.0]})
+    df.bigquery.sql_scalar("SELECT 1", session=session)
+    df.bigquery.ai.forecast(
+        timestamp_col="date",
+        data_col="value",
+        horizon=5,
+        session=session,
+    )
+
+    api_methods = log_adapter.get_and_reset_api_methods()
+    assert "pandasbigquerydataframeaccessor-sql_scalar" in api_methods
+    assert "pandasbigquerydataframeaccessor-ai" in api_methods
+    assert "pandasaiaccessor-forecast" in api_methods
+    assert "pandasbigquerydataframeaccessor-_bf_from_dataframe" not in api_methods
+    assert "pandasbigquerydataframeaccessor-_to_series" not in api_methods
+    assert "pandasaiaccessor-_bf_from_dataframe" not in api_methods
+    assert "pandasaiaccessor-_to_dataframe" not in api_methods
+
+
+def test_bigframes_dataframe_accessor_metrics(
+    scalar_types_df: bpd.DataFrame, monkeypatch
+):
+    mock_sql_scalar = mock.MagicMock(return_value=mock.create_autospec(bpd.Series))
+    mock_forecast = mock.MagicMock(return_value=mock.create_autospec(bpd.DataFrame))
+    monkeypatch.setattr(bigframes.bigquery, "sql_scalar", mock_sql_scalar)
+    monkeypatch.setattr(bigframes.bigquery.ai, "forecast", mock_forecast)
+
+    log_adapter.get_and_reset_api_methods(session=scalar_types_df._session)
+
+    scalar_types_df.bigquery.sql_scalar("SELECT 1")
+    scalar_types_df.bigquery.ai.forecast(
+        timestamp_col="date",
+        data_col="value",
+        horizon=5,
+    )
+
+    api_methods = log_adapter.get_and_reset_api_methods(
+        session=scalar_types_df._session
+    )
+    assert "bigframesbigquerydataframeaccessor-sql_scalar" in api_methods
+    assert "bigframesbigquerydataframeaccessor-ai" in api_methods
+    assert "bigframesaiaccessor-forecast" in api_methods
+    assert "bigframesbigquerydataframeaccessor-_bf_from_dataframe" not in api_methods
+    assert "bigframesbigquerydataframeaccessor-_to_series" not in api_methods
+    assert "bigframesaiaccessor-_bf_from_dataframe" not in api_methods
+    assert "bigframesaiaccessor-_to_dataframe" not in api_methods

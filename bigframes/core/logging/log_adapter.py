@@ -119,26 +119,49 @@ def class_logger(decorated_cls=None):
     """Decorator that adds logging functionality to each method of the class."""
 
     def wrap(cls):
-        for attr_name, attr_value in cls.__dict__.items():
-            if callable(attr_value) and (attr_name not in _excluded_methods):
-                if isinstance(attr_value, staticmethod):
+        seen_attrs = set()
+        for base in cls.__mro__:
+            if base.__module__ in ("builtins", "abc", "typing") or (
+                base.__module__.startswith("bigframes_vendored")
+            ):
+                continue
+            for attr_name, attr_value in base.__dict__.items():
+                if attr_name in seen_attrs:
+                    continue
+                seen_attrs.add(attr_name)
+                if getattr(attr_value, "__isabstractmethod__", False):
+                    continue
+                if (
+                    base is not cls
+                    and attr_name.startswith("__")
+                    and attr_name.endswith("__")
+                    and attr_name != "__init__"
+                ):
+                    continue
+                if callable(attr_value) and (attr_name not in _excluded_methods):
+                    if isinstance(attr_value, staticmethod):
+                        setattr(
+                            cls,
+                            attr_name,
+                            staticmethod(
+                                method_logger(
+                                    attr_value.__func__,
+                                    custom_base_name=cls.__name__,
+                                )
+                            ),
+                        )
+                    else:
+                        setattr(
+                            cls,
+                            attr_name,
+                            method_logger(attr_value, custom_base_name=cls.__name__),
+                        )
+                elif isinstance(attr_value, property):
                     setattr(
                         cls,
                         attr_name,
-                        staticmethod(method_logger(attr_value)),
+                        property_logger(attr_value, custom_base_name=cls.__name__),
                     )
-                else:
-                    setattr(
-                        cls,
-                        attr_name,
-                        method_logger(attr_value),
-                    )
-            elif isinstance(attr_value, property):
-                setattr(
-                    cls,
-                    attr_name,
-                    property_logger(attr_value),
-                )
         return cls
 
     if decorated_cls is None:
@@ -153,6 +176,8 @@ def method_logger(method=None, /, *, custom_base_name: Optional[str] = None):
     """Decorator that adds logging functionality to a method."""
 
     def outer_wrapper(method):
+        method = getattr(method, "_log_adapter_wrapped", method)
+
         @functools.wraps(method)
         def wrapper(*args, **kwargs):
             api_method_name = getattr(
@@ -199,6 +224,7 @@ def method_logger(method=None, /, *, custom_base_name: Optional[str] = None):
             finally:
                 _call_stack.pop()
 
+        wrapper._log_adapter_wrapped = method  # type: ignore[attr-defined]
         return wrapper
 
     if method is None:
@@ -209,14 +235,19 @@ def method_logger(method=None, /, *, custom_base_name: Optional[str] = None):
     return outer_wrapper(method)
 
 
-def property_logger(prop):
+def property_logger(prop, *, custom_base_name: Optional[str] = None):
     """Decorator that adds logging functionality to a property."""
 
     def shared_wrapper(prop):
+        prop = getattr(prop, "_log_adapter_wrapped", prop)
+
         @functools.wraps(prop)
         def wrapped(*args, **kwargs):
-            qualname_parts = getattr(prop, "__qualname__", prop.__name__).split(".")
-            class_name = qualname_parts[-2] if len(qualname_parts) > 1 else ""
+            if custom_base_name is None:
+                qualname_parts = getattr(prop, "__qualname__", prop.__name__).split(".")
+                class_name = qualname_parts[-2] if len(qualname_parts) > 1 else ""
+            else:
+                class_name = custom_base_name
             property_name = prop.__name__
             full_property_name = f"{class_name.lower()}-{property_name.lower()}"
 
@@ -230,6 +261,7 @@ def property_logger(prop):
             finally:
                 _call_stack.pop()
 
+        wrapped._log_adapter_wrapped = prop  # type: ignore[attr-defined]
         return wrapped
 
     # Apply the wrapper to the getter, setter, and deleter
@@ -237,6 +269,7 @@ def property_logger(prop):
         shared_wrapper(prop.fget),
         shared_wrapper(prop.fset) if prop.fset else None,
         shared_wrapper(prop.fdel) if prop.fdel else None,
+        doc=prop.__doc__,
     )
 
 
@@ -314,18 +347,38 @@ def _is_session_initialized(session):
     )
 
 
+def _extract_session_from_arg(arg, session_cls):
+    if isinstance(arg, session_cls) and _is_session_initialized(arg):
+        return arg
+    if not hasattr(arg, "__dict__"):
+        return None
+    if "_block" in arg.__dict__:
+        session = getattr(arg, "_session", None)
+        if session is None:
+            session = getattr(arg.__dict__["_block"], "session", None)
+        if isinstance(session, session_cls) and _is_session_initialized(session):
+            return session
+    for attr in ("_obj", "_data"):
+        if attr in arg.__dict__:
+            inner = arg.__dict__[attr]
+            if hasattr(inner, "__dict__") and "_block" in inner.__dict__:
+                session = getattr(inner, "_session", None)
+                if isinstance(session, session_cls) and _is_session_initialized(
+                    session
+                ):
+                    return session
+    return None
+
+
 def _find_session(*args, **kwargs):
     # This function cannot import Session at the top level because Session
     # imports log_adapter.
     from bigframes.session import Session
 
     for arg in args:
-        if isinstance(arg, Session) and _is_session_initialized(arg):
-            return arg
-        if hasattr(arg, "__dict__") and "_block" in arg.__dict__:
-            session = getattr(arg, "_session", None)
-            if isinstance(session, Session) and _is_session_initialized(session):
-                return session
+        session = _extract_session_from_arg(arg, Session)
+        if session is not None:
+            return session
 
     session = kwargs.get("session")
     if (

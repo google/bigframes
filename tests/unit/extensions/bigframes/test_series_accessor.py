@@ -76,3 +76,41 @@ def test_bigframes_series_accessor_namespaced_routing(
     # Assert
     mock_encrypt.assert_called_once_with(keyset_series, plaintext, additional_data)
     assert result is mock_result_series
+
+
+@patch("bigframes.bigquery.ai.embed")
+@patch("bigframes.operations.googlesql.aead.encrypt")
+@patch("bigframes.operations.googlesql.global_namespace.array.array_length")
+def test_bigframes_series_accessor_metrics(
+    mock_array_length,
+    mock_encrypt,
+    mock_embed,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from bigframes.core.logging import log_adapter
+
+    bf_df = mocks.create_dataframe(monkeypatch, data={"col": [[1, 2], [3, 4]]})
+    bf_series = cast(series.Series, bf_df["col"])
+    mock_result_series = MagicMock()
+    mock_array_length.return_value = mock_result_series
+    mock_encrypt.return_value = mock_result_series
+    mock_embed.return_value = mock_result_series
+
+    log_adapter.get_and_reset_api_methods(session=bf_series._session)
+
+    bf_series.bigquery.array_length()
+    bf_series.bigquery.aead.encrypt("secret", "context")
+    bf_series.bigquery.ai.embed(endpoint="my_endpoint")
+
+    api_methods = log_adapter.get_and_reset_api_methods(session=bf_series._session)
+    assert "bigframesbigqueryseriesaccessor-array_length" in api_methods
+    assert "bigframesbigqueryseriesaccessor-aead" in api_methods
+    assert "bigframesaeadseriesaccessor-encrypt" in api_methods
+    assert "bigframesbigqueryseriesaccessor-ai" in api_methods
+    assert "bigframesaiseriesaccessor-embed" in api_methods
+    assert "bigframesbigqueryseriesaccessor-_bf_from_series" not in api_methods
+    assert "bigframesbigqueryseriesaccessor-_to_series" not in api_methods
+    assert "bigframesaeadseriesaccessor-_bf_from_series" not in api_methods
+    assert "bigframesaeadseriesaccessor-_to_series" not in api_methods
+    assert "bigframesaiseriesaccessor-_bf_from_series" not in api_methods
+    assert "bigframesaiseriesaccessor-_to_series" not in api_methods

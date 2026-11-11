@@ -559,3 +559,30 @@ def test_read_pandas_inline_w_interval_type_raises_error():
     df = pd.DataFrame(pd.arrays.IntervalArray.from_breaks([0, 10, 20, 30, 40, 50]))
     with pytest.raises(TypeError):
         session.read_pandas(df, write_engine="bigquery_inline")
+
+
+def test_create_object_table_escapes_identifiers_and_path():
+    session = mocks.create_bigquery_session()
+    session._anon_dataset_manager = mock.MagicMock()
+    session._anon_dataset_manager.generate_unique_resource_id.return_value = (
+        "proj.dataset.tbl`\\name"
+    )
+
+    with mock.patch(
+        "bigframes.session._io.bigquery.start_query_with_job"
+    ) as mock_start_query:
+        table = session._create_object_table(
+            path="gs://bucket/a\\']); DROP TABLE x; --",
+            connection="proj.us.conn`\\id",
+        )
+
+    assert table == "proj.dataset.tbl`\\name"
+    mock_start_query.assert_called_once()
+    executed_sql = mock_start_query.call_args[0][1]
+    assert executed_sql.strip() == (
+        "CREATE EXTERNAL TABLE `proj.dataset.tbl\\`\\\\name`\n"
+        "WITH CONNECTION `proj.us.conn\\`\\\\id`\n"
+        "OPTIONS(\n"
+        "    object_metadata = 'SIMPLE',\n"
+        "    uris = ['gs://bucket/a\\\\\\']); DROP TABLE x; --']);"
+    )

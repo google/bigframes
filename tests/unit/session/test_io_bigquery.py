@@ -480,6 +480,16 @@ def test_to_query_escapes_identifiers_and_disallows_query_by_default():
         == r"SELECT `_bf_source`.`col\`name` FROM `my-project`.`my_dataset`.`table\`/**/UNION/**/SELECT/**/1` AS _bf_source"
     )
 
+    query_with_backslash = io_bq.to_query(
+        "my-project.my_dataset.table`\\name",
+        columns=["col`name", "col\\name"],
+        sql_predicate=None,
+    )
+    assert (
+        query_with_backslash
+        == r"SELECT `_bf_source`.`col\`name`, `_bf_source`.`col\\name` FROM `my-project`.`my_dataset`.`table\`\\name` AS _bf_source"
+    )
+
     query_with_spaces = io_bq.to_query(
         "my-project.my_dataset.table with spaces",
         columns=(),

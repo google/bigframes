@@ -14,6 +14,8 @@
 
 """Unit tests for read_gbq_query functions."""
 
+import google.cloud.bigquery as bigquery
+
 from bigframes.testing import mocks
 
 
@@ -35,4 +37,28 @@ def test_read_gbq_query_sets_destination_table():
 
     assert query == "SELECT 'my-test-query';"
     assert config.destination is not None
+    session.close()
+
+
+def test_read_gbq_query_escapes_columns_and_index_col():
+    schema = (
+        bigquery.SchemaField("idx`col", "INT64"),
+        bigquery.SchemaField("val`\\col", "STRING"),
+    )
+    session = mocks.create_bigquery_session(
+        ordering_mode="partial", table_schema=schema
+    )
+
+    _ = session.read_gbq_query(
+        "SELECT 1 AS a",
+        index_col="idx`col",
+        columns=["val`\\col"],
+        max_results=10,
+        dry_run=True,
+    )
+    queries = session._queries  # type: ignore
+    assert (
+        r"SELECT `_bf_source`.`idx\`col`, `_bf_source`.`val\`\\col` FROM (SELECT 1 AS a) AS _bf_source LIMIT 10"
+        in queries
+    )
     session.close()

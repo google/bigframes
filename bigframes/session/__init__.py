@@ -70,6 +70,7 @@ import bigframes.core.events
 import bigframes.core.indexes
 import bigframes.core.indexes.multi
 import bigframes.core.pyformat
+import bigframes.core.sql
 import bigframes.formatting_helpers
 import bigframes.functions.function as bff
 import bigframes.session._io.bigquery as bf_io_bigquery
@@ -78,6 +79,7 @@ import bigframes.session.validation
 from bigframes import exceptions as bfe
 from bigframes import version
 from bigframes.core import blocks, utils
+from bigframes.core.compile.sqlglot import sql as sg_sql
 from bigframes.core.logging import log_adapter
 from bigframes.functions import _function_client, _function_session
 from bigframes.session import bigquery_session, executor, proxy_executor
@@ -2435,11 +2437,11 @@ class Session(
 
         sql = textwrap.dedent(
             f"""
-            CREATE EXTERNAL TABLE `{table}`
-            WITH CONNECTION `{connection}`
+            CREATE EXTERNAL TABLE {bigframes.core.sql.identifier(table)}
+            WITH CONNECTION {bigframes.core.sql.identifier(connection)}
             OPTIONS(
                 object_metadata = 'SIMPLE',
-                uris = ['{path}']);
+                uris = [{sg_sql.to_sql(sg_sql.literal(path))}]);
             """
         )
         bf_io_bigquery.start_query_with_job(

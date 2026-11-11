@@ -115,7 +115,8 @@ class GBQIOMixin:
             query_or_table (str):
                 A SQL string to be executed or a BigQuery table to be read. The
                 table must be specified in the format of
-                `project.dataset.tablename` or `dataset.tablename`.
+                `project.dataset.tablename` or `dataset.tablename`, or
+                `project.catalog.namespace.tablename` for a Lakehouse table.
                 Can also take wildcard table name, such as `project.dataset.table_prefix*`.
                 In tha case, will read all the matched table as one DataFrame.
             index_col (Iterable[str], str, bigframes.enums.DefaultIndexKind):

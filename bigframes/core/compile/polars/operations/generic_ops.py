@@ -54,5 +54,6 @@ def py_udf_op_impl(
     input: pl.Expr,
 ) -> pl.Expr:
     return input.map_elements(
-        op.fn, return_dtype=polars_compiler._DTYPE_MAPPING[op._output_type]
+        op.fn,
+        return_dtype=polars_compiler._DTYPE_MAPPING[op._output_type],  # type: ignore[bad-index]
     )

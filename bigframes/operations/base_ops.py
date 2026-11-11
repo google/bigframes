@@ -26,8 +26,7 @@ if typing.TYPE_CHECKING:
 
 
 class RowOp(typing.Protocol):
-    @property
-    def name(self) -> str: ...
+    name: typing.ClassVar[str]
 
     def output_type(
         self, *input_types: dtypes.ExpressionType
@@ -56,9 +55,7 @@ class RowOp(typing.Protocol):
 
 @dataclasses.dataclass(frozen=True)
 class ScalarOp:
-    @property
-    def name(self) -> str:
-        raise NotImplementedError("RowOp abstract base class has no implementation")
+    name: typing.ClassVar[str]
 
     def output_type(self, *input_types: dtypes.ExpressionType) -> dtypes.ExpressionType:
         raise NotImplementedError("Abstract operation has no output type")
@@ -186,8 +183,8 @@ def create_unary_op(
     return dataclasses.make_dataclass(
         name,
         [
-            ("name", typing.ClassVar[str], name),
-            ("output_type", typing.ClassVar[typing.Callable], type_signature.as_method),
+            ("name", typing.ClassVar[str], name),  # type: ignore[invalid-annotation]
+            ("output_type", typing.ClassVar[typing.Callable], type_signature.as_method),  # type: ignore[invalid-annotation]
         ],
         bases=(UnaryOp,),
         frozen=True,
@@ -200,8 +197,8 @@ def create_binary_op(
     return dataclasses.make_dataclass(
         name,
         [
-            ("name", typing.ClassVar[str], name),
-            ("output_type", typing.ClassVar[typing.Callable], type_signature.as_method),
+            ("name", typing.ClassVar[str], name),  # type: ignore[invalid-annotation]
+            ("output_type", typing.ClassVar[typing.Callable], type_signature.as_method),  # type: ignore[invalid-annotation]
         ],
         bases=(BinaryOp,),
         frozen=True,

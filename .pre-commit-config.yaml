@@ -41,16 +41,12 @@ repos:
           - --line-length=88
         files: ^(docs|bigframes|scripts|tests|third_party)/|^(noxfile|setup)\.py$
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.15.0
+  - repo: https://github.com/facebook/pyrefly-pre-commit
+    rev: 1.4.1
     hooks:
-      - id: mypy
-        name: mypy
-        args:
-          - --check-untyped-defs
-          - --explicit-package-bases
-        files: ^(bigframes|tests/(system|unit))/
-        exclude: ^third_party/
+      - id: pyrefly-check
+        name: pyrefly
+        pass_filenames: false
         additional_dependencies:
           - anywidget>=0.9.21
           - atpublic>=5.1,<6
@@ -116,5 +112,5 @@ repos:
         name: check pre-commit versions sync with noxfile.py
         entry: python3 scripts/sync_pre_commit.py --check
         language: python
-        files: ^(noxfile\.py|setup\.py|mypy\.ini|\.pre-commit-config\.yaml|scripts/sync_pre_commit\.py)$
+        files: ^(noxfile\.py|setup\.py|pyproject\.toml|\.pre-commit-config\.yaml|scripts/sync_pre_commit\.py)$
         pass_filenames: false

@@ -96,7 +96,7 @@ class BqmlModel(BaseBqml):
 
     @dataclasses.dataclass
     class TvfDef:
-        tvf: Callable[[BqmlModel, bpd.DataFrame, dict], bpd.DataFrame]
+        tvf: Callable[..., bpd.DataFrame]
         status_col: str
 
     def __init__(self, session: bigframes.Session, model: bigquery.Model):

@@ -165,7 +165,7 @@ class ARIMAPlus(base.SupervisedTrainableWithIdColPredictor):
     @property
     def _bqml_options(self) -> dict:
         """The model options as they will be set for BQML."""
-        options = {
+        options: dict[str, int | float | bool | str] = {
             "model_type": "ARIMA_PLUS",
             "horizon": self.horizon,
             "auto_arima": self.auto_arima,

@@ -130,7 +130,7 @@ def cut(
             return bigframes.series.Series(
                 [pd.NA] * len(x),
                 dtype=dtype,
-                name=x.name,
+                name=x.name,  # type: ignore[bad-argument-type]
                 index=x.index,
                 session=x._session,
             )

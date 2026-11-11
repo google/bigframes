@@ -109,7 +109,7 @@ def geo_st_regionstats_op_impl(
         include = None
 
     if op.options:
-        options = ibis.literal(op.options, type=ibis_dtypes.json())
+        options = ibis.literal(op.options, type=ibis_dtypes.JSON())
     else:
         options = None
 

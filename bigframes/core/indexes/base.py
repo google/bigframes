@@ -94,7 +94,7 @@ class Index:
         else:
             if isinstance(dtype, str) and dtype.lower() == "json":
                 dtype = bigframes.dtypes.JSON_DTYPE
-            pd_index = pandas.Index(data=data, dtype=dtype, name=name)
+            pd_index = pandas.Index(data=data, dtype=dtype, name=name)  # type: ignore[no-matching-overload]
             pd_df = pandas.DataFrame(index=pd_index)
             block = df.DataFrame(pd_df, session=session)._block
 

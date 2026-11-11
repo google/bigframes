@@ -640,7 +640,7 @@ def test_pyformat_with_query_string_replaces_variables(session):
         ),
     ),
 )
-def test_pyformat_with_table_replaces_variables(table, expected_sql, session=session):
+def test_pyformat_with_table_replaces_variables(table, expected_sql, session):
     pyformat_args = {
         "table": table,
         # Unreferenced values of unsupported type shouldn't cause issues.

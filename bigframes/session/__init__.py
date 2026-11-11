@@ -1263,7 +1263,7 @@ class Session(
         local_block = blocks.Block.from_pyarrow(pa_table, self)
         return dataframe.DataFrame(local_block)
 
-    def read_csv(
+    def read_csv(  # type: ignore[bad-override]
         self,
         filepath_or_buffer: str | IO["bytes"],
         *,
@@ -1470,7 +1470,7 @@ class Session(
                     df[column] = df[column].astype(dtype)
         return df
 
-    def read_pickle(
+    def read_pickle(  # type: ignore[bad-override]
         self,
         filepath_or_buffer: FilePath | ReadPickleBuffer,
         compression: CompressionOptions = "infer",
@@ -1516,7 +1516,7 @@ class Session(
             table_id = self._loader.load_file(path, job_config=job_config)
             return self._loader.read_gbq_table(table_id)
         else:
-            if "*" in path:
+            if isinstance(path, str) and "*" in path:
                 raise ValueError(
                     "The provided path contains a wildcard character (*), which is not "
                     "supported by the current engine. To read files from wildcard paths, "
@@ -1618,7 +1618,7 @@ class Session(
         table_id = self._loader.load_file(path, job_config=job_config)
         return self._loader.read_gbq_table(table_id)
 
-    def read_json(
+    def read_json(  # type: ignore[bad-override]
         self,
         path_or_buf: str | IO["bytes"],
         *,

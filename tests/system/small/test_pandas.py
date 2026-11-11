@@ -954,7 +954,7 @@ def test_to_datetime_iterable(arg, utc, unit, format):
     pd_result = (
         pd.Series(pd.to_datetime(arg, utc=utc, unit=unit, format=format))
         .dt.floor("us")
-        .astype("datetime64[ns, UTC]" if utc else "datetime64[ns]")
+        .astype("datetime64[ns, UTC]" if utc else "datetime64[ns]")  # type: ignore[no-matching-overload]
     )
     bigframes.testing.utils.assert_series_equal(
         bf_result, pd_result, check_index_type=False, check_names=False
@@ -1019,7 +1019,7 @@ def test_to_datetime_format_param(arg, utc, format):
     pd_result = (
         pd.Series(pd.to_datetime(arg, utc=utc, format=format))
         .dt.floor("us")
-        .astype("datetime64[ns, UTC]" if utc else "datetime64[ns]")
+        .astype("datetime64[ns, UTC]" if utc else "datetime64[ns]")  # type: ignore[no-matching-overload]
     )
     bigframes.testing.utils.assert_series_equal(
         bf_result, pd_result, check_index_type=False, check_names=False
@@ -1076,7 +1076,7 @@ def test_to_datetime_string_inputs(arg, utc, output_in_utc, format):
     pd_result = (
         pd.Series(pd.to_datetime(arg, utc=utc, format=format))
         .dt.floor("us")
-        .astype(normalized_type)
+        .astype(normalized_type)  # type: ignore[no-matching-overload]
     )
 
     bigframes.testing.utils.assert_series_equal(
@@ -1120,7 +1120,7 @@ def test_to_datetime_timestamp_inputs(arg, utc, output_in_utc):
 
     bf_result = bpd.to_datetime(arg, utc=utc).to_pandas().astype(normalized_type)
     pd_result = (
-        pd.Series(pd.to_datetime(arg, utc=utc)).dt.floor("us").astype(normalized_type)
+        pd.Series(pd.to_datetime(arg, utc=utc)).dt.floor("us").astype(normalized_type)  # type: ignore[no-matching-overload]
     )
 
     bigframes.testing.utils.assert_series_equal(

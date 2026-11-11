@@ -11,3 +11,27 @@ select = ["I", "F"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["bigframes"]
+
+[tool.pyrefly]
+project-includes = ["bigframes", "tests/system", "tests/unit"]
+project-excludes = ["**/third_party/"]
+search-path = [".", "third_party"]
+preset = "legacy"
+check-unannotated-defs = true
+infer-return-types = "never"
+ignore-missing-imports = [
+    "google.auth.*",
+    "cloudpickle.*",
+    "flask",
+    "pydata_google_auth",
+    "google.colab",
+    "google.iam.*",
+    "pytz",
+    "pyarrow",
+    "ibis.*",
+    "ipywidgets",
+    "pyarrow.feather",
+    "google.cloud.pubsub",
+    "google.cloud.bigtable",
+    "anywidget",
+]

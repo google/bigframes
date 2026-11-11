@@ -96,9 +96,7 @@ class UnaryWindowOp(WindowOp):
 class AggregateOp(WindowOp):
     """Aggregate ops can be applied with or without a window clause."""
 
-    @property
-    @abc.abstractmethod
-    def name(self) -> str: ...
+    name: ClassVar[str]
 
     @property
     @abc.abstractmethod
@@ -235,7 +233,7 @@ class QuantileOp(UnaryAggregateOp):
     should_floor_result: bool = False
 
     @property
-    def name(self):
+    def name(self) -> str:  # type: ignore[bad-override]
         return f"{int(self.q * 100)}%"
 
     @property
@@ -253,7 +251,7 @@ class ApproxQuartilesOp(UnaryAggregateOp):
     quartile: int
 
     @property
-    def name(self):
+    def name(self) -> str:  # type: ignore[bad-override]
         return f"{self.quartile * 25}%"
 
     def output_type(self, *input_types: dtypes.ExpressionType) -> dtypes.ExpressionType:

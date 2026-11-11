@@ -36,7 +36,7 @@
 *Specify the commands to run to verify the changes.*
 
 - [ ] The `nox -r -s format lint lint_setup_py` linter should pass.
-- [ ] The `nox -r -s mypy` static type checker should pass.
+- [ ] The `nox -r -s pyrefly` static type checker should pass.
 - [ ] The `nox -r -s docs docfx` docs should successfully build and include relevant docs in the output.
 - [ ] All new and existing unit tests `pytest tests/unit` should pass.
 - [ ] Identify all related system tests in the `tests/system` directories.

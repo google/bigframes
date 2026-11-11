@@ -2111,6 +2111,7 @@ def json_set(  # type: ignore[empty-body]
     json_obj: ibis_dtypes.JSON, json_path: ibis_dtypes.String, json_value
 ) -> ibis_dtypes.JSON:
     """Produces a new SQL JSON value with the specified JSON data inserted or replaced."""
+    ...
 
 
 @ibis_udf.scalar.builtin(name="json_extract_string_array")
@@ -2118,6 +2119,7 @@ def json_extract_string_array(  # type: ignore[empty-body]
     json_obj: ibis_dtypes.JSON, json_path: ibis_dtypes.String
 ) -> ibis_dtypes.Array[ibis_dtypes.String]:
     """Extracts a JSON array and converts it to a SQL ARRAY of STRINGs."""
+    ...
 
 
 @ibis_udf.scalar.builtin(name="to_json")
@@ -2136,6 +2138,7 @@ def json_keys(  # type: ignore[empty-body]
     max_depth: ibis_dtypes.Int64,
 ) -> ibis_dtypes.Array[ibis_dtypes.String]:
     """Extracts unique JSON keys from a JSON expression."""
+    ...
 
 
 @ibis_udf.scalar.builtin(name="json_value")
@@ -2143,6 +2146,7 @@ def json_value(  # type: ignore[empty-body]
     json_obj: ibis_dtypes.JSON, json_path: ibis_dtypes.String
 ) -> ibis_dtypes.String:
     """Retrieve value of a JSON field as plain STRING."""
+    ...
 
 
 @ibis_udf.scalar.builtin(name="json_value_array")
@@ -2150,6 +2154,7 @@ def json_value_array(  # type: ignore[empty-body]
     json_obj: ibis_dtypes.JSON, json_path: ibis_dtypes.String
 ) -> ibis_dtypes.Array[ibis_dtypes.String]:
     """Extracts a JSON array and converts it to a SQL ARRAY of STRINGs."""
+    ...
 
 
 @ibis_udf.scalar.builtin(name="INT64")
@@ -2220,6 +2225,7 @@ def obj_get_access_url(  # type: ignore[empty-body]
     mode: ibis_dtypes.String,
 ) -> ibis_dtypes.JSON:
     """Get access url (as ObjectRefRumtime JSON) from ObjectRef."""
+    ...
 
 
 @ibis_udf.scalar.builtin(name="OBJ.GET_ACCESS_URL")
@@ -2232,6 +2238,7 @@ def str_lstrip_op(  # type: ignore[empty-body]
     x: ibis_dtypes.String, to_strip: ibis_dtypes.String
 ) -> ibis_dtypes.String:
     """Remove leading and trailing characters."""
+    ...
 
 
 @ibis_udf.scalar.builtin(name="rtrim")
@@ -2239,6 +2246,7 @@ def str_rstrip_op(  # type: ignore[empty-body]
     x: ibis_dtypes.String, to_strip: ibis_dtypes.String
 ) -> ibis_dtypes.String:
     """Remove leading and trailing characters."""
+    ...
 
 
 @ibis_udf.scalar.builtin(name="trim")
@@ -2246,3 +2254,4 @@ def str_strip_op(  # type: ignore[empty-body]
     x: ibis_dtypes.String, to_strip: ibis_dtypes.String
 ) -> ibis_dtypes.String:
     """Remove leading and trailing characters."""
+    ...

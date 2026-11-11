@@ -284,7 +284,7 @@ def test_customtransformer_compile_sql(mock_X):
 def create_bq_model_mock(monkeypatch, transform_columns, feature_columns=None):
     properties = {"transformColumns": transform_columns}
     mock_bq_model = bigquery.Model("model_project.model_dataset.model_id")
-    type(mock_bq_model)._properties = mock.PropertyMock(return_value=properties)
+    type(mock_bq_model)._properties = mock.PropertyMock(return_value=properties)  # type: ignore[no-access]
     if feature_columns:
         result = [
             bigquery.standard_sql.StandardSqlField(col, None) for col in feature_columns

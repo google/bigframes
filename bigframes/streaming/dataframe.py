@@ -59,7 +59,10 @@ def _curate_df_doc(doc: Optional[str]):
 
 
 class StreamingBase:
-    _session: bigframes.session.Session
+    @property
+    @abstractmethod
+    def _session(self) -> bigframes.session.Session:
+        pass
 
     @abstractmethod
     def _appends_sql(

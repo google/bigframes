@@ -417,7 +417,7 @@ def test_series_items(data, index):
         bf_series.items(), pd_series.items()
     ):
         # TODO(jialuo): Remove the if conditions after b/373699458 is addressed.
-        if not pd.isna(bf_index) or not pd.isna(pd_index):
+        if not pd.isna(bf_index) or not pd.isna(pd_index):  # type: ignore[no-matching-overload]
             assert bf_index == pd_index
         if not pd.isna(bf_value) or not pd.isna(pd_value):
             assert bf_value == pd_value

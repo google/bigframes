@@ -190,9 +190,9 @@ class ColumnTransformer(
         for entry in self.transformers:
             name, transformer, column_or_columns = entry
             columns = (
-                column_or_columns
-                if isinstance(column_or_columns, List)
-                else [column_or_columns]
+                [column_or_columns]
+                if isinstance(column_or_columns, str)
+                else column_or_columns
             )
 
             for column in columns:
@@ -241,10 +241,10 @@ class ColumnTransformer(
                 if transform_sql.startswith(prefix):
                     transformer_cls = _BQML_TRANSFROM_TYPE_MAPPING[prefix]
                     transformers_set.add(
-                        (
+                        (  # type: ignore[bad-argument-type]
                             camel_to_snake(transformer_cls.__name__),
                             # TODO: This is very fragile, use real SQL parser
-                            *transformer_cls._parse_from_sql(transform_sql),  # type: ignore
+                            *transformer_cls._parse_from_sql(transform_sql),
                         )
                     )
 

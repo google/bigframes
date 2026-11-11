@@ -676,7 +676,7 @@ def _(
             f"ArrayAgg with windowing is not supported. {constants.FEEDBACK_LINK}"
         )
 
-    return ibis_ops.ArrayAggregate(
+    return ibis_ops.ArrayAggregate(  # type: ignore
         column,  # type: ignore
         order_by=order_by,  # type: ignore
     ).to_expr()
@@ -695,7 +695,7 @@ def _(
         )
 
     return (
-        ibis_ops.StringAgg(
+        ibis_ops.StringAgg(  # type: ignore
             column,  # type: ignore
             sep=op.sep,  # type: ignore
             order_by=order_by,  # type: ignore

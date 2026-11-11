@@ -24,6 +24,7 @@ import warnings
 from datetime import datetime
 
 import google.api_core.exceptions
+import google.cloud.exceptions
 import pandas
 import pytest
 import test_utils.prefixer

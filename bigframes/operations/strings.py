@@ -174,7 +174,9 @@ class StringMethods(Generic[T]):
     def get(self, i: int) -> T:
         return self._data._apply_unary_op(ops.GetItemOp(key=i))
 
-    def pad(self, width, side="left", fillchar=" ") -> T:
+    def pad(
+        self, width, side: Literal["left", "right", "both"] = "left", fillchar=" "
+    ) -> T:
         return self._data._apply_unary_op(
             ops.StrPadOp(length=width, fillchar=fillchar, side=side)
         )

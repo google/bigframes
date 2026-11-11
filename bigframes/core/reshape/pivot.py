@@ -74,8 +74,8 @@ def crosstab(
         fill_value=0 if (aggfunc is None) else None,
     )
     # Undo temporary unique level labels
-    pivot_table.index.names = rownames or [i.name for i in index]
-    pivot_table.columns.names = colnames or [c.name for c in columns]
+    pivot_table.index.names = rownames or [i.name for i in index]  # type: ignore[bad-argument-type]
+    pivot_table.columns.names = colnames or [c.name for c in columns]  # type: ignore[bad-argument-type]
     return pivot_table
 
 

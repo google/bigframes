@@ -47,7 +47,7 @@ class ChainedSequence(collections.abc.Sequence[T]):
         if isinstance(index, slice):
             return tuple(self)[index]
         if index < 0:
-            index = len(self) + index
+            index = len(self) + index  # type: ignore[bad-argument-type]
         if index < 0:
             raise IndexError("Index out of bounds")
 
@@ -59,7 +59,7 @@ class ChainedSequence(collections.abc.Sequence[T]):
         raise IndexError("Index out of bounds")
 
     @functools.cache
-    def __len__(self):
+    def __len__(self) -> int:
         return sum(map(len, self._parts))
 
     def __iter__(self):

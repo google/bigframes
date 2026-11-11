@@ -69,7 +69,7 @@ BIDIRECTIONAL_MAPPINGS: Iterable[Tuple[IbisDtype, bigframes.dtypes.Dtype]] = (
         IBIS_GEO_TYPE,
         gpd.array.GeometryDtype(),
     ),
-    (ibis_dtypes.json, pd.ArrowDtype(db_dtypes.JSONArrowType())),
+    (ibis_dtypes.JSON(), pd.ArrowDtype(db_dtypes.JSONArrowType())),
 )
 
 BIGFRAMES_TO_IBIS: Dict[bigframes.dtypes.Dtype, ibis_dtypes.DataType] = {
@@ -81,7 +81,10 @@ IBIS_TO_BIGFRAMES: Dict[ibis_dtypes.DataType, bigframes.dtypes.Dtype] = {
 }
 # Allow REQUIRED fields to map correctly.
 IBIS_TO_BIGFRAMES.update(
-    {ibis.copy(nullable=False): pandas for ibis, pandas in BIDIRECTIONAL_MAPPINGS}
+    {
+        cast(ibis_dtypes.DataType, ibis.copy(nullable=False)): pandas
+        for ibis, pandas in BIDIRECTIONAL_MAPPINGS
+    }
 )
 IBIS_TO_BIGFRAMES.update(
     {
@@ -410,11 +413,11 @@ def literal_to_ibis_scalar(
             precision and scale and scale <= 9 and precision + (9 - scale) <= 38
         ):
             scalar_expr = bigframes_vendored.ibis.literal(
-                literal, ibis_dtypes.decimal(precision=38, scale=9)
+                literal, ibis_dtypes.Decimal(precision=38, scale=9)
             )
         elif precision and scale and scale <= 38 and precision + (38 - scale) <= 76:
             scalar_expr = bigframes_vendored.ibis.literal(
-                literal, ibis_dtypes.decimal(precision=76, scale=38)
+                literal, ibis_dtypes.Decimal(precision=76, scale=38)
             )
         else:
             raise TypeError(

@@ -850,7 +850,9 @@ class FunctionSession:
 
 
 def get_cloud_function_name(
-    function_def: udf_def.CloudRunFunctionConfig, session_id=None, uniq_suffix=False
+    function_def: udf_def.CloudRunFunctionConfig,
+    session_id=None,
+    uniq_suffix: Optional[str] = None,
 ):
     """
     Get a name for the cloud function for the given user defined function.

@@ -1794,7 +1794,11 @@ class Block:
             return result_block.with_column_labels(columns_values)
 
     def stack(
-        self, how="left", levels: int = 1, *, override_labels: Optional[pd.Index] = None
+        self,
+        how: Literal["left", "right"] = "left",
+        levels: int = 1,
+        *,
+        override_labels: Optional[pd.Index] = None,
     ):
         """Unpivot last column axis level into row axis"""
         if levels == 0:
@@ -1849,9 +1853,9 @@ class Block:
 
     def melt(
         self,
-        id_vars=typing.Sequence[str],
-        value_vars=typing.Sequence[str],
-        var_names=typing.Sequence[typing.Hashable],
+        id_vars: typing.Sequence[str] = (),
+        value_vars: typing.Sequence[str] = (),
+        var_names: typing.Sequence[typing.Hashable] = (),
         value_name: typing.Hashable = "value",
         *,
         create_offsets_index: bool = True,
@@ -3050,7 +3054,7 @@ def try_legacy_row_join(
     left: Block,
     right: Block,
     *,
-    how="left",
+    how: Literal["inner", "left", "outer", "right", "cross"] = "left",
 ) -> Optional[
     Tuple[
         Block,
@@ -3145,7 +3149,7 @@ def join_mono_indexed(
     left: Block,
     right: Block,
     *,
-    how="left",
+    how: Literal["inner", "left", "outer", "right", "cross"] = "left",
     sort: bool = False,
     propogate_order: bool = False,
 ) -> Tuple[
@@ -3195,7 +3199,7 @@ def join_multi_indexed(
     left: Block,
     right: Block,
     *,
-    how="left",
+    how: Literal["inner", "left", "outer", "right", "cross"] = "left",
     sort: bool = False,
     propogate_order: bool = False,
 ) -> Tuple[
@@ -3575,7 +3579,7 @@ def _pd_index_to_array_value(
 def _resolve_index_col(
     left_index_cols: list[str],
     right_index_cols: list[str],
-    resolved_join_ids: list[str],
+    resolved_join_ids: Sequence[str],
     left_index: bool,
     right_index: bool,
     how: typing.Literal[
@@ -3592,7 +3596,7 @@ def _resolve_index_col(
         if how == "right":
             return right_index_cols
         if how == "outer":
-            return resolved_join_ids
+            return list(resolved_join_ids)
         else:
             return []
     elif left_index and not right_index:

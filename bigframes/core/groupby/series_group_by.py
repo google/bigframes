@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import datetime
 import typing
-from typing import Iterable, Literal, Sequence, Tuple, Union
+from typing import Literal, Sequence, Tuple, Union
 
 import bigframes_vendored.constants as constants
 import bigframes_vendored.pandas.core.groupby as vendored_pandas_groupby
@@ -97,7 +97,7 @@ class SeriesGroupBy(vendored_pandas_groupby.SeriesGroupBy):
             )
         ).droplevel(level=0, axis=1)
 
-    def __iter__(self) -> Iterable[Tuple[blocks.Label, series.Series]]:
+    def __iter__(self) -> typing.Iterator[Tuple[blocks.Label, series.Series]]:
         for group_keys, filtered_block in group_by.block_groupby_iter(
             self._block,
             by_col_ids=self._by_col_ids,
@@ -119,10 +119,10 @@ class SeriesGroupBy(vendored_pandas_groupby.SeriesGroupBy):
     def any(self) -> series.Series:
         return self._aggregate(agg_ops.any_op)
 
-    def min(self, *args) -> series.Series:
+    def min(self, *args, **kwargs) -> series.Series:
         return self._aggregate(agg_ops.min_op)
 
-    def max(self, *args) -> series.Series:
+    def max(self, *args, **kwargs) -> series.Series:
         return self._aggregate(agg_ops.max_op)
 
     def count(self) -> series.Series:
@@ -131,10 +131,10 @@ class SeriesGroupBy(vendored_pandas_groupby.SeriesGroupBy):
     def nunique(self) -> series.Series:
         return self._aggregate(agg_ops.nunique_op)
 
-    def sum(self, *args) -> series.Series:
+    def sum(self, *args, **kwargs) -> series.Series:
         return self._aggregate(agg_ops.sum_op)
 
-    def mean(self, *args) -> series.Series:
+    def mean(self, *args, **kwargs) -> series.Series:
         return self._aggregate(agg_ops.mean_op)
 
     def rank(
@@ -255,7 +255,7 @@ class SeriesGroupBy(vendored_pandas_groupby.SeriesGroupBy):
         )
         return series.Series(block.with_column_labels([self._value_name]))
 
-    def prod(self, *args) -> series.Series:
+    def prod(self, *args, **kwargs) -> series.Series:
         return self._aggregate(agg_ops.product_op)
 
     def agg(self, func=None) -> typing.Union[df.DataFrame, series.Series]:
@@ -272,7 +272,9 @@ class SeriesGroupBy(vendored_pandas_groupby.SeriesGroupBy):
         for f in func:
             if block_transforms.is_transpiler_eligible(f):
                 expr, name = block_transforms.compile_column_udf(
-                    self._block, f, self._value_column
+                    self._block,
+                    f,  # type: ignore[bad-argument-type]
+                    self._value_column,
                 )
                 aggregations.append(expr)
                 column_labels.append(self._value_name if is_single_func else name)

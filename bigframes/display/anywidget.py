@@ -74,29 +74,37 @@ class _ExecutionResult:
     error_message: Optional[str] = None
 
 
-class TableWidget(_WIDGET_BASE):
+class TableWidget(_WIDGET_BASE):  # type: ignore[invalid-inheritance]
     """An interactive, paginated table widget for BigFrames DataFrames.
 
     This widget provides a user-friendly way to display and navigate through
     large BigQuery DataFrames within a Jupyter environment.
     """
 
-    page = traitlets.Int(0).tag(sync=True)
-    page_size = traitlets.Int(0).tag(sync=True)
-    max_columns = traitlets.Int(allow_none=True, default_value=None).tag(sync=True)
-    row_count = traitlets.Int(allow_none=True, default_value=None).tag(sync=True)
-    table_html = traitlets.Unicode("").tag(sync=True)
-    sort_context = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
-    orderable_columns = traitlets.List(traitlets.Unicode(), []).tag(sync=True)
-    _initial_load_complete = traitlets.Bool(False).tag(sync=True)
+    page: int = traitlets.Int(0).tag(sync=True)  # type: ignore[bad-assignment]
+    page_size: int = traitlets.Int(0).tag(sync=True)  # type: ignore[bad-assignment]
+    max_columns: Optional[int] = traitlets.Int(  # type: ignore[bad-assignment]
+        allow_none=True, default_value=None
+    ).tag(sync=True)
+    row_count: Optional[int] = traitlets.Int(  # type: ignore[bad-assignment]
+        allow_none=True, default_value=None
+    ).tag(sync=True)
+    table_html: str = traitlets.Unicode("").tag(sync=True)  # type: ignore[bad-assignment]
+    sort_context: list[dict[str, Any]] = traitlets.List(  # type: ignore[bad-assignment]
+        traitlets.Dict(), default_value=[]
+    ).tag(sync=True)
+    orderable_columns: list[str] = traitlets.List(  # type: ignore[bad-assignment]
+        traitlets.Unicode(), []
+    ).tag(sync=True)
+    _initial_load_complete: bool = traitlets.Bool(False).tag(sync=True)  # type: ignore[bad-assignment]
     _batches: Optional[blocks.PandasBatches] = None
-    _error_message = traitlets.Unicode(allow_none=True, default_value=None).tag(
-        sync=True
-    )
-    start_execution = traitlets.Bool(False).tag(sync=True)
-    is_deferred_mode = traitlets.Bool(False).tag(sync=True)
-    dry_run_info = traitlets.Unicode("").tag(sync=True)
-    ping = traitlets.Int(0).tag(sync=True)
+    _error_message: Optional[str] = traitlets.Unicode(  # type: ignore[bad-assignment]
+        allow_none=True, default_value=None
+    ).tag(sync=True)
+    start_execution: bool = traitlets.Bool(False).tag(sync=True)  # type: ignore[bad-assignment]
+    is_deferred_mode: bool = traitlets.Bool(False).tag(sync=True)  # type: ignore[bad-assignment]
+    dry_run_info: str = traitlets.Unicode("").tag(sync=True)  # type: ignore[bad-assignment]
+    ping: int = traitlets.Int(0).tag(sync=True)  # type: ignore[bad-assignment]
 
     def __init__(
         self,

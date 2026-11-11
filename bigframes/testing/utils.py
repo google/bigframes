@@ -19,6 +19,7 @@ from typing import Iterable, Optional, Sequence, Set, TypeVar, Union
 
 import geopandas as gpd  # type: ignore
 import google.api_core.operation
+import google.cloud.exceptions
 import numpy as np
 import pandas as pd
 import pandas.api.types as pd_types
@@ -296,8 +297,8 @@ def convert_pandas_dtypes(df: pd.DataFrame, bytes_col: bool):
 
     if not isinstance(df["numeric_col"].dtype, pd.ArrowDtype):
         # Convert numeric types column.
-        df["numeric_col"] = df["numeric_col"].apply(
-            lambda value: decimal.Decimal(str(value)) if value else None  # type: ignore
+        df["numeric_col"] = df["numeric_col"].apply(  # type: ignore[no-matching-overload]
+            lambda value: decimal.Decimal(str(value)) if value else None
         )
         arrow_table = pa.Table.from_pandas(
             pd.DataFrame(df, columns=["numeric_col"]),

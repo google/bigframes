@@ -206,11 +206,14 @@ class DataFrame:
                     bf_index._block.reset_index(), how="inner"
                 )
                 block = block.set_index([r_mapping[idx_col] for idx_col in idx_cols])
-            if columns:
-                column_ids = [
-                    block.resolve_label_exact_or_error(label) for label in list(columns)
-                ]
-                block = block.select_columns(column_ids)  # type:ignore
+            if columns is not None:
+                columns_list = list(columns)
+                if columns_list:
+                    column_ids = [
+                        block.resolve_label_exact_or_error(label)
+                        for label in columns_list
+                    ]
+                    block = block.select_columns(column_ids)  # type:ignore
             if dtype:
                 bf_dtype = bigframes.dtypes.bigframes_type(dtype)
                 block = block.multi_apply_unary_op(ops.AsTypeOp(to_type=bf_dtype))
@@ -221,11 +224,11 @@ class DataFrame:
 
             import bigframes.pandas
 
-            pd_dataframe = pandas.DataFrame(
+            pd_dataframe = pandas.DataFrame(  # type:ignore
                 data=data,
-                index=index,  # type:ignore
-                columns=columns,  # type:ignore
-                dtype=dtype,  # type:ignore
+                index=index,
+                columns=columns,
+                dtype=dtype,
             )
             if session:
                 block = session.read_pandas(pd_dataframe)._get_block()
@@ -647,7 +650,7 @@ class DataFrame:
             }
         )
         selected_columns = tuple(
-            as_pandas.select_dtypes(include=include, exclude=exclude).columns
+            as_pandas.select_dtypes(include=include, exclude=exclude).columns  # type: ignore[no-matching-overload]
         )
         return DataFrame(self._block.select_columns(selected_columns))
 
@@ -684,7 +687,7 @@ class DataFrame:
 
         # TODO(tswast): Fix this pylance warning: Class overlaps "Hashable"
         # unsafely and could produce a match at runtime
-        if isinstance(key, blocks.Label):
+        if isinstance(key, blocks.Label):  # type: ignore[unsafe-overlap]
             return self._getitem_label(key)
 
         if utils.is_list_like(key):
@@ -3431,7 +3434,7 @@ class DataFrame:
             ]
 
         return DataFrame(
-            self._block.melt(id_col_ids, val_col_ids, var_name, value_name)
+            self._block.melt(id_col_ids, val_col_ids, var_name, value_name)  # type: ignore[bad-argument-type]
         )
 
     def describe(self, include: None | Literal["all"] = None) -> DataFrame:
@@ -4542,7 +4545,10 @@ class DataFrame:
         **kwargs,
     ) -> numpy.ndarray:
         return self.to_pandas(allow_large_results=allow_large_results).to_numpy(
-            dtype, copy, na_value, **kwargs
+            dtype,
+            copy,
+            na_value,  # type: ignore[bad-argument-type]
+            **kwargs,
         )
 
     def __array__(self, dtype=None, copy: Optional[bool] = None) -> numpy.ndarray:
@@ -4673,11 +4679,11 @@ class DataFrame:
         *,
         allow_large_results: Optional[bool] = None,
     ) -> str | None:
-        return self.to_pandas(allow_large_results=allow_large_results).to_string(
+        return self.to_pandas(allow_large_results=allow_large_results).to_string(  # type: ignore[no-matching-overload]
             buf,
-            columns=columns,  # type: ignore
+            columns=columns,
             col_space=col_space,
-            header=header,  # type: ignore
+            header=header,
             index=index,
             na_rep=na_rep,
             formatters=formatters,
@@ -4723,9 +4729,9 @@ class DataFrame:
         *,
         allow_large_results: bool | None = None,
     ) -> str:
-        return self.to_pandas(allow_large_results=allow_large_results).to_html(
+        return self.to_pandas(allow_large_results=allow_large_results).to_html(  # type: ignore[no-matching-overload]
             buf,
-            columns=columns,  # type: ignore
+            columns=columns,
             col_space=col_space,
             header=header,
             index=index,
@@ -4734,7 +4740,7 @@ class DataFrame:
             float_format=float_format,
             sparsify=sparsify,
             index_names=index_names,
-            justify=justify,  # type: ignore
+            justify=justify,
             max_rows=max_rows,
             max_cols=max_cols,
             show_dimensions=show_dimensions,
@@ -4758,9 +4764,9 @@ class DataFrame:
         allow_large_results: Optional[bool] = None,
         **kwargs,
     ) -> str | None:
-        return self.to_pandas(allow_large_results=allow_large_results).to_markdown(
+        return self.to_pandas(allow_large_results=allow_large_results).to_markdown(  # type: ignore[no-matching-overload]
             buf, mode=mode, index=index, **kwargs
-        )  # type: ignore
+        )
 
     def to_pickle(self, path, *, allow_large_results=None, **kwargs) -> None:
         return self.to_pandas(allow_large_results=allow_large_results).to_pickle(
@@ -4792,10 +4798,13 @@ class DataFrame:
                     mapped_columns.extend([col] * count)
             return mapped_columns
 
-        if not clustering_columns:
+        clustering_columns_list = (
+            list(clustering_columns) if clustering_columns is not None else []
+        )
+        if not clustering_columns_list:
             return []
 
-        if len(list(clustering_columns)) != len(set(clustering_columns)):
+        if len(clustering_columns_list) != len(set(clustering_columns_list)):
             raise ValueError("Duplicates are not supported in clustering_columns")
 
         all_possible_columns = (
@@ -4908,6 +4917,7 @@ class DataFrame:
                 )
                 return bigframes.series.Series(result_block)
 
+            assert isinstance(func, bigframes.functions.Udf)
             if func.udf_def.signature.is_row_processor:
                 # Early check whether the dataframe dtypes are currently supported
                 # in the bigquery function

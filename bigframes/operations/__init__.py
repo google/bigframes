@@ -290,7 +290,6 @@ __all__ = [
     "StrFindOp",
     "StrLstripOp",
     "StringSplitOp",
-    "strip_op",
     "StrPadOp",
     "StrRepeatOp",
     "StrRstripOp",

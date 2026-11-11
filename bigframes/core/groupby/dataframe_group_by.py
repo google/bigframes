@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import datetime
 import typing
-from typing import Iterable, Literal, Optional, Sequence, Tuple, Union
+from typing import Literal, Optional, Sequence, Tuple, Union
 
 import bigframes_vendored.constants as constants
 import bigframes_vendored.pandas.core.groupby as vendored_pandas_groupby
@@ -113,7 +113,7 @@ class DataFrameGroupBy:
                     min(
                         self._block.column_labels,
                         key=lambda item: bigframes._tools.strings.levenshtein_distance(
-                            bad_key, item
+                            str(bad_key), item
                         ),
                     )
                 )
@@ -169,7 +169,7 @@ class DataFrameGroupBy:
             )
         )
 
-    def __iter__(self) -> Iterable[Tuple[blocks.Label, df.DataFrame]]:
+    def __iter__(self) -> typing.Iterator[Tuple[blocks.Label, df.DataFrame]]:
         for group_keys, filtered_block in group_by.block_groupby_iter(
             self._block,
             by_col_ids=self._by_col_ids,

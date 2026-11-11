@@ -19,17 +19,17 @@ from __future__ import annotations
 
 import argparse
 import ast
-import configparser
 import difflib
 import pathlib
 import re
 import sys
+import tomllib
 from typing import Any
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 NOXFILE_PATH = REPO_ROOT / "noxfile.py"
 SETUP_PATH = REPO_ROOT / "setup.py"
-MYPY_INI_PATH = REPO_ROOT / "mypy.ini"
+PYPROJECT_TOML_PATH = REPO_ROOT / "pyproject.toml"
 PRE_COMMIT_CONFIG_PATH = REPO_ROOT / ".pre-commit-config.yaml"
 
 
@@ -74,9 +74,12 @@ def parse_python_constants(path: pathlib.Path) -> dict[str, Any]:
     return env
 
 
-def get_ignored_mypy_packages(mypy_ini_path: pathlib.Path) -> set[str]:
-    parser = configparser.ConfigParser()
-    parser.read(mypy_ini_path, encoding="utf-8")
+def get_ignored_pyrefly_packages(pyproject_toml_path: pathlib.Path) -> set[str]:
+    with pyproject_toml_path.open("rb") as f:
+        data = tomllib.load(f)
+    ignore_missing_imports = (
+        data.get("tool", {}).get("pyrefly", {}).get("ignore-missing-imports", [])
+    )
     ignored: set[str] = set()
     module_to_pkg = {
         "google.auth": "google-auth",
@@ -87,13 +90,10 @@ def get_ignored_mypy_packages(mypy_ini_path: pathlib.Path) -> set[str]:
         "google.cloud.pubsub": "google-cloud-pubsub",
         "google.cloud.bigtable": "google-cloud-bigtable",
     }
-    for section in parser.sections():
-        if section.startswith("mypy-") and parser.getboolean(
-            section, "ignore_missing_imports", fallback=False
-        ):
-            mod = section[len("mypy-") :].rstrip(".*")
-            if mod in module_to_pkg:
-                ignored.add(module_to_pkg[mod])
+    for pattern in ignore_missing_imports:
+        mod = pattern.rstrip(".*")
+        if mod in module_to_pkg:
+            ignored.add(module_to_pkg[mod])
     return ignored
 
 
@@ -117,11 +117,11 @@ def build_pre_commit_config() -> str:
     setup_consts = parse_python_constants(SETUP_PATH)
 
     ruff_version = extract_version(nox_consts["RUFF_VERSION"], "ruff")
-    mypy_version = extract_version(nox_consts["MYPY_VERSION"], "mypy")
+    pyrefly_version = extract_version(nox_consts["PYREFLY_VERSION"], "pyrefly")
     conv_version = nox_consts.get("CONVENTIONAL_PRE_COMMIT_VERSION", "v4.2.0")
     target_py = f"py{nox_consts['ALL_PYTHON'][0].replace('.', '')}"
 
-    ignored_pkgs = get_ignored_mypy_packages(MYPY_INI_PATH)
+    ignored_pkgs = get_ignored_pyrefly_packages(PYPROJECT_TOML_PATH)
 
     reqs_by_pkg: dict[str, str] = {}
 
@@ -136,11 +136,11 @@ def build_pre_commit_config() -> str:
         if pkg_name not in ignored_pkgs:
             reqs_by_pkg[pkg_name] = cleaned
 
-    # 2. Add noxfile mypy & test dependencies (overriding if more specific or pinned)
+    # 2. Add noxfile pyrefly & test dependencies (overriding if more specific or pinned)
     nox_deps = (
         list(nox_consts.get("UNIT_TEST_STANDARD_DEPENDENCIES", []))
         + list(nox_consts.get("SYSTEM_TEST_STANDARD_DEPENDENCIES", []))
-        + list(nox_consts.get("MYPY_TYPE_DEPENDENCIES", []))
+        + list(nox_consts.get("PYREFLY_TYPE_DEPENDENCIES", []))
     )
     for req in nox_deps:
         pkg_name, cleaned = normalize_req(req)
@@ -150,8 +150,8 @@ def build_pre_commit_config() -> str:
         if existing is None or "==" in cleaned or "<=" in cleaned or ">=" in cleaned:
             reqs_by_pkg[pkg_name] = cleaned
 
-    mypy_additional_deps = sorted(reqs_by_pkg.values(), key=lambda s: s.lower())
-    deps_yaml = "\n".join(f"          - {dep}" for dep in mypy_additional_deps)
+    pyrefly_additional_deps = sorted(reqs_by_pkg.values(), key=lambda s: s.lower())
+    deps_yaml = "\n".join(f"          - {dep}" for dep in pyrefly_additional_deps)
 
     return f"""# Copyright 2026 Google LLC
 #
@@ -196,16 +196,12 @@ repos:
           - --line-length=88
         files: ^(docs|bigframes|scripts|tests|third_party)/|^(noxfile|setup)\\.py$
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v{mypy_version}
+  - repo: https://github.com/facebook/pyrefly-pre-commit
+    rev: {pyrefly_version}
     hooks:
-      - id: mypy
-        name: mypy
-        args:
-          - --check-untyped-defs
-          - --explicit-package-bases
-        files: ^(bigframes|tests/(system|unit))/
-        exclude: ^third_party/
+      - id: pyrefly-check
+        name: pyrefly
+        pass_filenames: false
         additional_dependencies:
 {deps_yaml}
 
@@ -222,7 +218,7 @@ repos:
         name: check pre-commit versions sync with noxfile.py
         entry: python3 scripts/sync_pre_commit.py --check
         language: python
-        files: ^(noxfile\\.py|setup\\.py|mypy\\.ini|\\.pre-commit-config\\.yaml|scripts/sync_pre_commit\\.py)$
+        files: ^(noxfile\\.py|setup\\.py|pyproject\\.toml|\\.pre-commit-config\\.yaml|scripts/sync_pre_commit\\.py)$
         pass_filenames: false
 """
 

@@ -40,7 +40,7 @@ jobs:
         PY_VERSION: "unused"
       run: |
         nox -s lint
-  mypy:
+  pyrefly:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -59,7 +59,7 @@ jobs:
       run: |
         python -m pip install --upgrade setuptools pip wheel
         python -m pip install nox
-    - name: Run mypy
+    - name: Run pyrefly
       env:
         BUILD_TYPE: presubmit
         TARGET_BRANCH: ${{ github.base_ref || github.event.merge_group.base_ref }}
@@ -67,4 +67,4 @@ jobs:
         # TODO(https://github.com/googleapis/google-cloud-python/issues/13775): Specify `PY_VERSION` rather than relying on the default python version of the nox session.
         PY_VERSION: "unused"
       run: |
-        nox -s mypy
+        nox -s pyrefly

@@ -34,10 +34,10 @@ ENV_OVERRIDES = (
 )
 
 RUFF_VERSION = "ruff==0.14.14"
-MYPY_VERSION = "mypy==1.15.0"
+PYREFLY_VERSION = "pyrefly==1.4.1"
 CONVENTIONAL_PRE_COMMIT_VERSION = "v4.2.0"
 
-MYPY_TYPE_DEPENDENCIES = [
+PYREFLY_TYPE_DEPENDENCIES = [
     # TODO: update to latest pandas-stubs once we resolve bigframes issues.
     "pandas-stubs<=2.2.3.241126",
     "types-protobuf",
@@ -1006,32 +1006,28 @@ def prerelease_deps(session):
     system_prerelease(session)
 
 
-# NOTE: this is based on mypy session that came directly from the bigframes split repo
-# the split repo used 3.10, the monorepo uses 3.14
 @nox.session(python="3.14")
-def mypy(session):
-    """Run type checks with mypy."""
-    # Editable mode is not compatible with mypy when there are multiple
-    # package directories. See:
-    # https://github.com/python/mypy/issues/10564#issuecomment-851687749
-    session.install("--no-cache-dir", ".")
+def pyrefly(session):
+    """Run type checks with pyrefly."""
+    session.install("-e", ".")
 
-    # Just install the dependencies' type info directly, since "mypy --install-types"
-    # might require an additional pass.
     deps = (
-        set([MYPY_VERSION] + MYPY_TYPE_DEPENDENCIES)
+        set([PYREFLY_VERSION] + PYREFLY_TYPE_DEPENDENCIES)
         | set(SYSTEM_TEST_STANDARD_DEPENDENCIES)
         | set(UNIT_TEST_STANDARD_DEPENDENCIES)
     )
 
     session.install(*deps)
-    shutil.rmtree(".mypy_cache", ignore_errors=True)
     session.run(
-        "mypy",
-        "bigframes",
-        os.path.join("tests", "system"),
-        os.path.join("tests", "unit"),
-        "--check-untyped-defs",
-        "--explicit-package-bases",
-        '--exclude="^third_party"',
+        "pyrefly",
+        "check",
     )
+
+
+@nox.session(python="3.14")
+def mypy(session):
+    """(Deprecated) Legacy session. Please use 'nox -s pyrefly'."""
+    session.log(
+        "WARNING: The 'mypy' session is deprecated and will be removed in a future release. Please use 'nox -s pyrefly' in the future."
+    )
+    pyrefly(session)

@@ -132,7 +132,7 @@ class UnaryAggregation(Aggregation):
     ) -> typing.Tuple[expression.Expression, ...]:
         return (self.arg,)
 
-    def replace_args(self, arg: expression.Expression) -> UnaryAggregation:
+    def replace_args(self, arg: expression.Expression) -> UnaryAggregation:  # type: ignore[bad-override]
         return UnaryAggregation(
             self.op,
             arg,
@@ -151,7 +151,7 @@ class BinaryAggregation(Aggregation):
     ) -> typing.Tuple[expression.Expression, ...]:
         return (self.left, self.right)
 
-    def replace_args(
+    def replace_args(  # type: ignore[bad-override]
         self, larg: expression.Expression, rarg: expression.Expression
     ) -> BinaryAggregation:
         return BinaryAggregation(self.op, larg, rarg)

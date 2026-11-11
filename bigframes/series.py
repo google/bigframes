@@ -196,10 +196,10 @@ class Series:
             if isinstance(dtype, str) and dtype.lower() == "json":
                 dtype = bigframes.dtypes.JSON_DTYPE
 
-            pd_series = pandas.Series(
+            pd_series = pandas.Series(  # type:ignore
                 data=data,
-                index=index,  # type:ignore
-                dtype=dtype,  # type:ignore
+                index=index,
+                dtype=dtype,
                 name=name,
             )
             block = read_pandas_func(pd_series)._get_block()  # type:ignore
@@ -1556,7 +1556,11 @@ class Series:
             return typing.cast(float, self._apply_aggregation(agg_ops.median_op))
 
     def quantile(self, q: Union[float, Sequence[float]] = 0.5) -> Union[Series, float]:
-        qs = tuple(q) if utils.is_list_like(q) else (q,)
+        qs: Sequence[float] = (
+            tuple(cast(Iterable[float], q))
+            if utils.is_list_like(q)
+            else (cast(float, q),)
+        )
         result = block_ops.quantile(self._block, (self._value_column,), qs=qs)
         if utils.is_list_like(q):
             # Drop the first level, since only one column
@@ -1842,7 +1846,7 @@ class Series:
         self,
         *,
         axis=...,
-        inplace: Literal[True] = ...,
+        inplace: Literal[True],
         ascending: bool | typing.Sequence[bool] = ...,
         kind: str | None = ...,
         na_position: typing.Literal["first", "last"] = ...,
@@ -2135,7 +2139,7 @@ class Series:
             # supported on a Series. Let's guide the customer to use a
             # bigquery function instead
             if hasattr(ex, "message"):
-                ex.message += f"\n{_bigquery_function_recommendation_message}"
+                ex.message += f"\n{_bigquery_function_recommendation_message}"  # type: ignore[missing-attribute]
             raise
 
     def _apply_by_row(
@@ -2214,7 +2218,7 @@ class Series:
             # supported on a Series. Let's guide the customer to use a
             # bigquery function instead
             if hasattr(ex, "message"):
-                ex.message += f"\n{_bigquery_function_recommendation_message}"
+                ex.message += f"\n{_bigquery_function_recommendation_message}"  # type: ignore[missing-attribute]
             raise
 
     @validations.requires_index
@@ -2290,7 +2294,7 @@ class Series:
         else:
             if not isinstance(index, pandas.Index):
                 keep_original_names = True
-                index = pandas.Index(index)
+                index = pandas.Index(index)  # type: ignore[no-matching-overload]
             if index.nlevels != self.index.nlevels:
                 raise NotImplementedError(
                     "Cannot reindex with index with different nlevels"
@@ -2427,11 +2431,11 @@ class Series:
         else:
             pd_series = self.to_pandas(allow_large_results=allow_large_results)
             # Pandas Series.to_json only supports a subset of orients, but bigframes Series.to_json allows all of them.
-            return pd_series.to_json(
+            return pd_series.to_json(  # type: ignore[no-matching-overload]
                 path_or_buf=path_or_buf,
-                orient=orient,  # type: ignore[arg-type]
+                orient=orient,
                 lines=lines,
-                index=index,  # type: ignore
+                index=index,
             )
 
     def to_latex(
@@ -2466,9 +2470,9 @@ class Series:
         allow_large_results: Optional[bool] = None,
         **kwargs,
     ) -> typing.Optional[str]:
-        return self.to_pandas(allow_large_results=allow_large_results).to_markdown(
+        return self.to_pandas(allow_large_results=allow_large_results).to_markdown(  # type: ignore[no-matching-overload]
             buf, mode=mode, index=index, **kwargs
-        )  # type: ignore
+        )
 
     def to_numpy(
         self,
@@ -2480,7 +2484,10 @@ class Series:
         **kwargs,
     ) -> numpy.ndarray:
         return self.to_pandas(allow_large_results=allow_large_results).to_numpy(
-            dtype, copy, na_value, **kwargs
+            dtype,
+            copy,
+            na_value,  # type: ignore[bad-argument-type]
+            **kwargs,
         )
 
     def __array__(self, dtype=None, copy: Optional[bool] = None) -> numpy.ndarray:
@@ -2508,7 +2515,7 @@ class Series:
         *,
         allow_large_results=None,
     ) -> typing.Optional[str]:
-        return self.to_pandas(allow_large_results=allow_large_results).to_string(
+        return self.to_pandas(allow_large_results=allow_large_results).to_string(  # type: ignore[no-matching-overload]
             buf,
             na_rep,
             float_format,

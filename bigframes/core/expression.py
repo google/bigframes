@@ -81,7 +81,7 @@ class Expression(abc.ABC):
         name_mapping: Mapping[ids.ColumnId, ids.ColumnId],
         allow_partial_bindings: bool = False,
     ) -> TExpression:
-        return self.bind_refs(
+        return self.bind_refs(  # type: ignore[bad-return]
             {old_id: DerefOp(new_id) for old_id, new_id in name_mapping.items()},  # type: ignore
             allow_partial_bindings=allow_partial_bindings,
         )

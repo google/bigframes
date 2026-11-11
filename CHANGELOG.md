@@ -4,6 +4,31 @@
 
 [1]: https://pypi.org/project/bigframes/#history
 
+## [2.53.0](https://github.com/google/bigframes/compare/v2.52.0...v2.53.0) (2026-11-11)
+
+
+### Features
+
+* accept BigLake Lakehouse table names in DataFrame.to_gbq ([1086738](https://github.com/google/bigframes/commit/1086738ce3d29c64f88e18215d99babeeb70061e))
+
+
+### Bug Fixes
+
+* bump the minimum versions of various dependencies ([2ed0e87](https://github.com/google/bigframes/commit/2ed0e87159f01bf9cc6caca9cb35dedd6efc42a6))
+* drop support for end-of-life Python 3.10 ([e8995b7](https://github.com/google/bigframes/commit/e8995b722dfdfc35f136fd3ea968d08cfa50bf7c))
+* escape pandas series when rendering as html ([b418063](https://github.com/google/bigframes/commit/b41806383bd2c538d368038b2a9482c58aba708f))
+* escape table identifiers when creating an object table ([5cc7758](https://github.com/google/bigframes/commit/5cc7758423948608fa1a6dd5cb67feab8eab9f40))
+* harden identifier escaping when reading information schema tables ([ae56182](https://github.com/google/bigframes/commit/ae56182b52727b8a5fa9caad71566609e863e1d5))
+* skip the table schema update after staged to_gbq writes ([70a073b](https://github.com/google/bigframes/commit/70a073b9cbf834f8f6464e8a1ddf3673dbd1564e))
+* type cast boolean op result if both arguments are null. ([2120509](https://github.com/google/bigframes/commit/21205093fb5284a497f6ba0482d9f39fa1c7ed97))
+* use inherited names in bigframes job labels ([fd44af7](https://github.com/google/bigframes/commit/fd44af78e9bbbceb26d8558a5f6f1825df29a3ed))
+
+
+### Documentation
+
+* update BigQuery DataFrames matrix factorization snippet to use the bigframes.bigquery.ml module. ([03f4d85](https://github.com/google/bigframes/commit/03f4d856560aec942218375617b9ae75bb3ad7a3))
+* update BigQuery DataFrames time series forecasting snippets to use the bigframes.bigquery.ml module. ([d48e1ec](https://github.com/google/bigframes/commit/d48e1ec0f7dabd6aa8dc66ee4a0d255d686d3b74))
+
 ## [2.52.0](https://github.com/google/bigframes/compare/v2.51.0...v2.52.0) (2026-10-28)
 
 

@@ -4,6 +4,13 @@
 
 [1]: https://pypi.org/project/bigframes/#history
 
+## [2.53.1](https://github.com/google/bigframes/compare/v2.53.0...v2.53.1) (2026-11-13)
+
+
+### Documentation
+
+* mention BigLake Lakehouse table names in the read_gbq docstring ([b428f83](https://github.com/google/bigframes/commit/b428f833a04acebb0246069642a05fae5393af73))
+
 ## [2.53.0](https://github.com/google/bigframes/compare/v2.52.0...v2.53.0) (2026-11-11)
 
 

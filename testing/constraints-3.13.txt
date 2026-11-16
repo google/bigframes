@@ -362,10 +362,10 @@ opencv-contrib-python==4.14.0.94
 opencv-python==5.0.0.93
 opencv-python-headless==5.0.0.93
 openpyxl==3.1.5
-opentelemetry-api==1.42.1
+# opentelemetry-api==1.42.1 -- Not explicitly pinned in Colab.
 opentelemetry-resourcedetector-gcp==1.14.0
-opentelemetry-sdk==1.42.1
-opentelemetry-semantic-conventions==0.63b1
+# opentelemetry-sdk==1.42.1 -- Not explicitly pinned in Colab.
+# opentelemetry-semantic-conventions==0.63b1 -- Not explicitly pinned in Colab.
 opt_einsum==3.4.0
 optax==0.2.8
 optree==0.20.0

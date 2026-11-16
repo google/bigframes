@@ -71,6 +71,7 @@ repos:
           - mock
           - numpy>=1.24.1
           - openpyxl
+          - opentelemetry-api>=1.45.1
           - pandas-gbq>=0.26.1
           - pandas-stubs<=2.2.3.241126
           - pandas>=1.5.3

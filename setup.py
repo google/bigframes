@@ -76,6 +76,7 @@ extras = {
         "pytest-snapshot >=0.9.0",
         "google-cloud-bigtable >=2.30.0",
         "google-cloud-pubsub >=2.29.0",
+        "opentelemetry-api >=1.45.1",
         "tzdata >=2025.2",
         "zipp >=3.19.1",
     ],

@@ -97,6 +97,7 @@ repos:
           - types-tabulate
           - typing-extensions>=4.6.1,<5
           - tzdata>=2025.2
+          - urllib3>=2.8.0
           - xarray
 
   - repo: https://github.com/compilerla/conventional-pre-commit

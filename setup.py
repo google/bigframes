@@ -56,6 +56,7 @@ dependencies = [
     "requests >=2.34.2",
     "shapely >=2.0.0",
     "tabulate >=0.9",
+    "urllib3 >=2.8.0",
     "humanize >=4.6.0",
     "matplotlib >=3.7.1",
     "db-dtypes >=1.9.0",

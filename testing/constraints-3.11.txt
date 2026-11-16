@@ -22,6 +22,7 @@ requests==2.34.2
 scikit-learn==1.8.0
 shapely==2.0.0
 tabulate==0.9
+urllib3==2.8.0
 humanize==4.6.0
 matplotlib==3.7.1
 db-dtypes==1.9.0
@@ -121,7 +122,6 @@ stack-data==0.6.3
 threadpoolctl==3.6.0
 tomli==2.4.0
 tzdata==2026.6
-urllib3==2.8.0
 virtualenv==21.15.6
 wcwidth==0.6.0
 wheel==0.48.0

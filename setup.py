@@ -91,7 +91,8 @@ extras = {
     # install anywidget for SQL
     "anywidget": [
         "anywidget>=0.9.21",
-        "traitlets>=5.0.0",
+        "jupyter-core>=5.8.1",
+        "traitlets>=5.3.0",
     ],
 }
 extras["all"] = list(sorted(frozenset(itertools.chain.from_iterable(extras.values()))))

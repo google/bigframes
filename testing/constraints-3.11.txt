@@ -35,7 +35,8 @@ typing-extensions==4.6.1
 rich==13.9.4
 # For anywidget mode
 anywidget==0.9.21
-traitlets==5.0.0
+jupyter-core==5.8.1
+traitlets==5.3.0
 # constrained dependencies to give pip a helping hand
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
@@ -94,6 +95,7 @@ packaging==26.0
 parso==0.8.5
 pexpect==4.9.0
 pillow==12.1.0
+platformdirs==4.3.8
 pluggy==1.6.0
 prompt_toolkit==3.0.52
 propcache==0.4.1

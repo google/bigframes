@@ -50,6 +50,7 @@ repos:
         additional_dependencies:
           - anywidget>=0.9.21
           - atpublic>=5.1,<6
+          - bleach>=6.4.0
           - db-dtypes>=1.9.0
           - freezegun>=1.5.5
           - fsspec>=2023.3.0
@@ -69,6 +70,7 @@ repos:
           - jupyter-core>=5.8.1
           - matplotlib>=3.7.1
           - mock
+          - nbconvert>=7.17.2
           - numpy>=1.24.1
           - openpyxl
           - opentelemetry-api>=1.45.1

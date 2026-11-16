@@ -94,7 +94,9 @@ extras = {
     # install anywidget for SQL
     "anywidget": [
         "anywidget>=0.9.21",
+        "bleach>=6.4.0",
         "jupyter-core>=5.8.1",
+        "nbconvert>=7.17.2",
         "traitlets>=5.3.0",
     ],
 }

@@ -74,6 +74,7 @@ repos:
           - pandas-gbq>=0.26.1
           - pandas-stubs<=2.2.3.241126
           - pandas>=1.5.3
+          - pillow>=13.0.0
           - pluggy
           - polars>=1.21.0,<2.0.0
           - pytest-cov

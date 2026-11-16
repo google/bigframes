@@ -51,6 +51,7 @@ dependencies = [
     "numpy >=1.24.1",
     "pandas >=1.5.3",
     "pandas-gbq >=0.26.1",
+    "pillow >=13.0.0",
     "pyarrow >=23.0.1",
     "pydata-google-auth >=1.9.1",
     "requests >=2.34.2",

@@ -61,7 +61,7 @@ repos:
           - google-cloud-bigquery[bqstorage,pandas]>=3.47.0
           - google-cloud-functions>=1.25.0
           - google-cloud-resource-manager>=1.19.0
-          - google-cloud-storage>=2.0.0
+          - google-cloud-storage>=2.19.0
           - google-cloud-testutils
           - google-crc32c>=1.8.0,<2.0.0
           - grpc-google-iam-v1>=0.14.6
@@ -90,6 +90,7 @@ repos:
           - requests>=2.34.2
           - rich>=13.9.4,<14
           - scikit-learn>=1.8.0
+          - setuptools>=84.1.0
           - shapely>=2.0.0
           - tabulate>=0.9
           - toolz>=0.11,<2

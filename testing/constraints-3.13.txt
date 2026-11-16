@@ -508,7 +508,7 @@ Send2Trash==2.1.0
 sentence-transformers==5.7.0
 sentencepiece==0.2.2
 sentry-sdk==2.73.0
-setuptools==80.10.2
+setuptools==84.1.0
 shap==0.54.1
 shapely==2.2.0
 shellingham==1.5.4

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import dataclasses
 import functools
+import html
 import logging
 
 logger = logging.getLogger(__name__)
@@ -191,6 +192,13 @@ class TableWidget(_WIDGET_BASE):  # type: ignore[invalid-inheritance]
     @traitlets.observe("start_execution")
     def _on_start_execution(self, change: dict[str, Any]):
         if change["new"]:
+            if not self.is_deferred_mode:
+                # Only a deferred widget has a query waiting to run. Otherwise
+                # the table is already loaded, so drop the request. Clearing
+                # the flag tells the front end that nothing is running.
+                self.start_execution = False
+                return
+
             import asyncio
 
             try:
@@ -526,8 +534,9 @@ class TableWidget(_WIDGET_BASE):  # type: ignore[invalid-inheritance]
             bigframes.option_context("display.progress_bar", None),
         ):
             if self._error_message:
+                escaped_message = html.escape(self._error_message)
                 self.table_html = (
-                    f"<div class='bigframes-error-message'>{self._error_message}</div>"
+                    f"<div class='bigframes-error-message'>{escaped_message}</div>"
                 )
                 return
 

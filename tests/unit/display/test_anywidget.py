@@ -606,3 +606,74 @@ def test_deferred_mode_execution_in_colab(mock_deferred_df, mock_df_deferred):
 
         assert widget.is_deferred_mode is False
         assert widget.table_html != ""
+
+
+@pytest.mark.parametrize(
+    ("error_message", "expected_text"),
+    [
+        pytest.param(
+            "400 Bad int64 value: <img src=x onerror=alert(1)>",
+            "400 Bad int64 value: &lt;img src=x onerror=alert(1)&gt;",
+            id="tag",
+        ),
+        pytest.param(
+            "</div><script>alert(1)</script>",
+            "&lt;/div&gt;&lt;script&gt;alert(1)&lt;/script&gt;",
+            id="closing_tag_and_script",
+        ),
+        pytest.param(
+            "Unrecognized name: a&b; did you mean \"a\" or 'b'?",
+            "Unrecognized name: a&amp;b; did you mean &quot;a&quot; or &#x27;b&#x27;?",
+            id="ampersand_and_quotes",
+        ),
+        pytest.param(
+            "Could not retrieve data batches. Data might be unavailable or "
+            "an error occurred.",
+            "Could not retrieve data batches. Data might be unavailable or "
+            "an error occurred.",
+            id="plain_text_is_unchanged",
+        ),
+    ],
+)
+def test_set_table_html_escapes_error_message(mock_df, error_message, expected_text):
+    widget = TableWidget(mock_df)
+    widget._error_message = error_message
+
+    # Sorting re-renders the table.
+    widget.sort_context = [{"column": "col1", "ascending": True}]
+
+    assert (
+        widget.table_html
+        == f"<div class='bigframes-error-message'>{expected_text}</div>"
+    )
+
+
+def test_deferred_mode_execution_error_keeps_raw_error_message(mock_deferred_df):
+    mock_deferred_df.execute.side_effect = RuntimeError("Unexpected '<' & '>'")
+    widget = TableWidget(mock_deferred_df)
+
+    widget.start_execution = True
+    thread = getattr(widget, "_execution_thread", None)
+    if thread is not None:
+        thread.join(timeout=5)
+
+    assert widget._error_message == "Unexpected '<' & '>'"
+    assert widget.table_html == ""
+
+
+def test_start_execution_is_ignored_outside_deferred_mode(mock_df):
+    widget = TableWidget(mock_df)
+    assert not widget.is_deferred_mode
+    table_html = widget.table_html
+    mock_df.to_pandas_batches.reset_mock()
+
+    widget.start_execution = True
+    thread = getattr(widget, "_execution_thread", None)
+    if thread is not None:
+        thread.join(timeout=5)
+
+    assert thread is None
+    mock_df._prepare_display_df.assert_not_called()
+    mock_df.to_pandas_batches.assert_not_called()
+    assert widget.table_html == table_html
+    assert not widget.start_execution

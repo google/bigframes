@@ -77,6 +77,7 @@ extras = {
         "google-cloud-bigtable >=2.30.0",
         "google-cloud-pubsub >=2.29.0",
         "tzdata >=2025.2",
+        "zipp >=3.19.1",
     ],
     # used for local engine
     # TODO(b/556839614): Support Polars 2.0+ once GA and breaking changes are addressed.

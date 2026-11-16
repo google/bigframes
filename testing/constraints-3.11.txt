@@ -24,6 +24,7 @@ scikit-learn==1.8.0
 shapely==2.0.0
 tabulate==0.9
 urllib3==2.8.0
+zipp==3.19.1
 humanize==4.6.0
 matplotlib==3.7.1
 db-dtypes==1.9.0

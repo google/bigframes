@@ -186,8 +186,7 @@ class BigFramesFuncArg:
             return "sentinels.Sentinel.ARGUMENT_DEFAULT"
         return None
 
-    @property
-    def test_value(self) -> str:
+    def test_value(self, func_name: str = "") -> str:
         name = self.name
         types = self.types
 
@@ -210,6 +209,8 @@ class BigFramesFuncArg:
         if name in ("time_zone", "time_zone_expression"):
             return '"UTC"'
         if "format" in name:
+            if "datetime" in func_name:
+                return '"%Y-%m-%d %H:%M:%S"'
             return '"%Y-%m-%d"'
         if "date_string" in name:
             return '"2025-01-01"'
@@ -235,8 +236,10 @@ class BigFramesFuncArg:
             return "dt.date(2025, 1, 1)"
         if "time" in types:
             return "dt.time(12, 0, 0)"
-        if "datetime" in types or "timestamp" in types:
+        if "timestamp" in types:
             return "dt.datetime(2025, 1, 1, 12, 0, 0, tzinfo=dt.timezone.utc)"
+        if "datetime" in types:
+            return "dt.datetime(2025, 1, 1, 12, 0, 0)"
         if "i64" in types or "i32" in types or "int64" in types:
             return "1"
         if "fp64" in types or "float64" in types:
@@ -261,7 +264,7 @@ class BigFramesFuncArg:
 
     @property
     def test_is_literal(self) -> bool:
-        return not self.test_value.startswith("bpd.col(")
+        return not self.test_value().startswith("bpd.col(")
 
 
 @dataclasses.dataclass

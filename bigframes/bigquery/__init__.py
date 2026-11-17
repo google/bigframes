@@ -141,6 +141,16 @@ from bigframes.operations.googlesql.global_namespace.date import (
     parse_date,
     unix_date,
 )
+from bigframes.operations.googlesql.global_namespace.datetime import (
+    current_datetime,
+    datetime,
+    datetime_add,
+    datetime_diff,
+    datetime_sub,
+    datetime_trunc,
+    format_datetime,
+    parse_datetime,
+)
 
 _functions = [
     # approximate aggregate ops
@@ -186,6 +196,14 @@ _functions = [
     parse_date,
     unix_date,
     # datetime ops
+    current_datetime,
+    datetime,
+    datetime_add,
+    datetime_diff,
+    datetime_sub,
+    datetime_trunc,
+    format_datetime,
+    parse_datetime,
     unix_micros,
     unix_millis,
     unix_seconds,
@@ -284,6 +302,14 @@ __all__ = [
     "parse_date",
     "unix_date",
     # datetime ops
+    "current_datetime",
+    "datetime",
+    "datetime_add",
+    "datetime_diff",
+    "datetime_sub",
+    "datetime_trunc",
+    "format_datetime",
+    "parse_datetime",
     "unix_micros",
     "unix_millis",
     "unix_seconds",

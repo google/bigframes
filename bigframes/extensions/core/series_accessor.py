@@ -1177,6 +1177,321 @@ class BigQuerySeriesAccessor(
         )
         return self._to_series(cast(series.Series, result))
 
+    def datetime(
+        self,
+        time_zone: Union[
+            series.Series,
+            col.Expression,
+            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], str],
+        ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
+        time_expression: Union[
+            series.Series,
+            col.Expression,
+            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.time],
+        ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
+        year: Union[
+            series.Series,
+            col.Expression,
+            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], int],
+        ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
+        month: Union[
+            series.Series,
+            col.Expression,
+            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], int],
+        ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
+        day: Union[
+            series.Series,
+            col.Expression,
+            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], int],
+        ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
+        hour: Union[
+            series.Series,
+            col.Expression,
+            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], int],
+        ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
+        minute: Union[
+            series.Series,
+            col.Expression,
+            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], int],
+        ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
+        second: Union[
+            series.Series,
+            col.Expression,
+            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], int],
+        ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
+        *,
+        session: Optional[session.Session] = None,
+    ) -> S:
+        """Constructs a DATETIME value."""
+        from bigframes.operations.googlesql.global_namespace.datetime import (
+            datetime as datetime_impl,
+        )
+
+        # Resolve session from other arguments if not passed
+        if session is None:
+            from bigframes.core import googlesql
+
+            session = googlesql._find_session(
+                time_zone,
+                time_expression,
+                year,
+                month,
+                day,
+                hour,
+                minute,
+                second,
+            )
+
+        bf_series = self._bf_from_series(session)
+        result = datetime_impl(
+            bf_series,
+            time_zone,
+            time_expression,
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            second,
+        )
+        return self._to_series(cast(series.Series, result))
+
+    def datetime_add(
+        self,
+        interval: Union[
+            series.Series,
+            col.Expression,
+            Union[
+                Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
+                relativedelta.relativedelta,
+            ],
+        ],
+        *,
+        session: Optional[session.Session] = None,
+    ) -> S:
+        """Adds a specified time interval to a DATETIME value."""
+        from bigframes.operations.googlesql.global_namespace.datetime import (
+            datetime_add as datetime_add_impl,
+        )
+
+        # Resolve session from other arguments if not passed
+        if session is None:
+            from bigframes.core import googlesql
+
+            session = googlesql._find_session(
+                interval,
+            )
+
+        bf_series = self._bf_from_series(session)
+        result = datetime_add_impl(
+            bf_series,
+            interval,
+        )
+        return self._to_series(cast(series.Series, result))
+
+    def datetime_diff(
+        self,
+        start_datetime: Union[
+            series.Series,
+            col.Expression,
+            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], dt.datetime],
+        ],
+        granularity: Union[
+            series.Series,
+            col.Expression,
+            Union[
+                Literal[
+                    "YEAR",
+                    "ISOYEAR",
+                    "QUARTER",
+                    "MONTH",
+                    "WEEK",
+                    "ISOWEEK",
+                    "DAY",
+                    "DAYOFWEEK",
+                    "DAYOFYEAR",
+                    "HOUR",
+                    "MINUTE",
+                    "SECOND",
+                    "MILLISECOND",
+                    "MICROSECOND",
+                ],
+                Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
+            ],
+        ],
+        *,
+        session: Optional[session.Session] = None,
+    ) -> S:
+        """Gets the number of unit boundaries between two DATETIME values (end_datetime - start_datetime) at a particular time granularity."""
+        from bigframes.operations.googlesql.global_namespace.datetime import (
+            datetime_diff as datetime_diff_impl,
+        )
+
+        # Resolve session from other arguments if not passed
+        if session is None:
+            from bigframes.core import googlesql
+
+            session = googlesql._find_session(
+                start_datetime,
+                granularity,
+            )
+
+        bf_series = self._bf_from_series(session)
+        result = datetime_diff_impl(
+            bf_series,
+            start_datetime,
+            granularity,
+        )
+        return self._to_series(cast(series.Series, result))
+
+    def datetime_sub(
+        self,
+        interval: Union[
+            series.Series,
+            col.Expression,
+            Union[
+                Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
+                relativedelta.relativedelta,
+            ],
+        ],
+        *,
+        session: Optional[session.Session] = None,
+    ) -> S:
+        """Subtracts a specified time interval from a DATETIME value."""
+        from bigframes.operations.googlesql.global_namespace.datetime import (
+            datetime_sub as datetime_sub_impl,
+        )
+
+        # Resolve session from other arguments if not passed
+        if session is None:
+            from bigframes.core import googlesql
+
+            session = googlesql._find_session(
+                interval,
+            )
+
+        bf_series = self._bf_from_series(session)
+        result = datetime_sub_impl(
+            bf_series,
+            interval,
+        )
+        return self._to_series(cast(series.Series, result))
+
+    def datetime_trunc(
+        self,
+        granularity: Union[
+            series.Series,
+            col.Expression,
+            Union[
+                Literal[
+                    "YEAR",
+                    "ISOYEAR",
+                    "QUARTER",
+                    "MONTH",
+                    "WEEK",
+                    "ISOWEEK",
+                    "DAY",
+                    "DAYOFWEEK",
+                    "DAYOFYEAR",
+                    "HOUR",
+                    "MINUTE",
+                    "SECOND",
+                    "MILLISECOND",
+                    "MICROSECOND",
+                ],
+                Literal[sentinels.Sentinel.ARGUMENT_DEFAULT],
+            ],
+        ],
+        time_zone: Union[
+            series.Series,
+            col.Expression,
+            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], str],
+        ] = sentinels.Sentinel.ARGUMENT_DEFAULT,
+        *,
+        session: Optional[session.Session] = None,
+    ) -> S:
+        """Truncates a DATETIME or TIMESTAMP value at a particular granularity."""
+        from bigframes.operations.googlesql.global_namespace.datetime import (
+            datetime_trunc as datetime_trunc_impl,
+        )
+
+        # Resolve session from other arguments if not passed
+        if session is None:
+            from bigframes.core import googlesql
+
+            session = googlesql._find_session(
+                granularity,
+                time_zone,
+            )
+
+        bf_series = self._bf_from_series(session)
+        result = datetime_trunc_impl(
+            bf_series,
+            granularity,
+            time_zone,
+        )
+        return self._to_series(cast(series.Series, result))
+
+    def format_datetime(
+        self,
+        format_string: Union[
+            series.Series,
+            col.Expression,
+            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], str],
+        ],
+        *,
+        session: Optional[session.Session] = None,
+    ) -> S:
+        """Formats a DATETIME value according to a specified format string."""
+        from bigframes.operations.googlesql.global_namespace.datetime import (
+            format_datetime as format_datetime_impl,
+        )
+
+        # Resolve session from other arguments if not passed
+        if session is None:
+            from bigframes.core import googlesql
+
+            session = googlesql._find_session(
+                format_string,
+            )
+
+        bf_series = self._bf_from_series(session)
+        result = format_datetime_impl(
+            format_string,
+            bf_series,
+        )
+        return self._to_series(cast(series.Series, result))
+
+    def parse_datetime(
+        self,
+        format_string: Union[
+            series.Series,
+            col.Expression,
+            Union[Literal[sentinels.Sentinel.ARGUMENT_DEFAULT], str],
+        ],
+        *,
+        session: Optional[session.Session] = None,
+    ) -> S:
+        """Converts a STRING value to a DATETIME value."""
+        from bigframes.operations.googlesql.global_namespace.datetime import (
+            parse_datetime as parse_datetime_impl,
+        )
+
+        # Resolve session from other arguments if not passed
+        if session is None:
+            from bigframes.core import googlesql
+
+            session = googlesql._find_session(
+                format_string,
+            )
+
+        bf_series = self._bf_from_series(session)
+        result = parse_datetime_impl(
+            format_string,
+            bf_series,
+        )
+        return self._to_series(cast(series.Series, result))
+
 
 class AeadSeriesAccessor(abstract_series_accessor.AbstractBigQuerySeriesAccessor[T, S]):
     """Series accessor for BigQuery aead functions."""

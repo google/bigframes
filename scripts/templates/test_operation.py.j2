@@ -29,7 +29,7 @@ def test_{{ func.name }}_expression(snapshot):
     result = bbq.{{ short_name }}.{{ func.name }}(
 {% endif %}
         {% for arg in func.args %}
-        {{ arg.test_value }},
+        {{ arg.test_value(func.name) }},
         {% endfor %}
     )
 

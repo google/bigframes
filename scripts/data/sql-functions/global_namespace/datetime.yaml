@@ -1,0 +1,182 @@
+urn: extension:google:bq_scalar_functions
+scalar_functions:
+  - name: "current_datetime"
+    description: "Returns the current date and time as a DATETIME value."
+    impls:
+      # Signature: current_datetime:str
+      - args:
+          - name: "time_zone"
+            value: string
+            optional: true
+            keyword_only: false
+        return: datetime
+  - name: "datetime"
+    description: "Constructs a DATETIME value."
+    series_accessor_arg: expression
+    impls:
+      # Signature: datetime:pts_str
+      - args:
+          - name: "expression"
+            value: timestamp
+            optional: false
+            keyword_only: false
+          - name: "time_zone"
+            value: string
+            optional: true
+            keyword_only: false
+        return: datetime
+      # Signature: datetime:date_pt
+      - args:
+          - name: "expression"
+            value: date
+            optional: false
+            keyword_only: false
+          - name: "time_expression"
+            value: time
+            optional: true
+            keyword_only: false
+        return: datetime
+      # Signature: datetime:str
+      - args:
+          - name: "expression"
+            value: string
+            optional: false
+            keyword_only: false
+        return: datetime
+      # Signature: datetime:i64_i64_i64_i64_i64_i64
+      - args:
+          - name: "year"
+            value: i64
+            optional: false
+            keyword_only: false
+          - name: "month"
+            value: i64
+            optional: false
+            keyword_only: false
+          - name: "day"
+            value: i64
+            optional: false
+            keyword_only: false
+          - name: "hour"
+            value: i64
+            optional: false
+            keyword_only: false
+          - name: "minute"
+            value: i64
+            optional: false
+            keyword_only: false
+          - name: "second"
+            value: i64
+            optional: false
+            keyword_only: false
+        return: datetime
+  - name: "datetime_add"
+    description: "Adds a specified time interval to a DATETIME value."
+    series_accessor_arg: datetime_expression
+    impls:
+      # Signature: datetime_add:datetime_interval
+      - args:
+          - name: "datetime_expression"
+            value: datetime
+            optional: false
+            keyword_only: false
+          - name: "interval"
+            value: interval
+            optional: false
+            keyword_only: false
+        return: datetime
+  # TODO(b/527093666): add support for datetime_bucket when we add an INTERVAL dtype
+  - name: "datetime_diff"
+    description: "Gets the number of unit boundaries between two DATETIME values (end_datetime - start_datetime) at a particular time granularity."
+    series_accessor_arg: end_datetime
+    impls:
+      # Signature: datetime_diff:datetime_datetime_date_part
+      - args:
+          - name: "end_datetime"
+            value: datetime
+            optional: false
+            keyword_only: false
+          - name: "start_datetime"
+            value: datetime
+            optional: false
+            keyword_only: false
+          - name: "granularity"
+            value: date_part
+            optional: false
+            keyword_only: false
+        return: i64
+  - name: "datetime_sub"
+    description: "Subtracts a specified time interval from a DATETIME value."
+    series_accessor_arg: datetime_expression
+    impls:
+      # Signature: datetime_sub:datetime_interval
+      - args:
+          - name: "datetime_expression"
+            value: datetime
+            optional: false
+            keyword_only: false
+          - name: "interval"
+            value: interval
+            optional: false
+            keyword_only: false
+        return: datetime
+  - name: "datetime_trunc"
+    description: "Truncates a DATETIME or TIMESTAMP value at a particular granularity."
+    series_accessor_arg: datetime_value
+    impls:
+      # Signature: datetime_trunc:datetime_date_part
+      - args:
+          - name: "datetime_value"
+            value: datetime
+            optional: false
+            keyword_only: false
+          - name: "granularity"
+            value: date_part
+            optional: false
+            keyword_only: false
+        return: datetime
+      # Signature: datetime_trunc:pts_date_part_str
+      - args:
+          - name: "datetime_value"
+            value: timestamp
+            optional: false
+            keyword_only: false
+          - name: "granularity"
+            value: date_part
+            optional: false
+            keyword_only: false
+          - name: "time_zone"
+            value: string
+            optional: true
+            keyword_only: false
+        return: timestamp
+  - name: "format_datetime"
+    description: "Formats a DATETIME value according to a specified format string."
+    series_accessor_arg: datetime_expr
+    impls:
+      # Signature: format_datetime:str_datetime
+      - args:
+          - name: "format_string"
+            value: string
+            optional: false
+            keyword_only: false
+          - name: "datetime_expr"
+            value: datetime
+            optional: false
+            keyword_only: false
+        return: string
+  - name: "parse_datetime"
+    description: "Converts a STRING value to a DATETIME value."
+    series_accessor_arg: datetime_string
+    impls:
+      # Signature: parse_datetime:str_str
+      - args:
+          - name: "format_string"
+            value: string
+            optional: false
+            keyword_only: false
+          - name: "datetime_string"
+            value: string
+            optional: false
+            keyword_only: false
+        return: datetime

@@ -34,7 +34,10 @@ PUBLIC_TABLE_ID = (
 )
 LAKEHOUSE_LOCATION = "us-central1"
 LAKEHOUSE_PROJECT = "bigframes-dev"
-LAKEHOUSE_DATASET = "bigframes_dev_iceberg_system_test_catalog.test_iceberg"
+# Flat-namespace (non-HNS) GCS bucket + CATALOG_TYPE_BIGLAKE catalog as a
+# workaround for b/587357246 (CTAS fails with 403 storage.folders.create on
+# HNS buckets under downscoped CAB credentials).
+LAKEHOUSE_DATASET = "bigframes_dev_lakehouse_system_test_catalog.test_iceberg"
 
 prefixer = test_utils.prefixer.Prefixer("bigframes", "tests/system")
 

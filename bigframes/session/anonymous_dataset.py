@@ -58,6 +58,7 @@ class AnonymousDatasetManager(temporary_storage.TemporaryStorageManager):
 
         self._dataset_lock = threading.Lock()
         self._datset_ref: Optional[bigquery.DatasetReference] = None
+        self._cleaned_up_old_udfs: bool = False
 
     @property
     def location(self):
@@ -185,15 +186,20 @@ class AnonymousDatasetManager(temporary_storage.TemporaryStorageManager):
             finally:
                 self._table_ids.clear()
 
-        try:
-            # Before closing the session, attempt to clean up any uncollected,
-            # old Python UDFs residing in the anonymous dataset. These UDFs
-            # accumulate over time and can eventually exceed resource limits.
-            # See more from b/450913424.
-            self._cleanup_old_udfs()
-        except Exception as e:
-            # Log a warning on the failure, do not interrupt the workflow.
-            msg = bfe.format_message(
-                f"Failed to clean up the old Python UDFs before closing the session: {e}"
-            )
-            warnings.warn(msg, category=bfe.CleanupFailedWarning)
+        if self._datset_ref is not None and not self._cleaned_up_old_udfs:
+            with self._dataset_lock:
+                should_cleanup_udfs = not self._cleaned_up_old_udfs
+                self._cleaned_up_old_udfs = True
+            if should_cleanup_udfs:
+                try:
+                    # Before closing the session, attempt to clean up any uncollected,
+                    # old Python UDFs residing in the anonymous dataset. These UDFs
+                    # accumulate over time and can eventually exceed resource limits.
+                    # See more from b/450913424.
+                    self._cleanup_old_udfs()
+                except Exception as e:
+                    # Log a warning on the failure, do not interrupt the workflow.
+                    msg = bfe.format_message(
+                        f"Failed to clean up the old Python UDFs before closing the session: {e}"
+                    )
+                    warnings.warn(msg, category=bfe.CleanupFailedWarning)

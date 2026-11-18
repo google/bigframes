@@ -568,17 +568,14 @@ def test_create_object_table_escapes_identifiers_and_path():
         "proj.dataset.tbl`\\name"
     )
 
-    with mock.patch(
-        "bigframes.session._io.bigquery.start_query_with_job"
-    ) as mock_start_query:
-        table = session._create_object_table(
-            path="gs://bucket/a\\']); DROP TABLE x; --",
-            connection="proj.us.conn`\\id",
-        )
+    table = session._create_object_table(
+        path="gs://bucket/a\\']); DROP TABLE x; --",
+        connection="proj.us.conn`\\id",
+    )
 
     assert table == "proj.dataset.tbl`\\name"
-    mock_start_query.assert_called_once()
-    executed_sql = mock_start_query.call_args[0][1]
+    session.bqclient.query.assert_called_once()
+    executed_sql = session.bqclient.query.call_args[0][0]
     assert executed_sql.strip() == (
         "CREATE EXTERNAL TABLE `proj.dataset.tbl\\`\\\\name`\n"
         "WITH CONNECTION `proj.us.conn\\`\\\\id`\n"

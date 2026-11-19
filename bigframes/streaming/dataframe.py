@@ -19,6 +19,7 @@ from __future__ import annotations
 import functools
 import inspect
 import json
+import re
 import warnings
 from abc import abstractmethod
 from datetime import date, datetime
@@ -31,6 +32,7 @@ import bigframes.exceptions as bfe
 import bigframes.session
 from bigframes import dataframe
 from bigframes.core import nodes
+from bigframes.core.compile.sqlglot import sql as sg_sql
 from bigframes.core.logging import log_adapter
 
 
@@ -347,6 +349,54 @@ class StreamingDataFrame(StreamingBase):
     _session.__doc__ = _curate_df_doc(inspect.getdoc(dataframe.DataFrame._session))
 
 
+# Characters that no Bigtable or Pub/Sub resource ID can contain. This is
+# deliberately looser than each resource's naming rule, so that a valid name is
+# never rejected. The rest of each rule is left to BigQuery and the service.
+# For the characters that each ID allows, see:
+# https://cloud.google.com/bigtable/docs/reference/admin/rest/v2/projects.instances#Instance
+# https://cloud.google.com/bigtable/docs/reference/admin/rest/v2/projects.instances.appProfiles#AppProfile
+# https://cloud.google.com/bigtable/docs/reference/admin/rest/v2/projects.instances.tables#Table
+# https://cloud.google.com/pubsub/docs/pubsub-basics#resource_names
+_INVALID_RESOURCE_ID_CHARS_RE = re.compile(r"[/\\'\"`?#\s\x00-\x1f\x7f-\x9f]")
+
+
+def _check_resource_id(value: object, param_name: str) -> str:
+    """Returns value as a string if it can be a Bigtable or Pub/Sub resource ID.
+
+    This keeps the ID from pointing the export URI at another resource.
+
+    Raises:
+        ValueError: If the ID can never be valid.
+    """
+    resource_id = str(value)
+    if (
+        value is None
+        or resource_id in ("", ".", "..")
+        or _INVALID_RESOURCE_ID_CHARS_RE.search(resource_id)
+    ):
+        raise ValueError(
+            f"Invalid {param_name} {value!r}. Bigtable and Pub/Sub resource IDs "
+            "can't be None, empty, '.' or '..', or contain '/', '\\', quotes, '?', "
+            "'#', whitespace or control characters."
+        )
+    return resource_id
+
+
+def _bool_option_sql(value: object, param_name: str) -> str:
+    """Returns the SQL literal for a boolean EXPORT DATA option.
+
+    Accepts any value whose text is "true" or "false", ignoring case and
+    surrounding whitespace, such as True, numpy.False_ or "false".
+
+    Raises:
+        ValueError: If value isn't a boolean.
+    """
+    text = str(value).strip().lower()
+    if text not in ("true", "false"):
+        raise ValueError(f"{param_name} must be a bool, got {value!r}.")
+    return sg_sql.to_sql(sg_sql.literal(text == "true"))
+
+
 def _to_bigtable(
     query: str,
     *,
@@ -427,6 +477,16 @@ def _to_bigtable(
     )
     warnings.warn(msg, stacklevel=1, category=bfe.PreviewWarning)
 
+    instance = _check_resource_id(instance, "instance")
+    table = _check_resource_id(table, "table")
+    if app_profile is not None:
+        app_profile = _check_resource_id(app_profile, "app_profile")
+    truncate_sql = _bool_option_sql(truncate, "truncate")
+    overwrite_sql = _bool_option_sql(overwrite, "overwrite")
+    auto_create_column_families_sql = _bool_option_sql(
+        auto_create_column_families, "auto_create_column_families"
+    )
+
     # get default client if not passed
     if session is None:
         session = bigframes.get_global_session()
@@ -438,11 +498,18 @@ def _to_bigtable(
     app_profile_url_string = ""
     if app_profile is not None:
         app_profile_url_string = f"appProfiles/{app_profile}/"
+    uri = (
+        f"https://bigtable.googleapis.com/projects/{project}/instances/{instance}/"
+        f"{app_profile_url_string}tables/{table}"
+    )
 
     bigtable_options_parameter_string = ""
     if bigtable_options is not None:
+        bigtable_options_literal = sg_sql.to_sql(
+            sg_sql.literal(json.dumps(bigtable_options))
+        )
         bigtable_options_parameter_string = (
-            'bigtable_options = """' + json.dumps(bigtable_options) + '""",\n'
+            f"bigtable_options = {bigtable_options_literal},\n"
         )
 
     sql = (
@@ -450,10 +517,10 @@ def _to_bigtable(
         "OPTIONS (\n"
         "format = 'CLOUD_BIGTABLE',\n"
         f"{bigtable_options_parameter_string}"
-        f"truncate = {str(truncate)},\n"
-        f"overwrite = {str(overwrite)},\n"
-        f"auto_create_column_families = {str(auto_create_column_families)},\n"
-        f'uri = "https://bigtable.googleapis.com/projects/{project}/instances/{instance}/{app_profile_url_string}tables/{table}"\n'
+        f"truncate = {truncate_sql},\n"
+        f"overwrite = {overwrite_sql},\n"
+        f"auto_create_column_families = {auto_create_column_families_sql},\n"
+        f"uri = {sg_sql.to_sql(sg_sql.literal(uri))}\n"
         ")\n"
         "AS (\n"
         f"{query});"
@@ -540,17 +607,20 @@ def _to_pubsub(
     )
     warnings.warn(msg, stacklevel=1, category=bfe.PreviewWarning)
 
+    topic = _check_resource_id(topic, "topic")
+
     # get default client if not passed
     if session is None:
         session = bigframes.get_global_session()
     bq_client = session.bqclient
 
     # build export string from parameters
+    uri = f"https://pubsub.googleapis.com/projects/{bq_client.project}/topics/{topic}"
     sql = (
         "EXPORT DATA\n"
         "OPTIONS (\n"
         "format = 'CLOUD_PUBSUB',\n"
-        f'uri = "https://pubsub.googleapis.com/projects/{bq_client.project}/topics/{topic}"\n'
+        f"uri = {sg_sql.to_sql(sg_sql.literal(uri))}\n"
         ")\n"
         "AS (\n"
         f"{query});"

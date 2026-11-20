@@ -4,6 +4,26 @@
 
 [1]: https://pypi.org/project/bigframes/#history
 
+## [2.53.1](https://github.com/google/bigframes/compare/v2.53.0...v2.53.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* **deps:** increase minimum version of jupyter-core ([8a00608](https://github.com/google/bigframes/commit/8a00608931eb7815cf7bcb63974a51e2c2e2caf7))
+* **deps:** increase minimum version of nbconvert ([691b9a3](https://github.com/google/bigframes/commit/691b9a3fc0649eb129f68b46cd852be82254fcc6))
+* **deps:** increase minimum version of opentelemetry-api ([68c243c](https://github.com/google/bigframes/commit/68c243c338069d500e3b6963b8be70f19c03a7bc))
+* **deps:** increase minimum version of pillow ([5198998](https://github.com/google/bigframes/commit/51989984797b0a3242e94e7b28cbcdd390347fa3))
+* **deps:** increase minimum version of setuptools ([72da1c6](https://github.com/google/bigframes/commit/72da1c6da812e767031399f8e410c4078d2d3433))
+* **deps:** increase minimum version of urlib3 ([f9d053d](https://github.com/google/bigframes/commit/f9d053da079f68a14705521a6c46aa77f6938322))
+* **deps:** increase minimum version of zipp ([74550d1](https://github.com/google/bigframes/commit/74550d1cc83ece8fc91fa8426e5fe335f13e8b83))
+* escape error messages in the anywidget table widget ([d3f579d](https://github.com/google/bigframes/commit/d3f579d09dfbaa0f71e517a5fc2120baf431f6a9))
+* validate resource names in to_bigtable and to_pubsub ([8db7c55](https://github.com/google/bigframes/commit/8db7c55a806471d969c415b2055c1fad5b715f15))
+
+
+### Documentation
+
+* mention BigLake Lakehouse table names in the read_gbq docstring ([b428f83](https://github.com/google/bigframes/commit/b428f833a04acebb0246069642a05fae5393af73))
+
 ## [2.53.0](https://github.com/google/bigframes/compare/v2.52.0...v2.53.0) (2026-11-11)
 
 

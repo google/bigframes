@@ -15,17 +15,21 @@
 """Unit tests for read_gbq_table helper functions."""
 
 import datetime
+import re
 import unittest.mock as mock
 import warnings
 
 import google.cloud.bigquery
+import pandas as pd
 import pytest
 
+import bigframes.bigquery as bbq
+import bigframes.core.compile as compile
 import bigframes.enums
 import bigframes.exceptions
 import bigframes.session._io.bigquery.read_gbq_table as bf_read_gbq_table
 from bigframes.core import bq_data
-from bigframes.testing import mocks
+from bigframes.testing import compiler_session, mocks
 
 
 @pytest.mark.parametrize(
@@ -367,3 +371,87 @@ def test_get_information_schema_metadata_strips_and_quotes_backtick_segments():
     assert table.project == "my-project.region-us"
     assert table.dataset_id == "INFORMATION_SCHEMA"
     assert table.table_id == "JOBS"
+
+
+TABLE_ID = "test-project.test_dataset.quoted_names"
+
+# A quoted identifier, where \` does not end it.
+QUOTED_NAME = re.compile(r"`((?:[^`\\]|\\.)*)`", flags=re.DOTALL)
+# An identifier with no special characters.
+ORDINARY_NAME = re.compile(r"[\w.-]+")
+
+NAMES = (
+    pytest.param("with space", "`with space`", id="space"),
+    pytest.param("it's", "`it's`", id="single_quote"),
+    pytest.param("a`b", r"`a\`b`", id="backtick"),
+    pytest.param("a\\", r"`a\\`", id="backslash_at_end"),
+    pytest.param("a\\b", r"`a\\b`", id="backslash"),
+    pytest.param("a\nb", r"`a\nb`", id="line_feed"),
+    pytest.param("x\\` OR 1=1 --", r"`x\\\` OR 1=1 --`", id="injection"),
+)
+
+
+def _read_table(schema):
+    session = mocks.create_bigquery_session(
+        table_name="quoted_names",
+        table_schema=schema,
+        anonymous_dataset=google.cloud.bigquery.DatasetReference(
+            "test-project", "test_dataset"
+        ),
+        location="US",
+    )
+    session._executor = compiler_session.SQLCompilerExecutor()
+    return session._loader.read_gbq_table
+
+
+def _compile(df, compiler_name):
+    request = compile.CompileRequest(df._block.expr.node, sort_rows=False)
+    return compile.compile_sql(request, compiler_name=compiler_name).sql
+
+
+def _assert_name_stays_in_backticks(compiled, quoted):
+    assert quoted in compiled
+    other_names = set(QUOTED_NAME.findall(compiled)) - {quoted[1:-1]}
+    assert all(ORDINARY_NAME.fullmatch(other) for other in other_names), other_names
+
+
+@pytest.mark.parametrize("compiler_name", ["sqlglot", "ibis"])
+@pytest.mark.parametrize(("name", "quoted"), NAMES)
+def test_read_filter_column_name(name, quoted, compiler_name):
+    schema = [
+        google.cloud.bigquery.SchemaField("rowindex", "INTEGER"),
+        google.cloud.bigquery.SchemaField(name, "STRING"),
+    ]
+    df = _read_table(schema)(
+        TABLE_ID,
+        enable_snapshot=False,
+        columns=["rowindex", name],
+        filters=[(name, "==", "v")],
+    )
+
+    compiled = _compile(df, compiler_name)
+
+    _assert_name_stays_in_backticks(compiled, quoted)
+
+
+@pytest.mark.parametrize("compiler_name", ["sqlglot", "ibis"])
+@pytest.mark.parametrize(("name", "quoted"), NAMES)
+def test_sql_scalar_struct_field_name(name, quoted, compiler_name):
+    schema = [
+        google.cloud.bigquery.SchemaField("rowindex", "INTEGER"),
+        google.cloud.bigquery.SchemaField(
+            "record",
+            "RECORD",
+            fields=[google.cloud.bigquery.SchemaField(name, "STRING")],
+        ),
+    ]
+    df = _read_table(schema)(TABLE_ID, enable_snapshot=False)
+    series = bbq.sql_scalar(
+        "LENGTH({0})",
+        columns=[df["record"].struct.field(name)],
+        output_dtype=pd.Int64Dtype(),
+    )
+
+    compiled = _compile(series.to_frame(), compiler_name)
+
+    _assert_name_stays_in_backticks(compiled, quoted)

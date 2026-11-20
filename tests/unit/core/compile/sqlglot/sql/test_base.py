@@ -16,6 +16,8 @@ import datetime
 import decimal
 import re
 
+import bigframes_vendored.sqlglot as sg
+import bigframes_vendored.sqlglot.expressions as sge
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -23,6 +25,7 @@ import pytest
 import shapely.geometry  # type: ignore
 
 import bigframes.core.compile.sqlglot.sql.base as sql
+import bigframes.core.sql
 
 
 @pytest.mark.parametrize(
@@ -221,3 +224,128 @@ def test_literal_null_type():
     ):
         got = sql.to_sql(sql.literal(None, dtype=mock_dtype))
     assert got == "NULL"
+
+
+SQLI_NAME = "m\\` OPTIONS(endpoint = 'evil') AS SELECT 1 --"
+
+ESCAPED_NAMES = (
+    pytest.param("a`b", r"`a\`b`", id="backtick"),
+    pytest.param("a\\", r"`a\\`", id="backslash_at_end"),
+    pytest.param("a\\b", r"`a\\b`", id="backslash"),
+    pytest.param("a\\`b", r"`a\\\`b`", id="backslash_backtick"),
+    pytest.param("a\nb", r"`a\nb`", id="line_feed"),
+    pytest.param("a\rb", r"`a\rb`", id="carriage_return"),
+    pytest.param(
+        SQLI_NAME,
+        r"`m\\\` OPTIONS(endpoint = 'evil') AS SELECT 1 --`",
+        id="injection",
+    ),
+)
+
+UNCHANGED_NAMES = (
+    pytest.param("plain", id="plain"),
+    pytest.param("with space", id="space"),
+    pytest.param("日本語_é", id="non_english"),
+    pytest.param("it's", id="single_quote"),
+    pytest.param('say "hi"', id="double_quote"),
+    pytest.param("what?", id="question_mark"),
+    pytest.param("a-b:c#d", id="punctuation"),
+    pytest.param("select", id="reserved_keyword"),
+    pytest.param("1st", id="starts_with_digit"),
+)
+
+
+@pytest.mark.parametrize(("name", "expected"), ESCAPED_NAMES)
+def test_identifier_escapes_name(name, expected):
+    assert sql.to_sql(sql.identifier(name)) == expected
+
+
+@pytest.mark.parametrize("name", UNCHANGED_NAMES)
+def test_identifier_keeps_name(name):
+    assert sql.to_sql(sql.identifier(name)) == f"`{name}`"
+
+
+@pytest.mark.parametrize("name", ["SYSTEM_TIME", "a\\b", "a`b"])
+def test_unquoted_identifier_is_not_escaped(name):
+    assert sql.to_sql(sge.Identifier(this=name, quoted=False)) == name
+
+
+@pytest.mark.parametrize(
+    ("name", "identify", "expected"),
+    (
+        pytest.param("select", False, "`select`", id="reserved_keyword"),
+        pytest.param("1a`b", False, r"`1a\`b`", id="starts_with_digit"),
+        pytest.param("a`b", True, r"`a\`b`", id="identify"),
+    ),
+)
+def test_unquoted_identifier_gets_backticks_when_required(name, identify, expected):
+    expr = sge.Identifier(this=name, quoted=False)
+
+    assert expr.sql(dialect=sql.DIALECT, identify=identify) == expected
+
+
+@pytest.mark.parametrize(
+    "name", [param.values[0] for param in (*ESCAPED_NAMES, *UNCHANGED_NAMES)]
+)
+def test_identifier_round_trips(name):
+    written = sql.to_sql(sql.identifier(name))
+
+    parsed = sg.parse_one(written, dialect=sql.DIALECT)
+
+    assert parsed.name == name
+    assert sql.to_sql(parsed) == written
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        *(param.values[0] for param in (*ESCAPED_NAMES, *UNCHANGED_NAMES)),
+        "a\tb",
+        "a\a\b\f\vb",
+    ],
+)
+def test_core_sql_identifier_is_parsed_back(name):
+    written = bigframes.core.sql.identifier(name)
+
+    parsed = sg.parse_one(written, dialect=sql.DIALECT)
+
+    assert parsed.name == name
+
+
+@pytest.mark.parametrize(
+    ("written", "name"),
+    (
+        pytest.param(r"`a\x41b`", "aAb", id="hex"),
+        pytest.param(r"`a\X41b`", "aAb", id="hex_uppercase_x"),
+        pytest.param(r"`a\101b`", "aAb", id="octal"),
+        pytest.param(r"`caf\u00e9`", "café", id="unicode_4"),
+        pytest.param(r"`a\U0001F600b`", "a😀b", id="unicode_8"),
+        pytest.param(r"`a\qb`", "a\\qb", id="unknown_escape"),
+        pytest.param(r"`a\ud800b`", "a\\ud800b", id="surrogate"),
+        pytest.param(r"`a\U00110000b`", "a\\U00110000b", id="out_of_range"),
+    ),
+)
+def test_parse_quoted_identifier_escape_sequence(written, name):
+    parsed = sg.parse_one(written, dialect=sql.DIALECT)
+
+    assert parsed.name == name
+
+
+def test_parse_doubled_backtick_as_two_names():
+    parsed = sg.parse_one("SELECT `a``b` FROM `t`", dialect=sql.DIALECT)
+
+    assert parsed.sql(dialect=sql.DIALECT) == "SELECT `a` AS `b` FROM `t`"
+
+
+@pytest.mark.parametrize("written", ["`a", "`a\\`", "`a\\"])
+def test_parse_unterminated_quoted_identifier_raises(written):
+    with pytest.raises(sg.TokenError):
+        sg.parse_one(written, dialect=sql.DIALECT)
+
+
+def test_parse_dotted_table_name_in_one_pair_of_backticks():
+    written = "SELECT * FROM `proj.ds.tbl` AS `t`"
+
+    parsed = sg.parse_one(written, dialect=sql.DIALECT)
+
+    assert parsed.sql(dialect=sql.DIALECT) == written

@@ -39,6 +39,7 @@ from bigframes_vendored.sqlglot.dialects.dialect import (
     ts_or_ds_add_cast,
     unit_to_var,
 )
+from bigframes_vendored.sqlglot.errors import TokenError
 from bigframes_vendored.sqlglot.expressions import Expression as E
 from bigframes_vendored.sqlglot.generator import unsupported_args
 from bigframes_vendored.sqlglot.helper import seq_get, split_num_words
@@ -559,6 +560,13 @@ class BigQuery(Dialect):
 
         NESTED_COMMENTS = False
 
+        # Escape sequences in quoted identifiers, e.g. \n, \x41, \u00e9.
+        # https://cloud.google.com/bigquery/docs/reference/standard-sql/lexical#string_and_bytes_literals
+        QUOTED_IDENTIFIER_ESCAPE_RE = re.compile(
+            r"\\(?:([0-3][0-7]{2})|[xX]([0-9A-Fa-f]{2})|u([0-9A-Fa-f]{4})"
+            r"|U([0-9A-Fa-f]{8})|([abfnrtv\\?\"'`]))"
+        )
+
         KEYWORDS = {
             **tokens.Tokenizer.KEYWORDS,
             "ANY TYPE": TokenType.VARIANT,
@@ -585,6 +593,38 @@ class BigQuery(Dialect):
         KEYWORDS.pop("DIV")
         KEYWORDS.pop("VALUES")
         KEYWORDS.pop("/*+")
+
+        def _scan_identifier(self, identifier_end: str) -> None:
+            # BigQuery escapes a backtick as \`, not as two backticks.
+            start = self._current
+            while True:
+                if self._end:
+                    raise TokenError(
+                        f"Missing {identifier_end} from {self._line}:{self._start}"
+                    )
+                self._advance(alnum=True)
+                if self._char == identifier_end:
+                    break
+                if self._char == "\\" and not self._end:
+                    self._advance()
+
+            text = self.sql[start : self._current - 1]
+            if "\\" in text:
+                text = self.QUOTED_IDENTIFIER_ESCAPE_RE.sub(
+                    self._unescape_identifier, text
+                )
+            self._add(TokenType.IDENTIFIER, text)
+
+        def _unescape_identifier(self, match: re.Match[str]) -> str:
+            octal, hex2, hex4, hex8, char = match.groups()
+            if char:
+                return self.dialect.UNESCAPED_SEQUENCES.get(match.group(), char)
+
+            code = int(octal, 8) if octal else int(hex2 or hex4 or hex8, 16)
+            # BigQuery rejects surrogates and values above U+10FFFF.
+            if code > 0x10FFFF or 0xD800 <= code <= 0xDFFF:
+                return match.group()
+            return chr(code)
 
     class Parser(parser.Parser):
         PREFIXED_PIVOT_COLUMNS = True
@@ -1205,6 +1245,11 @@ class BigQuery(Dialect):
 
         SAFE_JSON_PATH_KEY_RE = re.compile(r"^[_\-a-zA-Z][\-\w]*$")
 
+        # A quoted identifier can't contain a raw backslash, backtick or line break.
+        QUOTED_IDENTIFIER_ESCAPES = str.maketrans(
+            {"\\": "\\\\", "`": "\\`", "\n": "\\n", "\r": "\\r"}
+        )
+
         TS_OR_DS_TYPES = (
             exp.TsOrDsToDatetime,
             exp.TsOrDsToTimestamp,
@@ -1548,6 +1593,24 @@ class BigQuery(Dialect):
                 return self.sql(exp.Identifier(this=table_parts, quoted=True))
 
             return super().table_parts(expression)
+
+        def identifier_sql(self, expression: exp.Identifier) -> str:
+            text = expression.name
+            lower = text.lower()
+            text = lower if self.normalize and not expression.quoted else text
+            if (
+                expression.quoted
+                or self.dialect.can_quote(expression, self.identify)
+                or lower in self.RESERVED_KEYWORDS
+                or (
+                    not self.dialect.IDENTIFIERS_CAN_START_WITH_DIGIT
+                    and text[:1].isdigit()
+                )
+            ):
+                # BigQuery escapes a backtick as \`, not as two backticks.
+                text = text.translate(self.QUOTED_IDENTIFIER_ESCAPES)
+                return f"{self._identifier_start}{text}{self._identifier_end}"
+            return text
 
         def timetostr_sql(self, expression: exp.TimeToStr) -> str:
             this = expression.this

@@ -62,6 +62,14 @@ def test_get_standardized_ids_tuple():
     assert col_ids == ["_'foo'_ 1_", "_'foo'_ 2_", "_'bar'_ 1_"]
 
 
+def test_get_standardized_ids_replaces_backslash_and_brackets():
+    col_labels = ["a\\b", "a_b", "ends with\\", "[a]"]
+
+    col_ids, _ = utils.get_standardized_ids(col_labels)
+
+    assert col_ids == ["a_b", "a_b_1", "ends with_", "_a_"]
+
+
 @pytest.mark.parametrize(
     "input",
     [

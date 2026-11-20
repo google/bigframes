@@ -153,7 +153,7 @@ def label_to_identifier(label: typing.Hashable, strict: bool = False) -> str:
         # Even with flexible column names, there are constraints
         # Convert illegal characters
         # See: https://cloud.google.com/bigquery/docs/schemas#flexible-column-names
-        identifier = re.sub(r"[!\"$\(\)\*\,\./;\?@[\]^`{}~]", "_", identifier)
+        identifier = re.sub(r"[!\"$\(\)\*\,\./;\?@[\\\]^`{}~]", "_", identifier)
 
     # Except in special circumstances (true anonymous query results tables),
     # field names are not allowed to start with these (case-insensitive)

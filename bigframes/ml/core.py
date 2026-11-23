@@ -20,11 +20,13 @@ import dataclasses
 import datetime
 import typing
 import uuid
+import warnings
 from typing import Callable, Iterable, Mapping, Optional, Union
 
 from google.cloud import bigquery
 
 import bigframes.constants as constants
+import bigframes.exceptions as bfe
 import bigframes.formatting_helpers as formatting_helpers
 import bigframes.pandas as bpd
 import bigframes.session
@@ -451,6 +453,28 @@ class BqmlModelFactory:
 
         return BqmlModel(session, model)
 
+    def _options_with_kms_key(
+        self,
+        session: bigframes.Session,
+        options: Mapping[str, Union[str, int, float, Iterable[str]]],
+    ) -> dict[str, Union[str, int, float, Iterable[str]]]:
+        options_copy = dict(options)
+        if session._bq_kms_key_name:
+            options_copy["kms_key_name"] = session._bq_kms_key_name
+        return options_copy
+
+    def _warn_if_kms_key_unsupported_for_remote_model(
+        self, session: bigframes.Session
+    ) -> None:
+        if session._bq_kms_key_name:
+            msg = bfe.format_message(
+                "BigQuery ML does not support customer-managed encryption keys "
+                "(kms_key_name) for remote models. Proceeding without kms_key_name. "
+                "See https://cloud.google.com/bigquery/docs/customer-managed-encryption#limitations",
+                fill=False,
+            )
+            warnings.warn(msg, category=UserWarning)
+
     def create_model(
         self,
         X_train: bpd.DataFrame,
@@ -483,8 +507,7 @@ class BqmlModelFactory:
             options.update({"INPUT_LABEL_COLS": y_train.columns.tolist()})
 
         session = X_train._session
-        if session._bq_kms_key_name:
-            options.update({"kms_key_name": session._bq_kms_key_name})
+        options = self._options_with_kms_key(session, options)
 
         model_ref = self._create_model_ref(session._anonymous_dataset)
 
@@ -523,6 +546,7 @@ class BqmlModelFactory:
         options.update({"INPUT_LABEL_COLS": y_train.columns.tolist()})
 
         session = X_train._session
+        self._warn_if_kms_key_unsupported_for_remote_model(session)
 
         model_ref = self._create_model_ref(session._anonymous_dataset)
 
@@ -566,6 +590,7 @@ class BqmlModelFactory:
             options.update({"TIME_SERIES_ID_COL": id_col.columns.tolist()[0]})
 
         session = X_train._session
+        options = self._options_with_kms_key(session, options)
         model_ref = self._create_model_ref(session._anonymous_dataset)
 
         sql = self._model_creation_sql_generator.create_model(
@@ -600,6 +625,7 @@ class BqmlModelFactory:
         Returns:
             BqmlModel: a BqmlModel wrapping a trained model in BigQuery
         """
+        self._warn_if_kms_key_unsupported_for_remote_model(session)
         model_ref = self._create_model_ref(session._anonymous_dataset)
         sql = self._model_creation_sql_generator.create_remote_model(
             connection_name=connection_name,
@@ -624,6 +650,7 @@ class BqmlModelFactory:
 
         Returns: a BqmlModel, wrapping a trained model in BigQuery
         """
+        options = self._options_with_kms_key(session, options)
         model_ref = self._create_model_ref(session._anonymous_dataset)
         sql = self._model_creation_sql_generator.create_imported_model(
             model_ref=model_ref,
@@ -651,6 +678,7 @@ class BqmlModelFactory:
 
         Returns: a BqmlModel, wrapping a trained model in BigQuery
         """
+        options = self._options_with_kms_key(session, options)
         model_ref = self._create_model_ref(session._anonymous_dataset)
 
         sql = self._model_creation_sql_generator.create_xgboost_imported_model(

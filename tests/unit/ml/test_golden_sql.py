@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
 from unittest import mock
 
 import pandas as pd
@@ -25,6 +26,9 @@ from bigframes.ml import core, decomposition, linear_model
 
 TEMP_MODEL_ID = bigquery.ModelReference.from_string(
     "test-project._anon123.temp_model_id"
+)
+TEST_KMS_KEY = (
+    "projects/test-project/locations/us/keyRings/test-ring/cryptoKeys/test-key"
 )
 
 
@@ -286,3 +290,199 @@ def test_decomposition_mf_score_with_x(mock_session, bqml_model, mock_X):
         "SELECT * FROM ML.EVALUATE(MODEL `model_project`.`model_dataset`.`model_id`,\n  (input_X_sql_property))",
         allow_large_results=True,
     )
+
+
+def test_create_model_includes_kms_key_name(
+    bqml_model_factory, mock_session, mock_X, mock_y
+):
+    mock_session._bq_kms_key_name = TEST_KMS_KEY
+    options = {"model_type": "LINEAR_REG"}
+
+    bqml_model_factory.create_model(mock_X, mock_y, options=options)
+
+    assert options == {"model_type": "LINEAR_REG"}
+    mock_session._start_query_ml_ddl.assert_called_once_with(
+        "CREATE OR REPLACE MODEL `test-project`.`_anon123`.`temp_model_id`\n"
+        "OPTIONS(\n"
+        "  model_type='LINEAR_REG',\n"
+        "  INPUT_LABEL_COLS=['input_column_label'],\n"
+        f"  kms_key_name='{TEST_KMS_KEY}')\n"
+        "AS input_X_y_no_index_sql"
+    )
+
+
+def test_create_time_series_model_includes_kms_key_name(
+    bqml_model_factory, mock_session, mock_X, mock_y
+):
+    mock_session._bq_kms_key_name = TEST_KMS_KEY
+    mock_X.columns = pd.Index(["ts_col"])
+    mock_y.columns = pd.Index(["data_col"])
+    mock_X.join(mock_y, how="outer").cache().sql = "input_X_y_sql"
+    options = {"model_type": "ARIMA_PLUS"}
+
+    bqml_model_factory.create_time_series_model(mock_X, mock_y, options=options)
+
+    assert options == {"model_type": "ARIMA_PLUS"}
+    mock_session._start_query_ml_ddl.assert_called_once_with(
+        "CREATE OR REPLACE MODEL `test-project`.`_anon123`.`temp_model_id`\n"
+        "OPTIONS(\n"
+        "  model_type='ARIMA_PLUS',\n"
+        "  TIME_SERIES_TIMESTAMP_COL='ts_col',\n"
+        "  TIME_SERIES_DATA_COL='data_col',\n"
+        f"  kms_key_name='{TEST_KMS_KEY}')\n"
+        "AS input_X_y_sql"
+    )
+
+
+@pytest.mark.parametrize(
+    ("model_type", "model_path"),
+    [
+        ("TENSORFLOW", "gs://bucket/tf_model/*"),
+        ("ONNX", "gs://bucket/onnx_model/model.onnx"),
+        ("XGBOOST", "gs://bucket/xgb_model/*"),
+    ],
+)
+def test_create_imported_model_includes_kms_key_name(
+    bqml_model_factory, mock_session, model_type, model_path
+):
+    mock_session._bq_kms_key_name = TEST_KMS_KEY
+    options = {"model_type": model_type, "model_path": model_path}
+
+    bqml_model_factory.create_imported_model(session=mock_session, options=options)
+
+    assert options == {"model_type": model_type, "model_path": model_path}
+    mock_session._start_query_ml_ddl.assert_called_once_with(
+        "CREATE OR REPLACE MODEL `test-project`.`_anon123`.`temp_model_id`\n"
+        "OPTIONS(\n"
+        f"  model_type='{model_type}',\n"
+        f"  model_path='{model_path}',\n"
+        f"  kms_key_name='{TEST_KMS_KEY}')"
+    )
+
+
+def test_create_xgboost_imported_model_includes_kms_key_name(
+    bqml_model_factory, mock_session
+):
+    mock_session._bq_kms_key_name = TEST_KMS_KEY
+    options = {"model_type": "XGBOOST", "model_path": "gs://bucket/xgb_model/*"}
+
+    bqml_model_factory.create_xgboost_imported_model(
+        session=mock_session,
+        input={"f1": "FLOAT64"},
+        output={"label": "FLOAT64"},
+        options=options,
+    )
+
+    assert options == {
+        "model_type": "XGBOOST",
+        "model_path": "gs://bucket/xgb_model/*",
+    }
+    mock_session._start_query_ml_ddl.assert_called_once_with(
+        "CREATE OR REPLACE MODEL `test-project`.`_anon123`.`temp_model_id`\n"
+        "INPUT(\n"
+        "  `f1` FLOAT64)\n"
+        "OUTPUT(\n"
+        "  `label` FLOAT64)\n"
+        "OPTIONS(\n"
+        "  model_type='XGBOOST',\n"
+        "  model_path='gs://bucket/xgb_model/*',\n"
+        f"  kms_key_name='{TEST_KMS_KEY}')"
+    )
+
+
+def test_create_supported_models_omit_kms_key_when_unset(
+    bqml_model_factory, mock_session, mock_X, mock_y
+):
+    mock_session._bq_kms_key_name = None
+    mock_X.columns = pd.Index(["ts_col"])
+    mock_y.columns = pd.Index(["data_col"])
+    mock_X.join(mock_y, how="outer").cache().sql = "input_X_y_sql"
+
+    bqml_model_factory.create_time_series_model(
+        mock_X, mock_y, options={"model_type": "ARIMA_PLUS"}
+    )
+    bqml_model_factory.create_imported_model(
+        session=mock_session,
+        options={"model_type": "TENSORFLOW", "model_path": "gs://bucket/tf/*"},
+    )
+    bqml_model_factory.create_xgboost_imported_model(
+        session=mock_session,
+        input={"f1": "FLOAT64"},
+        output={"label": "FLOAT64"},
+        options={"model_type": "XGBOOST", "model_path": "gs://bucket/xgb/*"},
+    )
+
+    assert mock_session._start_query_ml_ddl.call_count == 3
+    for call in mock_session._start_query_ml_ddl.call_args_list:
+        assert "kms_key_name" not in call.args[0]
+
+
+def test_create_remote_model_warns_and_omits_kms_key_name(
+    bqml_model_factory, mock_session
+):
+    mock_session._bq_kms_key_name = TEST_KMS_KEY
+
+    with pytest.warns(
+        UserWarning,
+        match=r"does not support customer-managed encryption keys.*customer-managed-encryption#limitations",
+    ):
+        bqml_model_factory.create_remote_model(
+            session=mock_session,
+            connection_name="test-project.us.test-conn",
+            options={"endpoint": "gemini-2.0-flash-001"},
+        )
+
+    mock_session._start_query_ml_ddl.assert_called_once_with(
+        "CREATE OR REPLACE MODEL `test-project`.`_anon123`.`temp_model_id`\n"
+        "REMOTE WITH CONNECTION `test-project.us.test-conn`\n"
+        "OPTIONS(\n"
+        "  endpoint='gemini-2.0-flash-001')"
+    )
+
+
+def test_create_llm_remote_model_warns_and_omits_kms_key_name(
+    bqml_model_factory, mock_session, mock_X, mock_y
+):
+    mock_session._bq_kms_key_name = TEST_KMS_KEY
+    mock_X.join(mock_y, how="outer").cache().sql = "input_X_y_sql"
+
+    with pytest.warns(
+        UserWarning,
+        match=r"does not support customer-managed encryption keys.*customer-managed-encryption#limitations",
+    ):
+        bqml_model_factory.create_llm_remote_model(
+            mock_X,
+            mock_y,
+            connection_name="test-project.us.test-conn",
+            options={"endpoint": "gemini-2.0-flash-001"},
+        )
+
+    mock_session._start_query_ml_ddl.assert_called_once_with(
+        "CREATE OR REPLACE MODEL `test-project`.`_anon123`.`temp_model_id`\n"
+        "REMOTE WITH CONNECTION `test-project.us.test-conn`\n"
+        "OPTIONS(\n"
+        "  endpoint='gemini-2.0-flash-001',\n"
+        "  INPUT_LABEL_COLS=['input_column_label'])\n"
+        "AS input_X_y_sql"
+    )
+
+
+def test_create_remote_models_no_warning_when_kms_key_unset(
+    bqml_model_factory, mock_session, mock_X, mock_y
+):
+    mock_session._bq_kms_key_name = None
+    mock_X.join(mock_y, how="outer").cache().sql = "input_X_y_sql"
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        bqml_model_factory.create_remote_model(
+            session=mock_session,
+            connection_name="test-project.us.test-conn",
+            options={"endpoint": "gemini-2.0-flash-001"},
+        )
+        bqml_model_factory.create_llm_remote_model(
+            mock_X,
+            mock_y,
+            connection_name="test-project.us.test-conn",
+            options={"endpoint": "gemini-2.0-flash-001"},
+        )

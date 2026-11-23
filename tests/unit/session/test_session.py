@@ -25,6 +25,7 @@ import pandas as pd
 import pytest
 
 import bigframes
+import bigframes.clients
 import bigframes.enums
 import bigframes.exceptions
 from bigframes import version
@@ -582,4 +583,36 @@ def test_create_object_table_escapes_identifiers_and_path():
         "OPTIONS(\n"
         "    object_metadata = 'SIMPLE',\n"
         "    uris = ['gs://bucket/a\\\\\\']); DROP TABLE x; --']);"
+    )
+
+
+def test_create_bq_connection_skips_manager_when_skip_check_enabled():
+    session = mocks.create_bigquery_session(location="US")
+    session._skip_bq_connection_check = True
+    session._bq_connection_manager = None
+
+    result = session._create_bq_connection(
+        connection="my-conn", iam_role="aiplatform.user"
+    )
+
+    assert result == "test-project.US.my-conn"
+
+
+def test_create_bq_connection_calls_manager_when_skip_check_disabled():
+    session = mocks.create_bigquery_session(location="US")
+    connection_manager = mock.create_autospec(
+        bigframes.clients.BqConnectionManager, instance=True
+    )
+    session._bq_connection_manager = connection_manager
+
+    result = session._create_bq_connection(
+        connection="my-conn", iam_role="aiplatform.user"
+    )
+
+    assert result == "test-project.US.my-conn"
+    connection_manager.create_bq_connection.assert_called_once_with(
+        project_id="test-project",
+        location="US",
+        connection_id="my-conn",
+        iam_role="aiplatform.user",
     )

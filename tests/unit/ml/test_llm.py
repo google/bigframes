@@ -29,6 +29,7 @@ def test_gemini_text_generator_default_model():
     mock_session._anonymous_dataset = bigquery.DatasetReference(
         "test-project", "test_dataset"
     )
+    mock_session._bq_kms_key_name = None
     mock_job = mock.MagicMock()
     mock_job.destination.project = "test-project"
     mock_job.destination.dataset_id = "test_dataset"

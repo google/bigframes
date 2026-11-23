@@ -377,6 +377,11 @@ class BigQueryOptions:
         For more information, see https://cloud.google.com/bigquery/docs/customer-managed-encryption#assign_role
         Assign the Encrypter/Decrypter.
 
+        BigQuery ML doesn't support customer-managed encryption keys for
+        remote models, such as the ones that ``bigframes.ml.llm`` and
+        ``bigframes.ml.remote`` create, so those models are created without
+        this key. For more information, see https://cloud.google.com/bigquery/docs/customer-managed-encryption#limitations
+
         **Examples:**
 
             >>> import bigframes.pandas as bpd

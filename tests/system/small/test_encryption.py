@@ -20,7 +20,10 @@ import pytest
 from google.cloud import bigquery
 
 import bigframes
+import bigframes.ml.forecasting
+import bigframes.ml.imported
 import bigframes.ml.linear_model
+import bigframes.ml.llm
 from bigframes.testing import utils
 
 
@@ -265,3 +268,77 @@ def test_kms_encryption_bqml(bq_cmek, session_with_bq_cmek, penguins_table_id):
     )
     model_bq = session_with_bq_cmek.bqclient.get_model(new_model._bqml_model.model_name)
     assert model_bq.encryption_configuration.kms_key_name == bq_cmek
+
+
+def test_kms_encryption_bqml_arima_plus(bq_cmek, session_with_bq_cmek):
+    if not bq_cmek:  # pragma: NO COVER
+        pytest.skip("no cmek set for testing")  # pragma: NO COVER
+
+    df = session_with_bq_cmek.read_pandas(
+        pandas.DataFrame(
+            {
+                "ts": pandas.date_range("2024-01-01", periods=60, freq="D"),
+                "y": [float(i % 7) for i in range(60)],
+            }
+        )
+    )
+    model = bigframes.ml.forecasting.ARIMAPlus()
+    model.fit(df[["ts"]], df[["y"]])
+
+    assert model._bqml_model is not None
+    model_bq = session_with_bq_cmek.bqclient.get_model(model._bqml_model.model_name)
+    assert model_bq.encryption_configuration.kms_key_name == bq_cmek
+
+
+def test_kms_encryption_bqml_imported_onnx(bq_cmek, session_with_bq_cmek):
+    if not bq_cmek:  # pragma: NO COVER
+        pytest.skip("no cmek set for testing")  # pragma: NO COVER
+
+    model = bigframes.ml.imported.ONNXModel(
+        session=session_with_bq_cmek,
+        model_path="gs://cloud-samples-data/bigquery/ml/onnx/pipeline_rf.onnx",
+    )
+    bqml_model = model._create_bqml_model()
+
+    model_bq = session_with_bq_cmek.bqclient.get_model(bqml_model.model_name)
+    assert model_bq.encryption_configuration.kms_key_name == bq_cmek
+
+
+def test_kms_encryption_bqml_imported_xgboost_with_schema(
+    bq_cmek, session_with_bq_cmek
+):
+    if not bq_cmek:  # pragma: NO COVER
+        pytest.skip("no cmek set for testing")  # pragma: NO COVER
+
+    model = bigframes.ml.imported.XGBoostModel(
+        session=session_with_bq_cmek,
+        input={
+            "petal_length": "float64",
+            "petal_width": "float64",
+            "sepal_length": "float64",
+            "sepal_width": "float64",
+        },
+        output={"predicted_label": "float64"},
+        model_path="gs://bigframes-dev-testing/xgboost-testdata/model.bst",
+    )
+    bqml_model = model._create_bqml_model()
+
+    model_bq = session_with_bq_cmek.bqclient.get_model(bqml_model.model_name)
+    assert model_bq.encryption_configuration.kms_key_name == bq_cmek
+
+
+def test_kms_encryption_bqml_remote_model_warns(
+    bq_cmek, session_with_bq_cmek, bq_connection
+):
+    if not bq_cmek:  # pragma: NO COVER
+        pytest.skip("no cmek set for testing")  # pragma: NO COVER
+
+    with pytest.warns(UserWarning, match="customer-managed encryption keys"):
+        model = bigframes.ml.llm.GeminiTextGenerator(
+            model_name="gemini-2.5-flash",
+            session=session_with_bq_cmek,
+            connection_name=bq_connection,
+        )
+
+    model_bq = session_with_bq_cmek.bqclient.get_model(model._bqml_model.model_name)
+    assert model_bq.encryption_configuration is None

@@ -23,7 +23,7 @@ from typing import List, Optional, Sequence
 
 import bigframes_vendored.pandas.io.gbq as vendored_pandas_gbq
 import db_dtypes  # type:ignore
-import google
+import google.api_core.exceptions
 import google.cloud.bigquery as bigquery
 import numpy as np
 import pandas as pd
@@ -35,6 +35,7 @@ import bigframes
 import bigframes.dataframe
 import bigframes.dtypes
 import bigframes.ml.linear_model
+import bigframes.ml.llm
 import bigframes.session.execution_spec
 import bigframes.testing
 from bigframes.testing import utils
@@ -2410,3 +2411,20 @@ def _assert_table_dry_run_stats_are_valid(result: pd.Series):
 
     bigframes.testing.utils.assert_index_equal(result.index, expected_index)
     assert result["columnCount"] == len(result["columnDtypes"])
+
+
+def test_skip_bq_connection_check_with_remote_model():
+    connection_name = "connection_does_not_exist"
+    session = bigframes.Session(
+        context=bigframes.BigQueryOptions(skip_bq_connection_check=True)
+    )
+
+    with pytest.raises(
+        google.api_core.exceptions.NotFound,
+        match=f"Not found: Connection {connection_name}",
+    ):
+        bigframes.ml.llm.GeminiTextGenerator(
+            model_name="gemini-2.5-flash",
+            session=session,
+            connection_name=connection_name,
+        )

@@ -2488,12 +2488,13 @@ class Session(
         connection_parts = connection.split(".")
         assert len(connection_parts) == 3
 
-        self.bqconnectionmanager.create_bq_connection(
-            project_id=connection_parts[0],
-            location=connection_parts[1],
-            connection_id=connection_parts[2],
-            iam_role=iam_role,
-        )
+        if not self._skip_bq_connection_check:
+            self.bqconnectionmanager.create_bq_connection(
+                project_id=connection_parts[0],
+                location=connection_parts[1],
+                connection_id=connection_parts[2],
+                iam_role=iam_role,
+            )
 
         return connection
 

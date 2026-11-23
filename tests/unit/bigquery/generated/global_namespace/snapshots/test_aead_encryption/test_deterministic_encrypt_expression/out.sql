@@ -1,1 +1,1 @@
-DETERMINISTIC_ENCRYPT(CAST(b'keyset' AS BYTES), 'plaintext', 'additional_data')
+DETERMINISTIC_ENCRYPT(FROM_HEX('6b6579736574'), 'plaintext', 'additional_data')

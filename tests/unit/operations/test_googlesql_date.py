@@ -21,6 +21,7 @@ from dateutil.relativedelta import relativedelta
 
 import bigframes.bigquery as bbq
 import bigframes.core.col
+import bigframes.core.compile
 import bigframes.core.compile.sqlglot.testing
 import bigframes.core.expression as ex
 import bigframes.dtypes
@@ -172,3 +173,159 @@ def test_literal_invalid_dtype_raises():
 
     with pytest.raises(TypeError, match="Expected relativedelta or MonthDayNano"):
         sql.literal(123, dtype=bigframes.dtypes.INTERVAL_DTYPE)
+
+
+SQL_IN_DATE_PART = "DAY), (SELECT secret FROM `p.d.t` LIMIT 1) --"
+
+
+def _compile(series, compiler_name):
+    request = bigframes.core.compile.CompileRequest(
+        series._block.expr.node, sort_rows=False
+    )
+    return bigframes.core.compile.compile_sql(request, compiler_name=compiler_name).sql
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    (
+        pytest.param(" week(monday)\n", "WEEK(MONDAY)", id="week_and_weekday"),
+        pytest.param("WEEK ( MONDAY )", "WEEK ( MONDAY )", id="spaces"),
+        pytest.param("`day`", "`DAY`", id="backticks"),
+        pytest.param("`week`(`monday`)", "`WEEK`(`MONDAY`)", id="backticks_in_week"),
+        pytest.param("fortnight", "FORTNIGHT", id="not_a_date_part"),
+    ),
+)
+def test_literal_with_date_part_dtype_leaves_names_to_bigquery(value, expected):
+    assert sql.to_sql(sql.literal(value, dtype="date_part")) == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+        pytest.param(SQL_IN_DATE_PART, id="sql"),
+        pytest.param("DAY x", id="two_words"),
+        pytest.param("DAY_1", id="underscore_and_digit"),
+        pytest.param("`DAY", id="unclosed_backtick"),
+        pytest.param("`DAY x`", id="two_words_in_backticks"),
+        pytest.param("", id="empty"),
+        pytest.param("MONTH(MONDAY)", id="argument_not_on_week"),
+        pytest.param("DAY /* x */", id="block_comment"),
+        pytest.param("WEEK(\u00a0MONDAY)", id="no_break_space"),
+    ),
+)
+def test_literal_with_date_part_dtype_rejects_other_sql(value):
+    with pytest.raises(ValueError, match="Invalid date part"):
+        sql.literal(value, dtype="date_part")
+
+
+@pytest.mark.parametrize("compiler_name", ["sqlglot", "ibis"])
+@pytest.mark.parametrize(
+    ("date_part", "expected"),
+    (
+        pytest.param("week(monday)", "WEEK(MONDAY)", id="week_and_weekday"),
+        pytest.param("`day`", "`DAY`", id="backticks"),
+    ),
+)
+def test_date_trunc_with_date_part(scalar_types_df, date_part, expected, compiler_name):
+    result = bbq.date_trunc(scalar_types_df["date_col"], date_part)
+
+    assert f"date_col`, {expected}) AS" in _compile(result, compiler_name)
+
+
+@pytest.mark.parametrize("compiler_name", ["sqlglot", "ibis"])
+@pytest.mark.parametrize(
+    "apply",
+    (
+        pytest.param(
+            lambda df, part: bbq.date_trunc(df["date_col"], part), id="date_trunc"
+        ),
+        pytest.param(
+            lambda df, part: bbq.datetime_diff(
+                df["datetime_col"], df["datetime_col"], part
+            ),
+            id="datetime_diff",
+        ),
+        pytest.param(
+            lambda df, part: bbq.extract(df["timestamp_col"], part, "UTC"),
+            id="extract",
+        ),
+    ),
+)
+def test_date_part_with_sql_raises(scalar_types_df, apply, compiler_name):
+    result = apply(scalar_types_df, SQL_IN_DATE_PART)
+
+    with pytest.raises(ValueError, match="Invalid date part"):
+        _compile(result, compiler_name)
+
+
+@pytest.mark.parametrize("compiler_name", ["sqlglot", "ibis"])
+def test_date_trunc_with_date_part_column(scalar_types_df, compiler_name):
+    df = scalar_types_df.assign(part="day")
+    result = bbq.date_trunc(df["date_col"], df["part"])
+
+    assert "date_col`, DAY) AS" in _compile(result, compiler_name)
+
+
+@pytest.mark.parametrize("compiler_name", ["sqlglot", "ibis"])
+def test_date_trunc_with_sql_in_date_part_column_raises(scalar_types_df, compiler_name):
+    df = scalar_types_df.assign(part=SQL_IN_DATE_PART)
+    result = bbq.date_trunc(df["date_col"], df["part"])
+
+    with pytest.raises(ValueError, match="Invalid date part"):
+        _compile(result, compiler_name)
+
+
+@pytest.mark.parametrize(
+    ("compiler_name", "error", "message"),
+    (
+        pytest.param("sqlglot", ValueError, "Invalid date part", id="sqlglot"),
+        # After a filter, ibis sees a column reference, not its text.
+        pytest.param("ibis", TypeError, "must be a constant", id="ibis"),
+    ),
+)
+def test_date_trunc_with_sql_in_filtered_date_part_column_raises(
+    scalar_types_df, compiler_name, error, message
+):
+    df = scalar_types_df.assign(part=SQL_IN_DATE_PART)
+    df = df[df["part"].notna()]
+    result = bbq.date_trunc(df["date_col"], df["part"])
+
+    with pytest.raises(error, match=message):
+        _compile(result, compiler_name)
+
+
+@pytest.mark.parametrize(
+    ("compiler_name", "error", "message"),
+    (
+        # sqlglot checks only constants, and a computed column isn't one.
+        pytest.param("sqlglot", TypeError, "must be a constant", id="sqlglot"),
+        pytest.param("ibis", ValueError, "Invalid date part", id="ibis"),
+    ),
+)
+def test_date_trunc_with_sql_in_computed_date_part_column_raises(
+    scalar_types_df, compiler_name, error, message
+):
+    df = scalar_types_df.assign(part=SQL_IN_DATE_PART)
+    result = bbq.date_trunc(df["date_col"], df["part"].combine_first(df["part"]))
+
+    with pytest.raises(error, match=message):
+        _compile(result, compiler_name)
+
+
+@pytest.mark.parametrize("compiler_name", ["sqlglot", "ibis"])
+def test_date_trunc_with_null_date_part(scalar_types_df, compiler_name):
+    result = bbq.date_trunc(scalar_types_df["date_col"], None)  # type: ignore[arg-type]
+
+    assert "date_col`, NULL) AS" in _compile(result, compiler_name)
+
+
+def test_extract_op_with_sql_in_part_raises():
+    import bigframes.operations as ops
+
+    date_expr = ex.const(dt.date(2025, 1, 1), bigframes.dtypes.DATE_DTYPE)
+    op_expr = ops.ExtractOp(part=SQL_IN_DATE_PART).as_expr(date_expr)  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="Invalid date part"):
+        bigframes.core.compile.sqlglot.testing.to_sql_snippet(
+            bigframes.core.col.Expression(op_expr)
+        )

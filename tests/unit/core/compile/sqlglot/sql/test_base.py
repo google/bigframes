@@ -37,9 +37,7 @@ import bigframes.core.sql
         pytest.param(123, "123", id="int"),
         pytest.param(123.75, "123.75", id="float"),
         pytest.param("abc", "'abc'", id="string"),
-        pytest.param(
-            b"\x01\x02\x03ABC", "CAST(b'\\x01\\x02\\x03ABC' AS BYTES)", id="bytes"
-        ),
+        pytest.param(b"\x01\x02\x03ABC", "FROM_HEX('010203414243')", id="bytes"),
         pytest.param(
             decimal.Decimal("123.75"), "CAST(123.75 AS NUMERIC)", id="decimal"
         ),
@@ -181,10 +179,44 @@ def test_literal_for_geo():
             "CAST('2026-03-01T09:52:10.799999' AS DATETIME)",
             id="np_datetime64_nanoseconds",
         ),
+        pytest.param(
+            "(SELECT 1)",
+            sql.dtypes.BYTES_DTYPE,
+            "FROM_HEX('2853454c454354203129')",
+            id="bytes_from_string",
+        ),
+        pytest.param(
+            "é",
+            sql.dtypes.BYTES_DTYPE,
+            "FROM_HEX('c3a9')",
+            id="bytes_from_non_ascii_string",
+        ),
+        pytest.param(
+            pa.scalar(b"\\' x"),
+            sql.dtypes.BYTES_DTYPE,
+            "FROM_HEX('5c272078')",
+            id="bytes_from_pyarrow_scalar",
+        ),
+        pytest.param(
+            bytearray(b"ab"),
+            sql.dtypes.BYTES_DTYPE,
+            "FROM_HEX('6162')",
+            id="bytes_from_bytearray",
+        ),
     ),
 )
 def test_literal_explicit_dtype(value, dtype, expected):
     assert sql.to_sql(sql.literal(value, dtype=dtype)) == expected
+
+
+def test_literal_bytes_has_only_hex_digits_in_quotes():
+    got = sql.to_sql(sql.literal(bytes(range(256))))
+    assert re.fullmatch(r"FROM_HEX\(\s*'[0-9a-f]{512}'\s*\)", got) is not None
+
+
+def test_literal_bytes_from_unsupported_type_raises():
+    with pytest.raises(TypeError, match="Expected bytes or str for BYTES literal"):
+        sql.literal(5, dtype=sql.dtypes.BYTES_DTYPE)
 
 
 @pytest.mark.parametrize(
@@ -199,7 +231,7 @@ def test_literal_explicit_dtype(value, dtype, expected):
         ),
         pytest.param(
             [b"\x01\x02\x03ABC", b"\x01\x02\x03ABC"],
-            "[CAST(b'\\x01\\x02\\x03ABC' AS BYTES), CAST(b'\\x01\\x02\\x03ABC' AS BYTES)]",
+            "[FROM_HEX('010203414243'), FROM_HEX('010203414243')]",
             id="bytes",
         ),
         pytest.param(

@@ -3267,6 +3267,23 @@ def test_where_with_default(scalars_df_index, scalars_pandas_df_index):
     )
 
 
+def test_where_with_string_for_bytes(scalars_df_index, scalars_pandas_df_index):
+    bf_result = (
+        scalars_df_index["bytes_col"]
+        .where(scalars_df_index["bool_col"], "é")
+        .to_pandas()
+    )
+    # A str for a BYTES column stands for its UTF-8 bytes.
+    pd_result = scalars_pandas_df_index["bytes_col"].where(
+        scalars_pandas_df_index["bool_col"], "é".encode("utf-8")
+    )
+
+    bigframes.testing.utils.assert_series_equal(
+        bf_result,
+        pd_result,
+    )
+
+
 def test_where_with_callable(scalars_df_index, scalars_pandas_df_index):
     def _is_positive(x):
         return x > 0

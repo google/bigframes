@@ -21,6 +21,7 @@ import typing
 from typing import TYPE_CHECKING
 
 import bigframes_vendored.ibis
+import bigframes_vendored.ibis.expr.operations as ibis_ops
 import bigframes_vendored.ibis.expr.operations.generic as ibis_generic
 import bigframes_vendored.ibis.expr.types as ibis_types
 
@@ -310,6 +311,8 @@ def googlesql_scalar_op_impl(
         if isinstance(operand.op(), ibis_generic.OmittedArg):
             assert arg_spec.optional, "Argument omitted, but not optional"
             continue
+        if arg_spec.dtype == "date_part":
+            operand = _convert_date_part(operand)
 
         target_idx = len(final_operands)
         final_operands.append(operand)
@@ -328,3 +331,21 @@ def googlesql_scalar_op_impl(
             output_type
         ),
     ).to_expr()
+
+
+def _convert_date_part(operand: ibis_types.Value) -> ibis_types.Value:
+    """Returns the date part after checking that it can be written as a keyword."""
+    from bigframes.core.compile.sqlglot import sql
+
+    node = operand.op()
+    # A column set to a constant is that constant under a name. Unwrap it.
+    while isinstance(node, ibis_ops.Alias):
+        node = node.arg
+    if not isinstance(node, ibis_generic.Literal):
+        # Any other column: its text isn't visible here, so it can't be checked.
+        raise TypeError("A date part must be a constant such as 'DAY'. Got a column.")
+    if node.value is None:
+        return operand
+
+    date_part = sql.literal(node.value, dtype="date_part")
+    return bigframes_vendored.ibis.literal(sql.to_sql(date_part))

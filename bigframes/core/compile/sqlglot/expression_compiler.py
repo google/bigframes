@@ -134,6 +134,14 @@ class ExpressionCompiler:
                 elif arg_specs[-1].is_vararg:
                     sub_dtype = getattr(arg_specs[-1], "dtype", None)
 
+            if sub_dtype == "date_part" and not isinstance(
+                sub_expr, ex.ScalarConstantExpression
+            ):
+                # Only a constant goes through the date-part check.
+                raise TypeError(
+                    "A date part must be a constant such as 'DAY'. Got a column."
+                )
+
             compiled_expr = self.compile_expression(sub_expr, dtype=sub_dtype)
             inputs.append(typed_expr.TypedExpr(compiled_expr, sub_expr.output_type))
 

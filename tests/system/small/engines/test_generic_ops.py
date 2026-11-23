@@ -533,3 +533,16 @@ def test_engines_getitem_ops(arrays_array_value: array_value.ArrayValue, engine)
     )
 
     assert_equivalence_execution(arr.node, REFERENCE_ENGINE, engine)
+
+
+def test_engines_sql_scalar_op_w_bytes_literal(
+    scalars_array_value: array_value.ArrayValue, bq_engine, sqlglot_engine
+):
+    # SqlScalarOp parses the SQL of its inputs again, so the literal has to
+    # read back as the same bytes.
+    literal = expression.const(b"\\' \x00\xff", bigframes.dtypes.BYTES_DTYPE)
+    arr, _ = scalars_array_value.compute_values(
+        [ops.SqlScalarOp(bigframes.dtypes.BYTES_DTYPE, "{0}").as_expr(literal)]
+    )
+
+    assert_equivalence_execution(arr.node, bq_engine, sqlglot_engine)

@@ -16,7 +16,8 @@
 import pytest
 
 import bigframes.operations.googlesql as gsql_ops
-from bigframes.core import array_value
+import bigframes.operations.googlesql.global_namespace.date as date_ops
+from bigframes.core import array_value, expression
 from bigframes.session import polars_executor
 from bigframes.testing.engine_utils import assert_equivalence_execution
 
@@ -30,6 +31,16 @@ def test_engines_googlesql_st_area(
     scalars_array_value: array_value.ArrayValue, bq_engine, sqlglot_engine
 ):
     expr = gsql_ops.ST_AREA.as_expr("geography_col")
+
+    arr, _ = scalars_array_value.compute_values([expr])
+
+    assert_equivalence_execution(arr.node, bq_engine, sqlglot_engine)
+
+
+def test_engines_googlesql_date_trunc(
+    scalars_array_value: array_value.ArrayValue, bq_engine, sqlglot_engine
+):
+    expr = date_ops._DATE_TRUNC_OP.as_expr("date_col", expression.const("WEEK(MONDAY)"))
 
     arr, _ = scalars_array_value.compute_values([expr])
 

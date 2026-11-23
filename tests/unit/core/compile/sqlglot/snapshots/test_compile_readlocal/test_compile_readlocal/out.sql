@@ -4,7 +4,7 @@ WITH `bfcte_0` AS (
   FROM UNNEST(ARRAY<STRUCT<`bfcol_0` INT64, `bfcol_1` BOOLEAN, `bfcol_2` BYTES, `bfcol_3` DATE, `bfcol_4` DATETIME, `bfcol_5` GEOGRAPHY, `bfcol_6` INT64, `bfcol_7` INT64, `bfcol_8` NUMERIC, `bfcol_9` FLOAT64, `bfcol_10` INT64, `bfcol_11` INT64, `bfcol_12` STRING, `bfcol_13` TIME, `bfcol_14` TIMESTAMP, `bfcol_15` INT64, `bfcol_16` INT64>>[STRUCT(
     0,
     TRUE,
-    CAST(b'Hello, World!' AS BYTES),
+    FROM_HEX('48656c6c6f2c20576f726c6421'),
     CAST('2021-07-21' AS DATE),
     CAST('2021-07-21T11:39:45' AS DATETIME),
     ST_GEOGFROMTEXT('POINT(-122.0838511 37.3860517)'),
@@ -22,7 +22,7 @@ WITH `bfcte_0` AS (
   ), STRUCT(
     1,
     FALSE,
-    CAST(b'\xe3\x81\x93\xe3\x82\x93\xe3\x81\xab\xe3\x81\xa1\xe3\x81\xaf' AS BYTES),
+    FROM_HEX('e38193e38293e381abe381a1e381af'),
     CAST('1991-02-03' AS DATE),
     CAST('1991-01-02T03:45:06' AS DATETIME),
     ST_GEOGFROMTEXT('POINT(-71.104 42.315)'),
@@ -40,7 +40,7 @@ WITH `bfcte_0` AS (
   ), STRUCT(
     2,
     TRUE,
-    CAST(b'\xc2\xa1Hola Mundo!' AS BYTES),
+    FROM_HEX('c2a1486f6c61204d756e646f21'),
     CAST('2023-03-01' AS DATE),
     CAST('2023-03-01T10:55:13' AS DATETIME),
     ST_GEOGFROMTEXT('POINT(-0.124474760143016 51.5007826749545)'),
@@ -76,7 +76,7 @@ WITH `bfcte_0` AS (
   ), STRUCT(
     4,
     FALSE,
-    CAST(b'\xe3\x81\x93\xe3\x82\x93\xe3\x81\xab\xe3\x81\xa1\xe3\x81\xaf' AS BYTES),
+    FROM_HEX('e38193e38293e381abe381a1e381af'),
     CAST('2021-07-21' AS DATE),
     CAST(NULL AS DATETIME),
     CAST(NULL AS GEOGRAPHY),
@@ -94,7 +94,7 @@ WITH `bfcte_0` AS (
   ), STRUCT(
     5,
     FALSE,
-    CAST(b'G\xc3\xbcten Tag' AS BYTES),
+    FROM_HEX('47c3bc74656e20546167'),
     CAST('1980-03-14' AS DATE),
     CAST('1980-03-14T15:16:17' AS DATETIME),
     CAST(NULL AS GEOGRAPHY),
@@ -112,7 +112,7 @@ WITH `bfcte_0` AS (
   ), STRUCT(
     6,
     TRUE,
-    CAST(b'Hello\tBigFrames!\x07' AS BYTES),
+    FROM_HEX('48656c6c6f094269674672616d65732107'),
     CAST('2023-05-23' AS DATE),
     CAST('2023-05-23T11:37:01' AS DATETIME),
     ST_GEOGFROMTEXT('LINESTRING(-0.127959 51.507728, -0.127026 51.507473)'),

@@ -20,7 +20,7 @@ import bigframes.core.compile.sqlglot.expression_compiler as expression_compiler
 from bigframes import dtypes
 from bigframes import operations as ops
 from bigframes.core.compile.constants import UNIT_TO_US_CONVERSION_FACTORS
-from bigframes.core.compile.sqlglot import sqlglot_types
+from bigframes.core.compile.sqlglot import sql, sqlglot_types
 from bigframes.core.compile.sqlglot.expressions.typed_expr import TypedExpr
 
 register_unary_op = expression_compiler.expression_compiler.register_unary_op
@@ -32,7 +32,7 @@ register_nary_op = expression_compiler.expression_compiler.register_nary_op
 def _(*operands: TypedExpr, op: ops.ExtractOp) -> sge.Expression:
     part: sge.Expression
     if op.part is not None:
-        part = sge.var(op.part.upper())
+        part = sql.literal(op.part, dtype="date_part")
         date_expr = operands[0].expr
         if len(operands) > 1 and not operands[1].is_omitted:
             date_expr = sge.AtTimeZone(this=date_expr, zone=operands[1].expr)

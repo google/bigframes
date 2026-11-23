@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import datetime
+import re
 import typing
 
 import bigframes_vendored.sqlglot as sg
@@ -48,6 +49,16 @@ PRETTY: bool = True
 
 DIALECT = sg.dialects.bigquery.BigQuery
 """The SQL dialect used for generation."""
+
+_DATE_PART_NAME = r"(?:[A-Z]+|`[A-Z]+`)"
+_DATE_PART_RE = re.compile(
+    rf"{_DATE_PART_NAME}|(?:WEEK|`WEEK`)\s*\(\s*{_DATE_PART_NAME}\s*\)",
+    flags=re.ASCII,
+)
+"""A date part is a keyword, not a string, so it must be one word or WEEK(<word>).
+
+A word may be in backticks. BigQuery checks that it names a date part.
+"""
 
 
 def to_sql(expr: sge.Expression) -> str:
@@ -141,7 +152,13 @@ def _literal_with_known_dtype(
     if isinstance(dtype, str):
         if dtype == "date_part":
             if isinstance(value, str):
-                return sge.var(value.upper())
+                date_part = value.strip().upper()
+                if not _DATE_PART_RE.fullmatch(date_part):
+                    raise ValueError(
+                        f"Invalid date part: {value!r}. "
+                        "Expected a name such as DAY or WEEK(MONDAY)."
+                    )
+                return sge.var(date_part)
             raise TypeError(
                 f"Expected str for date_part, got {type(value).__name__}: {value}"
             )
@@ -195,7 +212,16 @@ def _literal_with_known_dtype(
     elif dtype == dtypes.JSON_DTYPE:
         return sge.ParseJSON(this=sge.convert(str(value)))
     elif dtype == dtypes.BYTES_DTYPE:
-        return cast(str(value), sqlglot_type)
+        value = _unwrap_scalar(value)
+        if isinstance(value, str):
+            value = value.encode("utf-8")
+        if not isinstance(value, (bytes, bytearray, memoryview)):
+            raise TypeError(
+                "Expected bytes or str for BYTES literal, "
+                f"got {type(value).__name__}: {value}"
+            )
+        # Hex text is only 0-9 and a-f, so it has no quote or backslash to escape.
+        return sge.func("FROM_HEX", sge.convert(bytes(value).hex()))
     elif dtypes.is_time_like(dtype):
         value = _unwrap_scalar(value)
         if isinstance(value, str):

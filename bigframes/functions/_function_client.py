@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import secrets
 import shutil
 import tempfile
 import textwrap
@@ -58,6 +59,10 @@ _VPC_EGRESS_SETTINGS_MAP = types.MappingProxyType(
 
 # BQ managed functions (@udf) currently only support Python 3.11.
 _MANAGED_FUNC_PYTHON_VERSION = "python-3.11"
+
+# Label key used to distinguish client-side retries of our own create_function()
+# RPC (b/437124912) from pre-existing Cloud Functions created by another actor.
+_DEPLOY_NONCE_LABEL_KEY = "bigframes-deploy-nonce"
 
 
 class FunctionClient:
@@ -299,17 +304,103 @@ class FunctionClient:
             self._gcp_project_id, self._cf_location, name
         )
 
-    def get_cloud_function_endpoint(self, name) -> str | None:
-        """Get the http endpoint of a cloud function if it exists."""
+    def _canonical_cloud_build_service_account(
+        self, cloud_build_service_account: str
+    ) -> str:
+        return (
+            cloud_build_service_account
+            if "/" in cloud_build_service_account
+            else f"projects/{self._gcp_project_id}/serviceAccounts/{cloud_build_service_account}"
+        )
+
+    def _matches_cloud_function_config(
+        self,
+        existing: functions_v2.Function,
+        config: udf_def.CloudRunFunctionConfig,
+    ) -> bool:
+        """Verify security-critical and runtime fields on an existing Cloud Function."""
+        service_config = existing.service_config
+        build_config = existing.build_config
+
+        expected_runtime = _utils.get_python_version(is_compat=True)
+        if build_config.runtime != expected_runtime:
+            return False
+
+        if config.ingress_settings in _INGRESS_SETTINGS_MAP:
+            if (
+                service_config.ingress_settings
+                != _INGRESS_SETTINGS_MAP[config.ingress_settings]
+            ):
+                return False
+
+        if config.cloud_run_service_account is not None:
+            if service_config.service_account_email != config.cloud_run_service_account:
+                return False
+
+        if (existing.kms_key_name or None) != (config.kms_key_name or None):
+            return False
+
+        if config.docker_repository is not None:
+            if build_config.docker_repository != config.docker_repository:
+                return False
+
+        if config.cloud_build_service_account is not None:
+            expected_build_sa = self._canonical_cloud_build_service_account(
+                config.cloud_build_service_account
+            )
+            if build_config.service_account != expected_build_sa:
+                return False
+
+        if config.vpc_connector is not None:
+            if service_config.vpc_connector != config.vpc_connector:
+                return False
+            egress_setting = (
+                config.vpc_connector_egress_settings or "private-ranges-only"
+            )
+            if egress_setting in _VPC_EGRESS_SETTINGS_MAP:
+                if (
+                    service_config.vpc_connector_egress_settings
+                    != _VPC_EGRESS_SETTINGS_MAP[egress_setting]
+                ):
+                    return False
+        elif service_config.vpc_connector:
+            return False
+
+        return True
+
+    def get_cloud_function_endpoint(
+        self,
+        name: str,
+        *,
+        expected_config: udf_def.CloudRunFunctionConfig | None = None,
+    ) -> str | None:
+        """Get the http endpoint of a cloud function if it exists.
+
+        When ``expected_config`` is provided, verifies that the existing Cloud
+        Function matches security-critical configuration before reusing it, and
+        waits for URL propagation if the function already exists with an empty
+        URI.
+        """
         fully_qualified_name = self.get_cloud_function_fully_qualified_name(name)
         try:
             response = self._cloud_functions_client.get_function(
                 name=fully_qualified_name
             )
-            return response.service_config.uri
         except google.api_core.exceptions.NotFound:
-            pass
-        return None
+            return None
+
+        if expected_config is not None:
+            if not self._matches_cloud_function_config(response, expected_config):
+                raise bf_formatting.create_exception_with_feedback_link(
+                    ValueError,
+                    f"Existing cloud function '{name}' does not match the "
+                    "requested configuration. Pass reuse=False to deploy a new "
+                    "cloud function.",
+                )
+            if not response.service_config.uri:
+                return self._get_cloud_function_endpoint_with_retry(name)
+
+        return response.service_config.uri
 
     def _generate_cloud_function_code(
         self,
@@ -352,6 +443,8 @@ class FunctionClient:
         self,
         name: str,
         func_def: udf_def.CloudRunFunctionConfig,
+        *,
+        maybe_reuse: bool = False,
     ) -> str:
         """Create a cloud function from the given user defined function."""
 
@@ -429,13 +522,10 @@ class FunctionClient:
                 function.build_config.docker_repository = config.docker_repository
 
             if config.cloud_build_service_account is not None:
-                canonical_cloud_build_service_account = (
-                    config.cloud_build_service_account
-                    if "/" in config.cloud_build_service_account
-                    else f"projects/{self._gcp_project_id}/serviceAccounts/{config.cloud_build_service_account}"
-                )
                 function.build_config.service_account = (
-                    canonical_cloud_build_service_account
+                    self._canonical_cloud_build_service_account(
+                        config.cloud_build_service_account
+                    )
                 )
 
             function.service_config = functions_v2.ServiceConfig()
@@ -503,6 +593,13 @@ class FunctionClient:
             )
             if config.kms_key_name:
                 function.kms_key_name = config.kms_key_name
+
+            # Tag this creation attempt with a per-call nonce so that if
+            # create_function() retries after succeeding on the server
+            # (b/437124912), we can verify the AlreadyExists resource is ours
+            # rather than a pre-existing function created by another actor.
+            deploy_nonce = secrets.token_hex(16)
+            function.labels = {_DEPLOY_NONCE_LABEL_KEY: deploy_nonce}
             create_function_request.function = function
 
             # Create the cloud function and wait for it to be ready to use
@@ -518,15 +615,23 @@ class FunctionClient:
                 # Cleanup
                 os.remove(archive_path)
             except google.api_core.exceptions.AlreadyExists:
-                # b/437124912: The most likely scenario is that
-                # `create_function` had a retry due to a network issue. The
-                # retried request then fails because the first call actually
-                # succeeded, but we didn't get the successful response back.
-                #
-                # Since the function name was randomly chosen to avoid
-                # conflicts, we know the AlreadyExist can only happen because
-                # we created it. This error is safe to ignore.
-                pass
+                existing = self._cloud_functions_client.get_function(
+                    name=self.get_cloud_function_fully_qualified_name(name)
+                )
+                existing_labels = existing.labels or {}
+                is_own_retry = (
+                    existing_labels.get(_DEPLOY_NONCE_LABEL_KEY) == deploy_nonce
+                )
+                if is_own_retry:
+                    # b/437124912: Client retry after attempt #1 succeeded.
+                    endpoint = existing.service_config.uri
+                elif maybe_reuse and self._matches_cloud_function_config(
+                    existing, config
+                ):
+                    # Concurrent reuse=True deployment with matching config.
+                    endpoint = existing.service_config.uri
+                else:
+                    raise
 
         # Fetch the endpoint with retries if it wasn't returned by the operation
         if not endpoint:

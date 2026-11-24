@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 import functools
+import hashlib
 import inspect
 import io
 import os
@@ -23,7 +24,6 @@ import warnings
 from typing import Any, Optional, Sequence, Type, cast, get_args, get_origin
 
 import cloudpickle
-import google_crc32c
 import pandas as pd
 from google.cloud import bigquery
 
@@ -35,6 +35,26 @@ from bigframes.functions import function_typing
 # Protocol version 4 is available in python version 3.4 and above
 # https://docs.python.org/3/library/pickle.html#data-stream-format
 _pickle_protocol_version = 4
+
+# 128-bit (32 hex chars) SHA-256 prefix: cryptographically collision-resistant
+# while keeping generated Cloud Function names within GCP's 63-character limit.
+_STABLE_HASH_DIGEST_SIZE = 16
+
+
+def _update_hash_bytes(hash_val: "hashlib._Hash", data: bytes) -> None:
+    # Length-prefix each field so adjacent values cannot collide via concatenation.
+    hash_val.update(len(data).to_bytes(8, "big"))
+    hash_val.update(data)
+
+
+def _update_hash_field(hash_val: "hashlib._Hash", value: object | None) -> None:
+    # Use a 1-byte presence tag (0x00 for None, 0x01 for non-None) to distinguish
+    # None from the literal string "None" and preserve field positions.
+    if value is None:
+        hash_val.update(b"\x00")
+    else:
+        hash_val.update(b"\x01")
+        _update_hash_bytes(hash_val, str(value).encode("utf-8"))
 
 
 class ReturnTypeMissingError(ValueError):
@@ -84,10 +104,10 @@ class UdfArg:
         return self.dtype.sql_type
 
     def stable_hash(self) -> bytes:
-        hash_val = google_crc32c.Checksum()
-        hash_val.update(self.name.encode())
-        hash_val.update(self.dtype.stable_hash())
-        return hash_val.digest()
+        hash_val = hashlib.sha256()
+        _update_hash_bytes(hash_val, self.name.encode("utf-8"))
+        _update_hash_bytes(hash_val, self.dtype.stable_hash())
+        return hash_val.digest()[:_STABLE_HASH_DIGEST_SIZE]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -116,9 +136,9 @@ class DirectScalarType:
         return function_typing.sdk_type_to_sql_string(sdk_type)
 
     def stable_hash(self) -> bytes:
-        hash_val = google_crc32c.Checksum()
-        hash_val.update(self._py_type.__name__.encode())
-        return hash_val.digest()
+        hash_val = hashlib.sha256()
+        _update_hash_bytes(hash_val, self._py_type.__name__.encode("utf-8"))
+        return hash_val.digest()[:_STABLE_HASH_DIGEST_SIZE]
 
     @classmethod
     def from_sdk_type(cls, sdk_type: bigquery.StandardSqlDataType) -> DirectScalarType:
@@ -177,10 +197,10 @@ class VirtualListTypeV1:
         return f"ARRAY<{self.inner_dtype.sql_type}>"
 
     def stable_hash(self) -> bytes:
-        hash_val = google_crc32c.Checksum()
-        hash_val.update(self._PROTOCOL_ID.encode())
-        hash_val.update(self.inner_dtype.stable_hash())
-        return hash_val.digest()
+        hash_val = hashlib.sha256()
+        _update_hash_bytes(hash_val, self._PROTOCOL_ID.encode("utf-8"))
+        _update_hash_bytes(hash_val, self.inner_dtype.stable_hash())
+        return hash_val.digest()[:_STABLE_HASH_DIGEST_SIZE]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -212,9 +232,9 @@ class RowSeriesInputFieldV1:
         return DirectScalarType(str)
 
     def stable_hash(self) -> bytes:
-        hash_val = google_crc32c.Checksum()
-        hash_val.update(self._PROTOCOL_ID.encode())
-        return hash_val.digest()
+        hash_val = hashlib.sha256()
+        _update_hash_bytes(hash_val, self._PROTOCOL_ID.encode("utf-8"))
+        return hash_val.digest()[:_STABLE_HASH_DIGEST_SIZE]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -364,11 +384,12 @@ class UdfSignature:
         return self
 
     def stable_hash(self) -> bytes:
-        hash_val = google_crc32c.Checksum()
+        hash_val = hashlib.sha256()
+        _update_hash_bytes(hash_val, len(self.inputs).to_bytes(8, "big"))
         for input_type in self.inputs:
-            hash_val.update(input_type.stable_hash())
-        hash_val.update(self.output.stable_hash())
-        return hash_val.digest()
+            _update_hash_bytes(hash_val, input_type.stable_hash())
+        _update_hash_bytes(hash_val, self.output.stable_hash())
+        return hash_val.digest()[:_STABLE_HASH_DIGEST_SIZE]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -380,19 +401,16 @@ class RuntimeRequirements:
     packages: tuple[str, ...] = ()
 
     def stable_hash(self) -> bytes:
-        hash_val = google_crc32c.Checksum()
-        if self.container_cpu is not None:
-            hash_val.update(str(self.container_cpu).encode())
-        if self.container_memory is not None:
-            hash_val.update(str(self.container_memory).encode())
-        if self.bq_connection_id is not None:
-            hash_val.update(str(self.bq_connection_id).encode())
-        if self.max_batching_rows is not None:
-            hash_val.update(str(self.max_batching_rows).encode())
-        if self.packages:
-            for p in sorted(self.packages):
-                hash_val.update(p.encode())
-        return hash_val.digest()
+        hash_val = hashlib.sha256()
+        _update_hash_field(hash_val, self.container_cpu)
+        _update_hash_field(hash_val, self.container_memory)
+        _update_hash_field(hash_val, self.bq_connection_id)
+        _update_hash_field(hash_val, self.max_batching_rows)
+        sorted_packages = sorted(self.packages)
+        _update_hash_bytes(hash_val, len(sorted_packages).to_bytes(8, "big"))
+        for p in sorted_packages:
+            _update_hash_bytes(hash_val, p.encode("utf-8"))
+        return hash_val.digest()[:_STABLE_HASH_DIGEST_SIZE]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -435,11 +453,11 @@ class PythonUdf:
     )
 
     def stable_hash(self) -> bytes:
-        hash_val = google_crc32c.Checksum()
-        hash_val.update(self.code.stable_hash())
-        hash_val.update(self.signature.stable_hash())
-        hash_val.update(self.requirements.stable_hash())
-        return hash_val.digest()
+        hash_val = hashlib.sha256()
+        _update_hash_bytes(hash_val, self.code.stable_hash())
+        _update_hash_bytes(hash_val, self.signature.stable_hash())
+        _update_hash_bytes(hash_val, self.requirements.stable_hash())
+        return hash_val.digest()[:_STABLE_HASH_DIGEST_SIZE]
 
     def to_managed_function_config(self) -> ManagedFunctionConfig:
         return ManagedFunctionConfig(
@@ -503,14 +521,15 @@ class CodeDef:
             def_copy, protocol=_pickle_protocol_version
         )
 
-        hash_val = google_crc32c.Checksum()
-        hash_val.update(normalized_pickled_code)
+        hash_val = hashlib.sha256()
+        _update_hash_bytes(hash_val, normalized_pickled_code)
 
-        if self.package_requirements:
-            for p in sorted(self.package_requirements):
-                hash_val.update(p.encode())
+        sorted_packages = sorted(self.package_requirements)
+        _update_hash_bytes(hash_val, len(sorted_packages).to_bytes(8, "big"))
+        for p in sorted_packages:
+            _update_hash_bytes(hash_val, p.encode("utf-8"))
 
-        return hash_val.digest()
+        return hash_val.digest()[:_STABLE_HASH_DIGEST_SIZE]
 
     def to_callable(self):
         """
@@ -534,15 +553,15 @@ class ManagedFunctionConfig:
     capture_references: bool = False
 
     def stable_hash(self) -> bytes:
-        hash_val = google_crc32c.Checksum()
-        hash_val.update(self.code.stable_hash())
-        hash_val.update(self.signature.stable_hash())
-        hash_val.update(str(self.max_batching_rows).encode())
-        hash_val.update(str(self.container_cpu).encode())
-        hash_val.update(str(self.container_memory).encode())
-        hash_val.update(str(self.bq_connection_id).encode())
-        hash_val.update(str(self.capture_references).encode())
-        return hash_val.digest()
+        hash_val = hashlib.sha256()
+        _update_hash_bytes(hash_val, self.code.stable_hash())
+        _update_hash_bytes(hash_val, self.signature.stable_hash())
+        _update_hash_field(hash_val, self.max_batching_rows)
+        _update_hash_field(hash_val, self.container_cpu)
+        _update_hash_field(hash_val, self.container_memory)
+        _update_hash_field(hash_val, self.bq_connection_id)
+        _update_hash_field(hash_val, self.capture_references)
+        return hash_val.digest()[:_STABLE_HASH_DIGEST_SIZE]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -565,24 +584,24 @@ class CloudRunFunctionConfig:
     cloud_run_service_account: str | None
 
     def stable_hash(self) -> bytes:
-        hash_val = google_crc32c.Checksum()
-        hash_val.update(self.code.stable_hash())
-        hash_val.update(self.signature.stable_hash())
-        hash_val.update(str(self.timeout_seconds).encode())
-        hash_val.update(str(self.max_instance_count).encode())
-        hash_val.update(str(self.vpc_connector).encode())
-        hash_val.update(str(self.vpc_connector_egress_settings).encode())
-        hash_val.update(str(self.memory_mib).encode())
-        hash_val.update(str(self.cpus).encode())
-        hash_val.update(str(self.ingress_settings).encode())
-        hash_val.update(str(self.workers).encode())
-        hash_val.update(str(self.threads).encode())
-        hash_val.update(str(self.concurrency).encode())
-        hash_val.update(str(self.kms_key_name).encode())
-        hash_val.update(str(self.docker_repository).encode())
-        hash_val.update(str(self.cloud_build_service_account).encode())
-        hash_val.update(str(self.cloud_run_service_account).encode())
-        return hash_val.digest()
+        hash_val = hashlib.sha256()
+        _update_hash_bytes(hash_val, self.code.stable_hash())
+        _update_hash_bytes(hash_val, self.signature.stable_hash())
+        _update_hash_field(hash_val, self.timeout_seconds)
+        _update_hash_field(hash_val, self.max_instance_count)
+        _update_hash_field(hash_val, self.vpc_connector)
+        _update_hash_field(hash_val, self.vpc_connector_egress_settings)
+        _update_hash_field(hash_val, self.memory_mib)
+        _update_hash_field(hash_val, self.cpus)
+        _update_hash_field(hash_val, self.ingress_settings)
+        _update_hash_field(hash_val, self.workers)
+        _update_hash_field(hash_val, self.threads)
+        _update_hash_field(hash_val, self.concurrency)
+        _update_hash_field(hash_val, self.kms_key_name)
+        _update_hash_field(hash_val, self.docker_repository)
+        _update_hash_field(hash_val, self.cloud_build_service_account)
+        _update_hash_field(hash_val, self.cloud_run_service_account)
+        return hash_val.digest()[:_STABLE_HASH_DIGEST_SIZE]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -608,10 +627,10 @@ class RemoteFunctionConfig:
         )
 
     def stable_hash(self) -> bytes:
-        hash_val = google_crc32c.Checksum()
-        hash_val.update(self.endpoint.encode())
-        hash_val.update(self.signature.stable_hash())
-        hash_val.update(self.connection_id.encode())
-        hash_val.update(str(self.max_batching_rows).encode())
-        hash_val.update(str(self.bq_metadata).encode())
-        return hash_val.digest()
+        hash_val = hashlib.sha256()
+        _update_hash_bytes(hash_val, self.endpoint.encode("utf-8"))
+        _update_hash_bytes(hash_val, self.signature.stable_hash())
+        _update_hash_bytes(hash_val, self.connection_id.encode("utf-8"))
+        _update_hash_field(hash_val, self.max_batching_rows)
+        _update_hash_field(hash_val, self.bq_metadata)
+        return hash_val.digest()[:_STABLE_HASH_DIGEST_SIZE]

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import functools
 import logging
-import random
+import secrets
 import string
 import threading
 import time
@@ -30,6 +30,7 @@ from typing import (
     Union,
 )
 
+import google.api_core.exceptions
 from google.cloud import (
     bigquery,
 )
@@ -50,6 +51,7 @@ if TYPE_CHECKING:
 
 
 _DEFAULT_FUNCTION_MEMORY_MIB = 1024
+_MAX_CLOUD_FUNCTION_CREATE_ATTEMPTS = 3
 
 
 logger = logging.getLogger(__name__)
@@ -160,6 +162,63 @@ class FunctionSession:
     def _add_temp_remote_function(self, bqrf_routine: bigquery.RoutineReference):
         with self._artifacts_lock:
             self._temp_remote_functions.add(bqrf_routine)
+
+    def _get_or_create_cloud_function(
+        self,
+        cloud_func_spec: udf_def.CloudRunFunctionConfig,
+        *,
+        name: str | None,
+        reuse: bool,
+    ) -> tuple[str, str, str | None]:
+        """Get an existing Cloud Function endpoint or deploy a new one.
+
+        Returns:
+            A tuple of ``(cf_name, cf_endpoint, unique_suffix)``.
+        """
+        # Only session-scope a temporary (unnamed) function.
+        session_id = self.session_id if (name is None) else None
+
+        if reuse:
+            cf_name = get_cloud_function_name(
+                cloud_func_spec,
+                session_id=session_id,
+            )
+            if not name:
+                self._add_temp_cloud_function(cf_name)
+
+            cf_endpoint = self._function_client.get_cloud_function_endpoint(
+                cf_name, expected_config=cloud_func_spec
+            )
+            if not cf_endpoint:
+                cf_endpoint = self._function_client.create_cloud_function(
+                    cf_name, cloud_func_spec, maybe_reuse=True
+                )
+            else:
+                logger.info(f"Cloud function {cf_name} already exists.")
+            return cf_name, cf_endpoint, None
+
+        for attempt in range(_MAX_CLOUD_FUNCTION_CREATE_ATTEMPTS):
+            unique_suffix = "".join(
+                secrets.choice(string.ascii_lowercase + string.digits) for _ in range(4)
+            )
+            cf_name = get_cloud_function_name(
+                cloud_func_spec,
+                session_id=session_id,
+                unique_suffix=unique_suffix,
+            )
+            try:
+                cf_endpoint = self._function_client.create_cloud_function(
+                    cf_name, cloud_func_spec, maybe_reuse=False
+                )
+            except google.api_core.exceptions.AlreadyExists:
+                if attempt == _MAX_CLOUD_FUNCTION_CREATE_ATTEMPTS - 1:
+                    raise
+            else:
+                if not name:
+                    self._add_temp_cloud_function(cf_name)
+                return cf_name, cf_endpoint, unique_suffix
+
+        raise AssertionError("Unreachable: loop either returns or raises.")
 
     def _deploy_managed_function(
         self,
@@ -556,33 +615,11 @@ class FunctionSession:
                     else cloud_function_service_account
                 ),
             )
-            uniq_suffix = None
-            if not reuse:
-                uniq_suffix = "".join(
-                    random.choices(string.ascii_lowercase + string.digits, k=4)
-                )
-            cf_name = get_cloud_function_name(
+            cf_name, cf_endpoint, unique_suffix = self._get_or_create_cloud_function(
                 cloud_func_spec,
-                # only session scope a temp unnamed function
-                session_id=self.session_id if (name is None) else None,
-                uniq_suffix=uniq_suffix,
+                name=name,
+                reuse=reuse,
             )
-            if not name:
-                self._add_temp_cloud_function(cf_name)
-
-            # Create remote function that points at the cloud function
-            cf_endpoint = None
-            if reuse is not None:
-                cf_endpoint = self._function_client.get_cloud_function_endpoint(cf_name)
-
-            # If the endpoint is empty, the function might exist but the URL propagation is pending.
-            # Running create_cloud_function will handle AlreadyExists and retry endpoint fetching.
-            if not cf_endpoint:
-                cf_endpoint = self._function_client.create_cloud_function(
-                    cf_name, cloud_func_spec
-                )
-            else:
-                logger.info(f"Cloud function {cf_name} already exists.")
 
             remote_function_config = udf_def.RemoteFunctionConfig(
                 endpoint=cf_endpoint,
@@ -594,7 +631,7 @@ class FunctionSession:
             remote_function_name = name or get_bigframes_function_name(
                 remote_function_config,
                 session_id=self.session_id,
-                uniq_suffix=uniq_suffix,
+                unique_suffix=unique_suffix,
             )
             routine_ref = self._resolve_routine_reference(
                 remote_function_name, dataset=dataset_ref
@@ -852,29 +889,31 @@ class FunctionSession:
 def get_cloud_function_name(
     function_def: udf_def.CloudRunFunctionConfig,
     session_id=None,
-    uniq_suffix: Optional[str] = None,
+    unique_suffix: str | None = None,
 ):
     """
     Get a name for the cloud function for the given user defined function.
 
-    If make_unique is True, append a random suffix to the name.
+    If unique_suffix is provided, append it to the name.
     """
     parts = [_BIGFRAMES_FUNCTION_PREFIX]
     if session_id:
         parts.append(session_id)
     parts.append(function_def.stable_hash().hex())
-    if uniq_suffix:
-        parts.append(uniq_suffix)
+    if unique_suffix:
+        parts.append(unique_suffix)
     return _GCF_FUNCTION_NAME_SEPERATOR.join(parts)
 
 
 def get_bigframes_function_name(
-    function: udf_def.RemoteFunctionConfig, session_id, uniq_suffix=None
+    function: udf_def.RemoteFunctionConfig,
+    session_id,
+    unique_suffix: str | None = None,
 ):
     """Get a name for the bigframes function for the given user defined function."""
     parts = [_BIGFRAMES_FUNCTION_PREFIX, session_id, function.stable_hash().hex()]
-    if uniq_suffix:
-        parts.append(uniq_suffix)
+    if unique_suffix:
+        parts.append(unique_suffix)
     return _BQ_FUNCTION_NAME_SEPERATOR.join(parts)
 
 

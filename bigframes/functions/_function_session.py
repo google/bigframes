@@ -420,9 +420,11 @@ class FunctionSession:
                 the function, and leaves it for the user to manage the function
                 and the associated cloud function directly.
             packages (str[], Optional):
-                Explicit name of the external package dependencies. Each dependency
-                is added to the `requirements.txt` as is, and can be of the form
-                supported in https://pip.pypa.io/en/stable/reference/requirements-file-format/.
+                Explicit names of the external package dependencies as PEP 508
+                dependency specifiers (for example, ``"numpy"`` or
+                ``"pandas>=2.0.0"``). Pip options/flags (such as
+                ``--extra-index-url``), direct URL references, and multi-line
+                entries are not supported.
             cloud_function_service_account (str):
                 Service account to use for the cloud functions. If "default" provided then
                 the default service account would be used. See
@@ -519,6 +521,11 @@ class FunctionSession:
             raise ValueError(
                 'You must provide a user managed cloud_function_service_account, or "default" if you would like to let the default service account be used.'
             )
+
+        if name is not None:
+            _function_client._validate_routine_name(name)
+        if packages is not None:
+            _utils._validate_package_requirements(packages)
 
         # BQ remote function must be persisted, for which we need a dataset.
         # https://cloud.google.com/bigquery/docs/reference/standard-sql/remote-functions#:~:text=You%20cannot%20create%20temporary%20remote%20functions.
@@ -764,10 +771,11 @@ class FunctionSession:
                 the function, and leaves it for the user to manage the function
                 directly.
             packages (str[], Optional):
-                Explicit name of the external package dependencies. Each
-                dependency is added to the `requirements.txt` as is, and can be
-                of the form supported in
-                https://pip.pypa.io/en/stable/reference/requirements-file-format/.
+                Explicit names of the external package dependencies as PEP 508
+                dependency specifiers (for example, ``"numpy"`` or
+                ``"pandas>=2.0.0"``). Pip options/flags (such as
+                ``--extra-index-url``), direct URL references, and multi-line
+                entries are not supported.
             max_batching_rows (int, Optional):
                 The maximum number of rows in each batch. If you specify
                 max_batching_rows, BigQuery determines the number of rows in a
@@ -795,6 +803,11 @@ class FunctionSession:
             if bigquery_connection
             else None
         )
+
+        if name is not None:
+            _function_client._validate_routine_name(name)
+        if packages is not None:
+            _utils._validate_package_requirements(packages)
 
         # TODO(b/399129906): Write a method for the repeated part in the wrapper
         # for both managed function and remote function.

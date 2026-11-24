@@ -1232,3 +1232,93 @@ def test_deferred_udf_with_runtime_requirements(session, scalars_dfs):
     assert routine._properties["externalRuntimeOptions"]["containerCpu"] == 1
     assert routine._properties["externalRuntimeOptions"]["containerMemory"] == "2Gi"
     assert routine._properties["externalRuntimeOptions"]["maxBatchingRows"] == "25"
+
+
+def test_managed_function_source_with_triple_quotes_and_special_chars(
+    session, dataset_id, function_id
+):
+    def format_tricky_strings(x: str) -> str:
+        '''Triple-single-quote docstring with 'quotes' and \\ backslashes.'''  # fmt: skip
+        marker = "__UDF_PLACE_HOLDER__"
+        triple_single = "'''"
+        triple_double = """ok"""
+        raw_seq = r"\n'\t"
+        return f"{x}|{marker}|{triple_single}|{triple_double}|{raw_seq}"
+
+    series = bpd.Series(["alpha", "beta"], session=session)
+    expected = [
+        r"alpha|__UDF_PLACE_HOLDER__|'''|ok|\n'\t",
+        r"beta|__UDF_PLACE_HOLDER__|'''|ok|\n'\t",
+    ]
+
+    tricky_udf = session.udf(
+        input_types=[str],
+        output_type=str,
+        dataset=dataset_id,
+        name=function_id,
+    )(format_tricky_strings)
+    result = series.apply(tricky_udf).to_pandas()
+
+    assert list(result) == expected
+
+
+def test_managed_function_packages_memory_and_connection(
+    session, dataset_id, function_id, bq_connection
+):
+    def square_int(x: int) -> int:
+        # Keep the following line's triple single quotes
+        '''Uses an external package with a triple-single-quote docstring.'''  # fmt: skip
+        import numpy as np
+
+        return int(np.square(x))
+
+    series = bpd.Series([2, 3], session=session)
+
+    square_udf = session.udf(
+        input_types=[int],
+        output_type=int,
+        dataset=dataset_id,
+        name=function_id,
+        packages=["numpy>=1.24"],
+        container_memory="512Mi",
+        bigquery_connection=bq_connection,
+    )(square_int)
+    result = series.apply(square_udf).to_pandas()
+
+    assert list(result) == [4, 9]
+
+
+def test_managed_function_escapes_container_memory_option(
+    session, dataset_id, function_id
+):
+    def simple_inc(x: int) -> int:
+        return x + 1
+
+    malicious_memory = "512Mi'); SELECT 1; --\\"
+
+    with pytest.raises(google.api_core.exceptions.BadRequest) as exc_info:
+        session.deploy_udf(
+            simple_inc,
+            dataset=dataset_id,
+            name=function_id,
+            container_memory=malicious_memory,
+        )
+
+    assert "Syntax error" not in str(exc_info.value)
+
+
+def test_managed_function_escapes_bigquery_connection(session, dataset_id, function_id):
+    def simple_inc(x: int) -> int:
+        return x + 1
+
+    malicious_connection = "bad`conn ; SELECT 1 --"
+
+    with pytest.raises(google.api_core.exceptions.GoogleAPIError) as exc_info:
+        session.deploy_udf(
+            simple_inc,
+            dataset=dataset_id,
+            name=function_id,
+            bigquery_connection=malicious_connection,
+        )
+
+    assert "Syntax error" not in str(exc_info.value)

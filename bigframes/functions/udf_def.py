@@ -252,8 +252,11 @@ class UdfSignature:
         assert isinstance(self.output, (DirectScalarType, VirtualListTypeV1))
 
     def to_sql_input_signature(self) -> str:
+        # Deferred import to avoid circular dependency
+        from bigframes.core.compile.sqlglot import sql as sg_sql
+
         return ",".join(
-            f"{field.name} {field.sql_type}"
+            f"{sg_sql.to_sql(sg_sql.identifier(field.name))} {field.sql_type}"
             for field in self.with_devirtualize().inputs
         )
 

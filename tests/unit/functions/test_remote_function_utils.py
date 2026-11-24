@@ -18,6 +18,7 @@ from unittest.mock import patch
 
 import bigframes_vendored.constants as constants
 import pytest
+from google.cloud import bigquery
 
 from bigframes.functions import _utils, function_typing
 
@@ -373,3 +374,108 @@ def test_metadata_roundtrip_supported_array_types():
         deser = _utils.get_python_output_type_from_bigframes_metadata(ser)
 
         assert deser == list[array_of]  # type: ignore
+
+
+@pytest.mark.parametrize(
+    "valid_reqs",
+    [
+        ["pandas"],
+        ["pandas>=2.0.0,<3.0"],
+        ["scikit-learn==1.3.0", "xgboost"],
+        ['requests[security]>=2.28; python_version >= "3.10"'],
+    ],
+)
+def test_validate_package_requirements_accepts_valid_pep508(valid_reqs):
+    assert _utils._validate_package_requirements(valid_reqs) is None
+
+
+@pytest.mark.parametrize(
+    ("bad_req", "match"),
+    [
+        pytest.param("", "empty string", id="empty"),
+        pytest.param(
+            "--extra-index-url https://example.com", "pip options/flags", id="pip_flag"
+        ),
+        pytest.param(
+            "  -r requirements.txt", "pip options/flags", id="leading_space_flag"
+        ),
+        pytest.param(
+            "pandas\n--extra-index-url https://example.com",
+            "line breaks",
+            id="newline",
+        ),
+        pytest.param("pandas\r\nnumpy", "line breaks", id="crlf"),
+        pytest.param(
+            "pandas; extra == 'a\u2028--extra-index-url=https://example.com\u2028b'",
+            "line breaks",
+            id="unicode_line_separator",
+        ),
+        pytest.param(
+            "pandas; extra == 'a\u2029--extra-index-url=https://example.com\u2029b'",
+            "line breaks",
+            id="unicode_paragraph_separator",
+        ),
+        pytest.param(
+            "pandas; extra == 'a\x0b--extra-index-url=https://example.com\x0bb'",
+            "line breaks",
+            id="vertical_tab",
+        ),
+        pytest.param(
+            "pandas; extra == 'a\x85--extra-index-url=https://example.com\x85b'",
+            "line breaks",
+            id="nel",
+        ),
+        pytest.param(
+            "pandas; extra == 'a\x00b'",
+            "null bytes",
+            id="null_byte",
+        ),
+        pytest.param(
+            "pandas; extra == 'a\\'",
+            "Invalid package requirement",
+            id="unterminated_marker_escape",
+        ),
+        pytest.param(
+            "requests @ https://example.com/pkg.whl",
+            "direct URL",
+            id="direct_url",
+        ),
+        pytest.param(
+            "requests @ https://example.com/a\n--extra-index-url=https://example.com",
+            "line breaks",
+            id="direct_url_with_newline",
+        ),
+        pytest.param(
+            "pandas''' ; DROP TABLE t; --",
+            "Invalid package requirement",
+            id="sql_payload",
+        ),
+    ],
+)
+def test_validate_package_requirements_rejects_unsafe_entries(bad_req, match):
+    with pytest.raises(ValueError, match=match):
+        _utils._validate_package_requirements([bad_req])
+
+
+@pytest.mark.parametrize("bare_input", ["pandas", b"pandas"])
+def test_validate_package_requirements_rejects_bare_string_or_bytes(bare_input):
+    with pytest.raises(TypeError, match="sequence of strings"):
+        _utils._validate_package_requirements(bare_input)  # type: ignore[arg-type]
+
+
+def test_get_updated_package_requirements_validates_when_capture_references_false():
+    with pytest.raises(ValueError, match="pip options/flags"):
+        _utils.get_updated_package_requirements(
+            package_requirements=["--extra-index-url https://example.com"],
+            is_row_processor=False,
+            capture_references=False,
+        )
+
+
+def test_routine_ref_to_string_for_query_escapes_each_segment():
+    routine_ref = bigquery.DatasetReference("my-proj", "my`ds").routine("my_fn")
+
+    assert (
+        _utils.routine_ref_to_string_for_query(routine_ref)
+        == r"`my-proj`.`my\`ds`.`my_fn`"
+    )

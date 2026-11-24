@@ -1893,9 +1893,11 @@ class Session(
                 the function, and leaves it for the user to manage the function
                 and the associated cloud function directly.
             packages (str[], Optional):
-                Explicit name of the external package dependencies. Each dependency
-                is added to the `requirements.txt` as is, and can be of the form
-                supported in https://pip.pypa.io/en/stable/reference/requirements-file-format/.
+                Explicit names of the external package dependencies as PEP 508
+                dependency specifiers (for example, ``"numpy"`` or
+                ``"pandas>=2.0.0"``). Pip options/flags (such as
+                ``--extra-index-url``), direct URL references, and multi-line
+                entries are not supported.
             cloud_function_service_account (str):
                 Service account to use for the cloud functions. If "default" provided
                 then the default service account would be used. See
@@ -2172,10 +2174,11 @@ class Session(
                 this function, and leaves it for the user to manage the function
                 directly.
             packages (str[], Optional):
-                Explicit name of the external package dependencies. Each
-                dependency is added to the `requirements.txt` as is, and can be
-                of the form supported in
-                https://pip.pypa.io/en/stable/reference/requirements-file-format/.
+                Explicit names of the external package dependencies as PEP 508
+                dependency specifiers (for example, ``"numpy"`` or
+                ``"pandas>=2.0.0"``). Pip options/flags (such as
+                ``--extra-index-url``), direct URL references, and multi-line
+                entries are not supported.
             max_batching_rows (int, Optional):
                 The maximum number of rows in each batch. If you specify
                 max_batching_rows, BigQuery determines the number of rows in a

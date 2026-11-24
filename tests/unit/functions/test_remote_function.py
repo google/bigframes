@@ -15,11 +15,22 @@
 import random
 import unittest.mock as mock
 
+import bigframes_vendored.sqlglot as sg
+import bigframes_vendored.sqlglot.expressions as sge
 import google.api_core.exceptions
 import pytest
 from google.cloud import bigquery, functions_v2
 
-from bigframes.functions import _function_client, _function_session, _utils, udf_def
+import bigframes.operations as ops
+from bigframes.core.compile.sqlglot import sql as sg_sql
+from bigframes.core.compile.sqlglot.expressions import generic_ops
+from bigframes.functions import (
+    _function_client,
+    _function_session,
+    _utils,
+    function_template,
+    udf_def,
+)
 from bigframes.testing import mocks
 
 
@@ -612,3 +623,241 @@ def test_remote_function_reuse_true_passes_expected_config():
     _, kwargs = mock_client.get_cloud_function_endpoint.call_args
     assert isinstance(kwargs["expected_config"], udf_def.CloudRunFunctionConfig)
     mock_client.create_cloud_function.assert_not_called()
+
+
+def test_provision_bq_managed_function_validates_routine_name():
+    client = _make_function_client()
+
+    def fn(x: int) -> int:
+        return x + 1
+
+    sig = _utils.get_func_signature(fn)
+    config = udf_def.ManagedFunctionConfig(
+        code=udf_def.CodeDef.from_func(fn),
+        signature=sig,
+        max_batching_rows=None,
+        container_cpu=None,
+        container_memory=None,
+        bq_connection_id=None,
+        capture_references=False,
+    )
+    bad_ref = bigquery.DatasetReference("test-project", "test_ds").routine(
+        "bad`name; DROP TABLE x; --"
+    )
+
+    with pytest.raises(ValueError, match="Routine ID can contain only"):
+        client.provision_bq_managed_function(bad_ref, config)
+
+
+def test_provision_bq_managed_function_escapes_identifiers_options_and_code():
+    client = _make_function_client()
+    captured_ddls = []
+    client._create_bq_function = captured_ddls.append  # type: ignore[method-assign]
+    client._ensure_dataset_exists = lambda _ref: None  # type: ignore[method-assign]
+
+    def fn_with_triple_quotes(x: str) -> str:
+        '''Triple single-quote docstring with \' and \\ and __UDF_PLACE_HOLDER__.'''  # fmt: skip
+        return x + "'''" + """double triple""" + r"\n"
+
+    sig = _utils.get_func_signature(fn_with_triple_quotes)
+    config = udf_def.ManagedFunctionConfig(
+        code=udf_def.CodeDef.from_func(
+            fn_with_triple_quotes, package_requirements=["tabulate>=0.9"]
+        ),
+        signature=sig,
+        max_batching_rows=100,
+        container_cpu=0.5,
+        container_memory="512Mi'); DROP TABLE t; --\\",
+        bq_connection_id="conn`bad\\id",
+        capture_references=False,
+    )
+    routine_ref = bigquery.DatasetReference("my-project", "ds`name").routine("valid_fn")
+
+    client.provision_bq_managed_function(routine_ref, config)
+
+    assert len(captured_ddls) == 1
+    ddl = captured_ddls[0]
+    assert (
+        r"CREATE OR REPLACE FUNCTION `my-project`.`ds\`name`.`valid_fn`(`x` STRING)"
+        in ddl
+    )
+    assert r"WITH CONNECTION `my-project`.`us`.`conn\`bad\\id`" in ddl
+    assert r"container_memory='512Mi\'); DROP TABLE t; --\\'" in ddl
+    assert "packages=['tabulate>=0.9']" in ddl
+    assert "AS r'''" not in ddl
+    assert r"\'\'\'" in ddl
+    assert "__UDF_PLACE_HOLDER__" in ddl
+    assert '# Packages: ["tabulate>=0.9"]' in ddl
+
+    expected_code = function_template.generate_managed_function_code(
+        config.code, config.signature, config.capture_references
+    )
+    as_literal = ddl.split("\nAS ", maxsplit=1)[1]
+    parsed_literal = sg.parse_one(as_literal, dialect="bigquery")
+    assert parsed_literal.this == expected_code
+
+
+def test_udf_signature_to_sql_input_signature_quotes_reserved_keywords():
+    def fn(group: int, order: str) -> str:
+        return f"{group}:{order}"
+
+    sig = _utils.get_func_signature(fn)
+
+    assert sig.to_sql_input_signature() == "`group` INT64,`order` STRING"
+
+
+def test_udf_signature_to_sql_input_signature_escapes_adversarial_parameter_name():
+    adversarial_sig = udf_def.UdfSignature(
+        inputs=(
+            udf_def.UdfArg(
+                name="x` INT64); DROP TABLE t; --",
+                dtype=udf_def.DirectScalarType(int),
+            ),
+        ),
+        output=udf_def.DirectScalarType(int),
+    )
+
+    assert (
+        adversarial_sig.to_sql_input_signature()
+        == r"`x\` INT64); DROP TABLE t; --` INT64"
+    )
+
+
+def test_sqlglot_remote_function_op_escapes_routine_ref():
+    def fn(x: int) -> int:
+        return x + 1
+
+    sig = _utils.get_func_signature(fn)
+    routine_ref = bigquery.DatasetReference(
+        "my-proj", "ds` ; DROP TABLE t; --"
+    ).routine("fn")
+    op = ops.RemoteFunctionOp(
+        function_def=udf_def.BigqueryUdf(routine_ref=routine_ref, signature=sig)
+    )
+
+    fn_name = generic_ops._get_remote_function_name(op)
+    compiled = sg_sql.to_sql(sge.func(fn_name, sg_sql.literal(1)))
+
+    assert compiled == r"`my-proj`.`ds\` ; DROP TABLE t; --`.`fn`(1)"
+
+
+def test_create_bq_remote_function_escapes_identifiers_and_options():
+    client = _make_function_client()
+    captured_ddls = []
+    client._create_bq_function = captured_ddls.append  # type: ignore[method-assign]
+    client._ensure_dataset_exists = lambda _ref: None  # type: ignore[method-assign]
+
+    def fn(x: int) -> int:
+        return x + 1
+
+    sig = _utils.get_func_signature(fn).to_remote_function_compatible()
+    rf_config = udf_def.RemoteFunctionConfig(
+        endpoint="https://example.a.run.app/path?q='quoted'",
+        signature=sig,
+        connection_id="conn`id",
+        max_batching_rows=500,
+        bq_metadata='{"value": {"k": "v\'1"}}',
+    )
+    routine_ref = bigquery.DatasetReference("my-project", "my`ds").routine("remote_fn")
+
+    client.create_bq_remote_function(
+        routine_ref,
+        rf_config,
+        maybe_reuse=False,
+        try_create_connection=False,
+    )
+
+    assert len(captured_ddls) == 1
+    ddl = captured_ddls[0]
+    assert r"CREATE OR REPLACE FUNCTION `my-project`.`my\`ds`.`remote_fn`(" in ddl
+    assert r"REMOTE WITH CONNECTION `my-project`.`us`.`conn\`id`" in ddl
+    assert r"endpoint='https://example.a.run.app/path?q=\'quoted\''" in ddl
+    assert r"""description='{"value": {"k": "v\'1"}}'""" in ddl
+
+
+@pytest.mark.parametrize(
+    "bad_packages",
+    [
+        ["--extra-index-url https://example.com"],
+        ["pandas\n--extra-index-url https://example.com"],
+        ["requests @ https://example.com/pkg.whl"],
+        ["requests @ https://example.com/a\n--extra-index-url=https://example.com"],
+    ],
+)
+def test_udf_and_remote_function_reject_invalid_packages(bad_packages):
+    session = mocks.create_bigquery_session()
+
+    with pytest.raises(ValueError):
+        session._function_session.udf(packages=bad_packages)
+
+    with pytest.raises(ValueError):
+        session._function_session.remote_function(
+            packages=bad_packages,
+            cloud_function_service_account="default",
+        )
+
+
+@pytest.mark.parametrize("bad_name", ["", "my_fn\n", "1starts_with_digit", "bad`name"])
+def test_validate_routine_name_rejects_invalid_names(bad_name):
+    with pytest.raises(ValueError, match="Routine ID can contain only"):
+        _function_client._validate_routine_name(bad_name)
+
+
+def test_remote_function_and_udf_validate_name_eagerly_before_provisioning():
+    session = mocks.create_bigquery_session()
+    func_session = session._function_session
+    mock_client = _make_mock_function_client(session)
+    func_session._function_client = mock_client
+
+    with pytest.raises(ValueError, match="Routine ID can contain only"):
+        func_session.remote_function(
+            name="bad_name\n",
+            cloud_function_service_account="default",
+        )
+
+    with pytest.raises(ValueError, match="Routine ID can contain only"):
+        func_session.udf(name="bad_name\n")
+
+    mock_client.create_cloud_function.assert_not_called()
+    mock_client.create_bq_remote_function.assert_not_called()
+
+
+def test_create_bq_remote_function_validates_routine_name_before_creating_connection():
+    client = _make_function_client()
+
+    def fn(x: int) -> int:
+        return x + 1
+
+    sig = _utils.get_func_signature(fn).to_remote_function_compatible()
+    rf_config = udf_def.RemoteFunctionConfig(
+        endpoint="https://example.a.run.app",
+        signature=sig,
+        connection_id="conn_id",
+        max_batching_rows=500,
+    )
+    bad_ref = bigquery.DatasetReference("my-project", "my_ds").routine("bad_fn\n")
+
+    with pytest.raises(ValueError, match="Routine ID can contain only"):
+        client.create_bq_remote_function(
+            bad_ref,
+            rf_config,
+            maybe_reuse=False,
+            try_create_connection=True,
+        )
+
+    client._bq_connection_manager.create_bq_connection.assert_not_called()
+
+
+def test_generate_cloud_function_code_validates_package_requirements(tmp_path):
+    client = _make_function_client()
+
+    def fn(x: int) -> int:
+        return x + 1
+
+    sig = _utils.get_func_signature(fn).to_remote_function_compatible()
+    code_def = udf_def.CodeDef.from_func(
+        fn, package_requirements=["--extra-index-url https://example.com"]
+    )
+
+    with pytest.raises(ValueError, match="pip options/flags"):
+        client._generate_cloud_function_code(code_def, str(tmp_path), udf_signature=sig)

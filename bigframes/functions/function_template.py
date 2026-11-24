@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 import logging
 import os
 import re
@@ -367,7 +368,7 @@ def generate_managed_function_code(
     if code_def.package_requirements:
         # Include package requirements as comments to help force a new
         # BigQuery UDF definition when only package requirements change.
-        packages_comment = "# Packages: " + ", ".join(
+        packages_comment = "# Packages: " + json.dumps(
             sorted(code_def.package_requirements)
         )
         udf_code_block.append(packages_comment)

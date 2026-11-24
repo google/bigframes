@@ -381,3 +381,33 @@ def test_parse_dotted_table_name_in_one_pair_of_backticks():
     parsed = sg.parse_one(written, dialect=sql.DIALECT)
 
     assert parsed.sql(dialect=sql.DIALECT) == written
+
+
+@pytest.mark.parametrize(
+    ("parts", "expected"),
+    (
+        pytest.param(("only_one",), "`only_one`", id="single"),
+        pytest.param(
+            ("my-proj", "my_ds", "my_fn"),
+            "`my-proj`.`my_ds`.`my_fn`",
+            id="three_parts",
+        ),
+        pytest.param(
+            ("google.com:my-proj", "my_ds", "my_fn"),
+            "`google.com:my-proj`.`my_ds`.`my_fn`",
+            id="domain_scoped_project",
+        ),
+        pytest.param(
+            ("proj", "ds.extra", "fn`back\\tick\nline"),
+            r"`proj`.`ds.extra`.`fn\`back\\tick\nline`",
+            id="special_chars_in_segments",
+        ),
+    ),
+)
+def test_qualified_identifier(parts, expected):
+    assert sql.to_sql(sql.qualified_identifier(*parts)) == expected
+
+
+def test_qualified_identifier_empty_raises():
+    with pytest.raises(ValueError, match="at least one identifier part"):
+        sql.qualified_identifier()

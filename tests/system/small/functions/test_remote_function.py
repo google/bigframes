@@ -1614,3 +1614,45 @@ def test_remote_function_unsupported_type(
             name=get_function_name(func_tuple),
             cloud_function_service_account="default",
         )(func_tuple)
+
+
+def test_managed_function_rejects_invalid_routine_name(session, dataset_id):
+    def simple_inc(x: int) -> int:
+        return x + 1
+
+    bad_name = "fn` ; SELECT 1 --"
+
+    with pytest.raises(ValueError, match="Routine ID can contain only"):
+        session.deploy_udf(simple_inc, dataset=dataset_id, name=bad_name)
+
+
+@pytest.mark.parametrize(
+    "bad_package",
+    [
+        pytest.param("--extra-index-url https://example.com", id="pip_flag"),
+        pytest.param("-r requirements.txt", id="requirements_flag"),
+        pytest.param("pandas\n--find-links=https://example.com", id="newline"),
+        pytest.param(
+            "pandas; extra == 'a\u2028--extra-index-url=https://example.com\u2028b'",
+            id="unicode_line_separator",
+        ),
+        pytest.param("requests @ https://example.com/pkg.whl", id="direct_url"),
+        pytest.param(
+            "requests @ https://example.com/a\n--extra-index-url=https://example.com",
+            id="direct_url_with_newline",
+        ),
+        pytest.param("pandas''' ; SELECT 1 --", id="sql_payload"),
+    ],
+)
+def test_udf_and_remote_function_reject_invalid_packages(session, bad_package):
+    def simple_inc(x: int) -> int:
+        return x + 1
+
+    with pytest.raises(ValueError):
+        session.udf(packages=[bad_package])(simple_inc)
+
+    with pytest.raises(ValueError):
+        session.remote_function(
+            packages=[bad_package],
+            cloud_function_service_account="default",
+        )(simple_inc)

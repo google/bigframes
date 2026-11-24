@@ -28,7 +28,7 @@ import numpy
 import pandas
 import pyarrow
 from google.cloud import bigquery, functions_v2
-from packaging.requirements import Requirement
+from packaging.requirements import InvalidRequirement, Requirement
 
 import bigframes.exceptions as bfe
 import bigframes.formatting_helpers as bf_formatting
@@ -59,6 +59,41 @@ def gcf_location_from_bq_location(bq_location: str) -> str:
     return bq_location
 
 
+def _validate_package_requirements(
+    package_requirements: Sequence[str],
+) -> None:
+    """Validate that each package requirement is a safe PEP 508 specifier without URLs, flags, or newlines."""
+    if isinstance(package_requirements, (str, bytes)):
+        raise TypeError(
+            "package_requirements must be a sequence of strings, not a single string or bytes."
+        )
+    for req in package_requirements:
+        if not isinstance(req, str):
+            raise ValueError(
+                f"Package requirement must be a string, got {type(req).__name__}."
+            )
+        if not req:
+            raise ValueError(
+                "Invalid package requirement: empty string is not allowed."
+            )
+        if "\x00" in req or req.splitlines() != [req]:
+            raise ValueError(
+                f"Invalid package requirement {req!r}: line breaks and null bytes are not allowed."
+            )
+        if req.lstrip().startswith("-"):
+            raise ValueError(
+                f"Invalid package requirement {req!r}: pip options/flags are not allowed."
+            )
+        try:
+            parsed = Requirement(req)
+        except (InvalidRequirement, SyntaxError) as exc:
+            raise ValueError(f"Invalid package requirement {req!r}: {exc}") from exc
+        if parsed.url is not None:
+            raise ValueError(
+                f"Invalid package requirement {req!r}: direct URL references are not allowed."
+            )
+
+
 def _package_existed(package_requirements: list[str], package: str) -> bool:
     """Checks if a package (regardless of version) exists in a given list."""
     if not package_requirements:
@@ -75,6 +110,9 @@ def get_updated_package_requirements(
     capture_references: bool = True,
     ignore_package_version: bool = False,
 ) -> Sequence[str]:
+    _validate_package_requirements(package_requirements)
+    result = list(package_requirements)
+
     requirements: list[str] = []
     if capture_references:
         requirements.append(f"cloudpickle=={cloudpickle.__version__}")
@@ -103,9 +141,8 @@ def get_updated_package_requirements(
             requirements.append(f"numpy=={numpy.__version__}")
 
     if not requirements:
-        return list(package_requirements)
+        return result
 
-    result = list(package_requirements)
     for package in requirements:
         if not _package_existed(result, package):
             result.append(package)
@@ -178,7 +215,14 @@ def clean_up_by_session_id(
 
 
 def routine_ref_to_string_for_query(routine_ref: bigquery.RoutineReference) -> str:
-    return f"`{routine_ref.project}.{routine_ref.dataset_id}`.{routine_ref.routine_id}"
+    # Deferred import to avoid circular dependency
+    from bigframes.core.compile.sqlglot import sql as sg_sql
+
+    return sg_sql.to_sql(
+        sg_sql.qualified_identifier(
+            routine_ref.project, routine_ref.dataset_id, routine_ref.routine_id
+        )
+    )
 
 
 # Deprecated: Use CodeDef.stable_hash() instead.

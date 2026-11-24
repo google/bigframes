@@ -71,6 +71,15 @@ def identifier(id: str) -> sge.Identifier:
     return sge.to_identifier(id, quoted=QUOTED)
 
 
+def qualified_identifier(*parts: str) -> sge.Expression:
+    """Return a dot-separated SQL expression with each identifier segment quoted."""
+    if not parts:
+        raise ValueError("qualified_identifier requires at least one identifier part.")
+    if len(parts) == 1:
+        return identifier(parts[0])
+    return sge.Dot.build([identifier(part) for part in parts])
+
+
 def _unwrap_scalar(value: typing.Any) -> typing.Any:
     """Unwraps PyArrow scalars and NumPy generic types to native Python objects."""
     if isinstance(value, pa.Scalar):

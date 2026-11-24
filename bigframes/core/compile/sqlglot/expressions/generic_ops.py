@@ -183,8 +183,10 @@ def _(left: TypedExpr, right: TypedExpr) -> sge.Expression:
 def _get_remote_function_name(op):
     routine_ref = op.function_def.routine_ref
     # Quote project, dataset, and routine IDs to avoid keyword clashes.
-    return (
-        f"`{routine_ref.project}`.`{routine_ref.dataset_id}`.`{routine_ref.routine_id}`"
+    return sql.to_sql(
+        sql.qualified_identifier(
+            routine_ref.project, routine_ref.dataset_id, routine_ref.routine_id
+        )
     )
 
 

@@ -197,7 +197,13 @@ class BigqueryCallableRoutine:
         from bigframes.core.compile.sqlglot import sql as sg_sql
 
         args_string = ", ".join([sg_sql.to_sql(sg_sql.literal(v)) for v in args])
-        sql = f"SELECT `{str(self._udf_def.routine_ref)}`({args_string})"
+        routine_ref = self._udf_def.routine_ref
+        routine_sql = sg_sql.to_sql(
+            sg_sql.qualified_identifier(
+                routine_ref.project, routine_ref.dataset_id, routine_ref.routine_id
+            )
+        )
+        sql = f"SELECT {routine_sql}({args_string})"
         row_iterator = bf_io_bigquery.start_query_job_optional(
             self._bq_client,
             sql=sql,

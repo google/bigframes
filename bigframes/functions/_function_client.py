@@ -132,21 +132,54 @@ class FunctionClient:
         )
         logger.info(f"Created bigframes function {query_job.ddl_target_routine}")
 
-    def _format_function_options(self, function_options: dict) -> str:
-        def format_val(val):
-            if isinstance(val, str):
-                return f"'{val}'"
-            if isinstance(val, (list, tuple)):
-                return str(list(val))
-            return str(val)
+    def _format_function_options(self, function_options: dict[str, Any]) -> str:
+        # Deferred import to avoid circular dependency
+        from bigframes.core.compile.sqlglot import sql as sg_sql
 
         return ", ".join(
             [
-                f"{key}={format_val(val)}"
+                f"{key}={sg_sql.to_sql(sg_sql.literal(val))}"
                 for key, val in function_options.items()
                 if val is not None
             ]
         )
+
+    def _compile_remote_function_ddl(
+        self,
+        routine_ref: bigquery.RoutineReference,
+        udf_def: udf_def.RemoteFunctionConfig,
+    ) -> str:
+        # Deferred import to avoid circular dependency
+        from bigframes.core.compile.sqlglot import sql as sg_sql
+
+        remote_function_options = {
+            "endpoint": udf_def.endpoint,
+            "max_batching_rows": udf_def.max_batching_rows,
+        }
+        if udf_def.bq_metadata:
+            # We are using the description field to store this structured
+            # bigframes specific metadata for the lack of a better option
+            remote_function_options["description"] = udf_def.bq_metadata
+
+        remote_function_options_str = self._format_function_options(
+            remote_function_options
+        )
+        _validate_routine_name(routine_ref.routine_id)
+        bq_function_id = sg_sql.to_sql(
+            sg_sql.qualified_identifier(
+                routine_ref.project, routine_ref.dataset_id, routine_ref.routine_id
+            )
+        )
+        bq_connection_id = sg_sql.to_sql(
+            sg_sql.qualified_identifier(
+                routine_ref.project, self._bq_location, udf_def.connection_id
+            )
+        )
+        return f"""
+            CREATE OR REPLACE FUNCTION {bq_function_id}({udf_def.signature.to_sql_input_signature()})
+            RETURNS {udf_def.signature.with_devirtualize().output.sql_type}
+            REMOTE WITH CONNECTION {bq_connection_id}
+            OPTIONS ({remote_function_options_str})"""
 
     def create_bq_remote_function(
         self,
@@ -157,6 +190,7 @@ class FunctionClient:
     ):
         """Create a BigQuery remote function given the artifacts of a user defined
         function and the http endpoint of a corresponding cloud function."""
+        _validate_routine_name(routine_ref.routine_id)
 
         if maybe_reuse:
             existing_rf_spec = self.get_remote_function_specs(routine_ref)
@@ -167,35 +201,7 @@ class FunctionClient:
         if try_create_connection:
             self._create_bq_connection(udf_def.connection_id, routine_ref.project)
 
-        # Create BQ function
-        # https://cloud.google.com/bigquery/docs/reference/standard-sql/remote-functions#create_a_remote_function_2
-
-        remote_function_options = {
-            "endpoint": udf_def.endpoint,
-            "max_batching_rows": udf_def.max_batching_rows,
-        }
-
-        if udf_def.bq_metadata:
-            # We are using the description field to store this structured
-            # bigframes specific metadata for the lack of a better option
-            remote_function_options["description"] = udf_def.bq_metadata
-
-        remote_function_options_str = self._format_function_options(
-            remote_function_options
-        )
-
-        import bigframes.core.sql
-        import bigframes.core.utils
-
-        # removes anything that isn't letter, number or underscore
-        _validate_routine_name(routine_ref.routine_id)
-        bq_function_name_escaped = bigframes.core.sql.identifier(routine_ref.routine_id)
-        create_function_ddl = f"""
-            CREATE OR REPLACE FUNCTION `{routine_ref.project}.{routine_ref.dataset_id}`.{bq_function_name_escaped}({udf_def.signature.to_sql_input_signature()})
-            RETURNS {udf_def.signature.with_devirtualize().output.sql_type}
-            REMOTE WITH CONNECTION `{routine_ref.project}.{self._bq_location}.{udf_def.connection_id}`
-            OPTIONS ({remote_function_options_str})"""
-
+        create_function_ddl = self._compile_remote_function_ddl(routine_ref, udf_def)
         logger.info(f"Creating BQ remote function: {create_function_ddl}")
 
         self._ensure_dataset_exists(
@@ -203,29 +209,9 @@ class FunctionClient:
         )
         self._create_bq_function(create_function_ddl)
 
-    def provision_bq_managed_function(
-        self,
-        routine_ref: bigquery.RoutineReference,
-        config: udf_def.ManagedFunctionConfig,
-    ):
-        """Create a BigQuery managed function."""
-
-        # TODO(b/406283812): Expose the capability to pass down
-        # capture_references=True in the public udf API.
-        if (
-            config.capture_references
-            and (python_version := _utils.get_python_version())
-            != _MANAGED_FUNC_PYTHON_VERSION
-        ):
-            raise bf_formatting.create_exception_with_feedback_link(
-                NotImplementedError,
-                f"Capturing references for udf is currently supported only in Python version {_MANAGED_FUNC_PYTHON_VERSION}, you are running {python_version}.",
-            )
-
-        # Create BQ managed function.
-        bq_function_args = config.signature.to_sql_input_signature()
-        bq_function_return_type = config.signature.with_devirtualize().output.sql_type
-
+    def _build_managed_function_options(
+        self, config: udf_def.ManagedFunctionConfig
+    ) -> dict[str, Any]:
         managed_function_options: dict[str, Any] = {
             "runtime_version": _MANAGED_FUNC_PYTHON_VERSION,
             "entry_point": "bigframes_handler",
@@ -247,46 +233,73 @@ class FunctionClient:
         )
         if packages:
             managed_function_options["packages"] = packages
+        return managed_function_options
+
+    def _compile_managed_function_ddl(
+        self,
+        routine_ref: bigquery.RoutineReference,
+        config: udf_def.ManagedFunctionConfig,
+    ) -> str:
+        # Deferred import to avoid circular dependency
+        from bigframes.core.compile.sqlglot import sql as sg_sql
+
+        _validate_routine_name(routine_ref.routine_id)
+        bq_function_args = config.signature.to_sql_input_signature()
+        bq_function_return_type = config.signature.with_devirtualize().output.sql_type
         managed_function_options_str = self._format_function_options(
-            managed_function_options
+            self._build_managed_function_options(config)
         )
-
-        persistent_func_id = (
-            f"`{routine_ref.project}.{routine_ref.dataset_id}.{routine_ref.routine_id}`"
+        persistent_func_id = sg_sql.to_sql(
+            sg_sql.qualified_identifier(
+                routine_ref.project, routine_ref.dataset_id, routine_ref.routine_id
+            )
         )
-
         with_connection_clause = (
-            (
-                f"WITH CONNECTION `{routine_ref.project}.{self._bq_location}.{config.bq_connection_id}`"
+            "WITH CONNECTION "
+            + sg_sql.to_sql(
+                sg_sql.qualified_identifier(
+                    routine_ref.project, self._bq_location, config.bq_connection_id
+                )
             )
             if config.bq_connection_id
             else ""
         )
-
-        # Generate the complete Python code block for the managed Python UDF,
-        # including the user's function, necessary imports, and the BigQuery
-        # handler wrapper.
         python_code_block = bff_template.generate_managed_function_code(
             config.code, config.signature, config.capture_references
         )
+        python_code_literal = sg_sql.to_sql(sg_sql.literal(python_code_block))
 
-        create_function_ddl = (
-            textwrap.dedent(
-                f"""
+        return textwrap.dedent(
+            f"""
                 CREATE OR REPLACE FUNCTION {persistent_func_id}({bq_function_args})
                 RETURNS {bq_function_return_type}
                 LANGUAGE python
                 {with_connection_clause}
                 OPTIONS ({managed_function_options_str})
-                AS r'''
-                __UDF_PLACE_HOLDER__
-                '''
+                AS {python_code_literal}
             """
-            )
-            .strip()
-            .replace("__UDF_PLACE_HOLDER__", python_code_block)
-        )
+        ).strip()
 
+    def provision_bq_managed_function(
+        self,
+        routine_ref: bigquery.RoutineReference,
+        config: udf_def.ManagedFunctionConfig,
+    ):
+        """Create a BigQuery managed function."""
+
+        # TODO(b/406283812): Expose the capability to pass down
+        # capture_references=True in the public udf API.
+        if (
+            config.capture_references
+            and (python_version := _utils.get_python_version())
+            != _MANAGED_FUNC_PYTHON_VERSION
+        ):
+            raise bf_formatting.create_exception_with_feedback_link(
+                NotImplementedError,
+                f"Capturing references for udf is currently supported only in Python version {_MANAGED_FUNC_PYTHON_VERSION}, you are running {python_version}.",
+            )
+
+        create_function_ddl = self._compile_managed_function_ddl(routine_ref, config)
         self._ensure_dataset_exists(
             bigquery.DatasetReference(routine_ref.project, routine_ref.dataset_id)
         )
@@ -413,6 +426,7 @@ class FunctionClient:
 
         # requirements.txt
         if code_def.package_requirements:
+            _utils._validate_package_requirements(code_def.package_requirements)
             requirements_txt = os.path.join(directory, "requirements.txt")
             with open(requirements_txt, "w") as f:
                 f.write("\n".join(code_def.package_requirements))
@@ -681,7 +695,7 @@ def _validate_routine_name(name: str) -> None:
     """Validate that the given name is a valid BigQuery routine name."""
     # Routine IDs can contain only letters (a-z, A-Z), numbers (0-9), or underscores (_)
     # must also start with a letter or underscore only
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
+    if not re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", name):
         raise ValueError(
             "Routine ID can contain only letters (a-z, A-Z), numbers (0-9), or underscores (_)"
         )

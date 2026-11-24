@@ -18,6 +18,7 @@ from bigframes.core.compile.sqlglot.sql.base import (
     identifier,
     is_null_literal,
     literal,
+    qualified_identifier,
     table,
     to_sql,
 )
@@ -30,6 +31,7 @@ __all__ = [
     "identifier",
     "is_null_literal",
     "literal",
+    "qualified_identifier",
     "table",
     "to_sql",
     # From ddl.py

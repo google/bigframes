@@ -161,7 +161,14 @@ class GbqNativeTable:
 
     def get_full_id(self, quoted: bool = False) -> str:
         if quoted:
-            return f"`{self.project_id}`.`{self.dataset_id}`.`{self.table_id}`"
+            # Deferred import to avoid circular dependency
+            from bigframes.core.compile.sqlglot import sql as sg_sql
+
+            return sg_sql.to_sql(
+                sg_sql.qualified_identifier(
+                    self.project_id, *self.dataset_id.split("."), self.table_id
+                )
+            )
         return f"{self.project_id}.{self.dataset_id}.{self.table_id}"
 
     @property

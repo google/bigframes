@@ -329,17 +329,18 @@ class StreamingDataFrame(StreamingBase):
             else "CURRENT_TIMESTAMP() - (INTERVAL 7 DAY - INTERVAL 5 MINUTE)"
         )
 
-        appends_clause = f"APPENDS(TABLE `{original_table}`, {start_ts_str})"
+        individually_quoted = sg_sql.to_sql(
+            sg_sql.qualified_identifier_from_string(original_table)
+        )
+        single_quoted = sg_sql.to_sql(sg_sql.identifier(original_table))
+        appends_clause = f"APPENDS(TABLE {individually_quoted}, {start_ts_str})"
         # SQLGlot compiler wraps a pair of backticks around each part of the
         # table name, while the Ibis compiler does that for the whole table
         # name. So we need to check for both cases and replace the correct one.
-        individually_quoted = ".".join(
-            f"`{part}`" for part in original_table.split(".")
-        )
         if individually_quoted in sql_str:
             sql_str = sql_str.replace(individually_quoted, appends_clause)
         else:
-            sql_str = sql_str.replace(f"`{original_table}`", appends_clause)
+            sql_str = sql_str.replace(single_quoted, appends_clause)
         return sql_str
 
     @property

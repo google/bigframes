@@ -456,11 +456,12 @@ def generate_embedding(
     if trial_id is not None:
         struct_fields["TRIAL_ID"] = trial_id
 
+    model_id_sql = sg_sql.to_sql(sg_sql.qualified_identifier_from_string(model_name))
     # Construct the TVF query
     query = f"""
         SELECT *
         FROM AI.GENERATE_EMBEDDING(
-            MODEL `{model_name}`,
+            MODEL {model_id_sql},
             ({table_sql}),
             {sg_sql.to_sql(sg_sql.literal(struct_fields))}
         )
@@ -570,10 +571,11 @@ def generate_text(
     if request_type is not None:
         struct_fields["REQUEST_TYPE"] = request_type
 
+    model_id_sql = sg_sql.to_sql(sg_sql.qualified_identifier_from_string(model_name))
     query = f"""
         SELECT *
         FROM AI.GENERATE_TEXT(
-            MODEL `{model_name}`,
+            MODEL {model_id_sql},
             ({table_sql}),
             {sg_sql.to_sql(sg_sql.literal(struct_fields))}
         )
@@ -673,11 +675,12 @@ def generate_table(
     if request_type is not None:
         struct_fields_bq["request_type"] = request_type
 
+    model_id_sql = sg_sql.to_sql(sg_sql.qualified_identifier_from_string(model_name))
     struct_sql = sg_sql.to_sql(sg_sql.literal(struct_fields_bq))
     query = f"""
         SELECT *
         FROM AI.GENERATE_TABLE(
-            MODEL `{model_name}`,
+            MODEL {model_id_sql},
             ({table_sql}),
             {struct_sql}
         )

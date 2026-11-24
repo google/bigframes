@@ -108,6 +108,7 @@ def create_export_data_statement(
     export_options_str = ", ".join(
         format_option(key, value) for key, value in all_options.items()
     )
+    table_sql = sg_sql.to_sql(sg_sql.qualified_identifier_from_string(table_id))
     # Manually generate ORDER BY statement since ibis will not always generate
     # it in the top level statement. This causes BigQuery to then run
     # non-distributed sort and run out of memory.
@@ -118,7 +119,7 @@ def create_export_data_statement(
             {export_options_str}
         ) AS
         SELECT * EXCEPT ({IO_ORDERING_ID})
-        FROM `{table_id}`
+        FROM {table_sql}
         ORDER BY {IO_ORDERING_ID}
         """
     )
@@ -126,7 +127,11 @@ def create_export_data_statement(
 
 def table_ref_to_sql(table: bigquery.TableReference) -> str:
     """Format a table reference as escaped SQL."""
-    return f"`{table.project}`.`{table.dataset_id}`.`{table.table_id}`"
+    return sg_sql.to_sql(
+        sg_sql.qualified_identifier(
+            table.project, *table.dataset_id.split("."), table.table_id
+        )
+    )
 
 
 def create_temp_table(
@@ -230,9 +235,9 @@ def bq_field_to_type_sql(field: bigquery.SchemaField):
 
 
 def bq_field_to_sql(field: bigquery.SchemaField):
-    name = field.name
+    name_sql = sg_sql.to_sql(sg_sql.identifier(field.name))
     type_ = bq_field_to_type_sql(field)
-    return f"`{name}` {type_}"
+    return f"{name_sql} {type_}"
 
 
 def bq_schema_to_sql(schema: Iterable[bigquery.SchemaField]):

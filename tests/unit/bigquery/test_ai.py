@@ -89,7 +89,7 @@ def test_generate_embedding_with_dataframe(mock_dataframe, mock_session):
     query = " ".join(query.split())
 
     expected_part_1 = "SELECT * FROM AI.GENERATE_EMBEDDING("
-    expected_part_2 = f"MODEL `{model_name}`,"
+    expected_part_2 = "MODEL `project`.`dataset`.`model`,"
     expected_part_3 = "(SELECT * FROM my_table),"
     expected_part_4 = "STRUCT(256 AS `OUTPUT_DIMENSIONALITY`)"
 
@@ -114,7 +114,7 @@ def test_generate_embedding_with_series(mock_embedding_series, mock_session):
     query = mock_session.read_gbq_query.call_args[0][0]
     query = " ".join(query.split())
 
-    assert f"MODEL `{model_name}`" in query
+    assert "MODEL `project`.`dataset`.`model`" in query
     assert "(SELECT my_col AS content FROM my_table)" in query
     assert (
         "STRUCT(0.0 AS `START_SECOND`, 10.0 AS `END_SECOND`, 5.0 AS `INTERVAL_SECONDS`)"
@@ -134,7 +134,7 @@ def test_generate_embedding_defaults(mock_dataframe, mock_session):
     query = mock_session.read_gbq_query.call_args[0][0]
     query = " ".join(query.split())
 
-    assert f"MODEL `{model_name}`" in query
+    assert "MODEL `project`.`dataset`.`model`" in query
     assert "STRUCT()" in query
 
 
@@ -178,7 +178,7 @@ def test_generate_text_with_dataframe(mock_dataframe, mock_session):
     query = " ".join(query.split())
 
     expected_part_1 = "SELECT * FROM AI.GENERATE_TEXT("
-    expected_part_2 = f"MODEL `{model_name}`,"
+    expected_part_2 = "MODEL `project`.`dataset`.`model`,"
     expected_part_3 = "(SELECT * FROM my_table),"
     expected_part_4 = "STRUCT(256 AS `MAX_OUTPUT_TOKENS`)"
 
@@ -200,7 +200,7 @@ def test_generate_text_with_series(mock_text_series, mock_session):
     query = mock_session.read_gbq_query.call_args[0][0]
     query = " ".join(query.split())
 
-    assert f"MODEL `{model_name}`" in query
+    assert "MODEL `project`.`dataset`.`model`" in query
     assert "(SELECT my_col AS prompt FROM my_table)" in query
 
 
@@ -216,7 +216,7 @@ def test_generate_text_defaults(mock_dataframe, mock_session):
     query = mock_session.read_gbq_query.call_args[0][0]
     query = " ".join(query.split())
 
-    assert f"MODEL `{model_name}`" in query
+    assert "MODEL `project`.`dataset`.`model`" in query
     assert "STRUCT()" in query
 
 
@@ -236,7 +236,7 @@ def test_generate_table_with_dataframe(mock_dataframe, mock_session):
     query = " ".join(query.split())
 
     expected_part_1 = "SELECT * FROM AI.GENERATE_TABLE("
-    expected_part_2 = f"MODEL `{model_name}`,"
+    expected_part_2 = "MODEL `project`.`dataset`.`model`,"
     expected_part_3 = "(SELECT * FROM my_table),"
     expected_part_4 = "STRUCT('col1 STRING, col2 INT64' AS `output_schema`)"
 
@@ -261,7 +261,7 @@ def test_generate_table_with_options(mock_dataframe, mock_session):
     query = mock_session.read_gbq_query.call_args[0][0]
     query = " ".join(query.split())
 
-    assert f"MODEL `{model_name}`" in query
+    assert "MODEL `project`.`dataset`.`model`" in query
     assert "(SELECT * FROM my_table)" in query
     assert (
         "STRUCT('col1 STRING' AS `output_schema`, 0.5 AS `temperature`, 100 AS `max_output_tokens`)"
@@ -285,7 +285,7 @@ def test_generate_table_with_mapping_schema(mock_dataframe, mock_session):
     query = " ".join(query.split())
 
     expected_part_1 = "SELECT * FROM AI.GENERATE_TABLE("
-    expected_part_2 = f"MODEL `{model_name}`,"
+    expected_part_2 = "MODEL `project`.`dataset`.`model`,"
     expected_part_3 = "(SELECT * FROM my_table),"
     expected_part_4 = "STRUCT('col1 STRING, col2 INT64' AS `output_schema`)"
 
@@ -446,3 +446,15 @@ def test_evaluate_validation_errors(
 
     with pytest.raises(ValueError, match=expected_error):
         bbq.ai.evaluate(mock_dataframe, other_df, **kwargs)
+
+
+def test_generate_text_escapes_model_name_with_backticks_and_domain_project(
+    mock_dataframe, mock_session
+):
+    model_name = "google.com:my-proj.my_ds.model` ; DROP TABLE t; --"
+
+    bbq.ai.generate_text(model_name, mock_dataframe)
+
+    mock_session.read_gbq_query.assert_called_once()
+    query = " ".join(mock_session.read_gbq_query.call_args[0][0].split())
+    assert r"MODEL `google.com:my-proj`.`my_ds`.`model\` ; DROP TABLE t; --`," in query

@@ -185,6 +185,11 @@ def test_to_struct(bqschema, expected_sql):
             ),
             "UNNEST(ARRAY<STRUCT<`order_id` STRING, `items` ARRAY<STRUCT<`item_name` STRING, `quantity` INT64>>>>[])",
         ),
+        # Field name containing backtick and backslash
+        (
+            (bigquery.SchemaField("a`b\\c", "STRING"),),
+            r"UNNEST(ARRAY<STRUCT<`a\`b\\c` STRING>>[])",
+        ),
     ],
 )
 def test_to_sql_dry_run(bqschema, expected_sql):

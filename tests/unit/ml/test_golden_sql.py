@@ -434,7 +434,7 @@ def test_create_remote_model_warns_and_omits_kms_key_name(
 
     mock_session._start_query_ml_ddl.assert_called_once_with(
         "CREATE OR REPLACE MODEL `test-project`.`_anon123`.`temp_model_id`\n"
-        "REMOTE WITH CONNECTION `test-project.us.test-conn`\n"
+        "REMOTE WITH CONNECTION `test-project`.`us`.`test-conn`\n"
         "OPTIONS(\n"
         "  endpoint='gemini-2.0-flash-001')"
     )
@@ -459,7 +459,7 @@ def test_create_llm_remote_model_warns_and_omits_kms_key_name(
 
     mock_session._start_query_ml_ddl.assert_called_once_with(
         "CREATE OR REPLACE MODEL `test-project`.`_anon123`.`temp_model_id`\n"
-        "REMOTE WITH CONNECTION `test-project.us.test-conn`\n"
+        "REMOTE WITH CONNECTION `test-project`.`us`.`test-conn`\n"
         "OPTIONS(\n"
         "  endpoint='gemini-2.0-flash-001',\n"
         "  INPUT_LABEL_COLS=['input_column_label'])\n"

@@ -18,6 +18,8 @@ from typing import Tuple
 
 import google.cloud.bigquery
 
+from bigframes.core.compile.sqlglot import sql as sg_sql
+
 _LEGACY_TO_GOOGLESQL_TYPES = {
     "BOOLEAN": "BOOL",
     "INTEGER": "INT64",
@@ -41,12 +43,13 @@ def _type_to_sql(field: google.cloud.bigquery.SchemaField):
 
 
 def _field_to_sql(field: google.cloud.bigquery.SchemaField):
+    name_sql = sg_sql.to_sql(sg_sql.identifier(field.name))
     if field.mode == "REPEATED":
         # Unlike other types, ARRAY are represented as mode="REPEATED". To get
         # the array type, we use SchemaField object but ignore the mode.
-        return f"`{field.name}` ARRAY<{_type_to_sql(field)}>"
+        return f"{name_sql} ARRAY<{_type_to_sql(field)}>"
 
-    return f"`{field.name}` {_type_to_sql(field)}"
+    return f"{name_sql} {_type_to_sql(field)}"
 
 
 def _to_struct(bqschema: Tuple[google.cloud.bigquery.SchemaField, ...]):

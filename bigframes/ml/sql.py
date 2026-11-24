@@ -105,7 +105,8 @@ class BaseSqlGenerator:
     # Connection
     def connection(self, conn_name: str) -> str:
         """Encode the REMOTE WITH CONNECTION clause for BQML. conn_name is of the format <PROJECT_NUMBER/PROJECT_ID>.<REGION>.<CONNECTION_NAME>."""
-        return f"REMOTE WITH CONNECTION `{conn_name}`"
+        conn_sql = sg_sql.to_sql(sg_sql.qualified_identifier_from_string(conn_name))
+        return f"REMOTE WITH CONNECTION {conn_sql}"
 
     # Transformers
     def transform(self, *expr_sqls: str) -> str:
@@ -248,7 +249,11 @@ class ModelCreationSqlGenerator(BaseSqlGenerator):
         self,
         model_ref: google.cloud.bigquery.ModelReference,
     ):
-        return f"{sg_sql.to_sql(sg_sql.identifier(model_ref.project))}.{sg_sql.to_sql(sg_sql.identifier(model_ref.dataset_id))}.{sg_sql.to_sql(sg_sql.identifier(model_ref.model_id))}"
+        return sg_sql.to_sql(
+            sg_sql.qualified_identifier(
+                model_ref.project, model_ref.dataset_id, model_ref.model_id
+            )
+        )
 
     # Model create and alter
     def create_model(
@@ -339,7 +344,13 @@ class ModelManipulationSqlGenerator(BaseSqlGenerator):
         self._model_ref = model_ref
 
     def _model_ref_sql(self) -> str:
-        return f"{sg_sql.to_sql(sg_sql.identifier(self._model_ref.project))}.{sg_sql.to_sql(sg_sql.identifier(self._model_ref.dataset_id))}.{sg_sql.to_sql(sg_sql.identifier(self._model_ref.model_id))}"
+        return sg_sql.to_sql(
+            sg_sql.qualified_identifier(
+                self._model_ref.project,
+                self._model_ref.dataset_id,
+                self._model_ref.model_id,
+            )
+        )
 
     # Alter model
     def alter_model(

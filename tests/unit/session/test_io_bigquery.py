@@ -511,3 +511,29 @@ def test_to_query_escapes_identifiers_and_disallows_query_by_default():
         long_identifier_query
         == f"SELECT `_bf_source`.`{long_col}` FROM `my-project`.`my_dataset`.`{long_table}` AS _bf_source"
     )
+
+
+def test_table_ref_to_sql_escapes_segments_and_lakehouse():
+    table_ref = google.cloud.bigquery.TableReference(
+        google.cloud.bigquery.DatasetReference("my-proj", "cat.ns`1"),
+        "tbl`\\name",
+    )
+
+    assert io_bq.table_ref_to_sql(table_ref) == r"`my-proj`.`cat`.`ns\`1`.`tbl\`\\name`"
+
+
+def test_create_export_data_statement_escapes_table_id():
+    stmt = io_bq.create_export_data_statement(
+        "google.com:my-proj.my_ds.tbl`1",
+        uri="gs://bucket/out-*.parquet",
+        format="parquet",
+        export_options={},
+    )
+
+    assert r"FROM `google.com:my-proj`.`my_ds`.`tbl\`1`" in stmt
+
+
+def test_bq_field_to_sql_escapes_field_name():
+    field = google.cloud.bigquery.SchemaField("col`\\name", "STRING")
+
+    assert io_bq.bq_field_to_sql(field) == r"`col\`\\name` STRING"

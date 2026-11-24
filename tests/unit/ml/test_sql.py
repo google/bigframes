@@ -313,7 +313,7 @@ def test_create_llm_remote_model_correct(
     assert (
         sql
         == """CREATE OR REPLACE MODEL `test-proj`.`_anonXYZ`.`create_remote_model`
-REMOTE WITH CONNECTION `my_project.us.my_connection`
+REMOTE WITH CONNECTION `my_project`.`us`.`my_connection`
 OPTIONS(
   option_key1='option_value1',
   option_key2=2)
@@ -334,7 +334,7 @@ def test_create_remote_model_correct(
     assert (
         sql
         == """CREATE OR REPLACE MODEL `test-proj`.`_anonXYZ`.`create_remote_model`
-REMOTE WITH CONNECTION `my_project.us.my_connection`
+REMOTE WITH CONNECTION `my_project`.`us`.`my_connection`
 OPTIONS(
   option_key1='option_value1',
   option_key2=2)"""
@@ -360,11 +360,19 @@ INPUT(
   `column1` int64)
 OUTPUT(
   `result` array<float64>)
-REMOTE WITH CONNECTION `my_project.us.my_connection`
+REMOTE WITH CONNECTION `my_project`.`us`.`my_connection`
 OPTIONS(
   option_key1='option_value1',
   option_key2=2)"""
     )
+
+
+def test_connection_escapes_backticks_and_domain_scoped_project(
+    base_sql_generator: ml_sql.BaseSqlGenerator,
+):
+    result = base_sql_generator.connection("google.com:my-proj.us.conn`1\\x")
+
+    assert result == r"REMOTE WITH CONNECTION `google.com:my-proj`.`us`.`conn\`1\\x`"
 
 
 def test_create_imported_model_correct(

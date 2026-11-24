@@ -411,3 +411,44 @@ def test_qualified_identifier(parts, expected):
 def test_qualified_identifier_empty_raises():
     with pytest.raises(ValueError, match="at least one identifier part"):
         sql.qualified_identifier()
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    (
+        pytest.param("only_one", "`only_one`", id="single"),
+        pytest.param("my_ds.my_model", "`my_ds`.`my_model`", id="two_parts"),
+        pytest.param(
+            "my-proj.my_ds.my_tbl",
+            "`my-proj`.`my_ds`.`my_tbl`",
+            id="three_parts",
+        ),
+        pytest.param(
+            "my-proj.catalog.ns.my_tbl",
+            "`my-proj`.`catalog`.`ns`.`my_tbl`",
+            id="lakehouse_four_parts",
+        ),
+        pytest.param(
+            "google.com:my-proj.my_ds.my_tbl",
+            "`google.com:my-proj`.`my_ds`.`my_tbl`",
+            id="domain_scoped_project",
+        ),
+        pytest.param(
+            "google.com:my-proj.catalog.ns.my_tbl",
+            "`google.com:my-proj`.`catalog`.`ns`.`my_tbl`",
+            id="domain_scoped_lakehouse",
+        ),
+        pytest.param(
+            "proj.ds.tbl:suffix",
+            "`proj`.`ds`.`tbl:suffix`",
+            id="colon_in_leaf_segment",
+        ),
+        pytest.param(
+            "proj.ds.mod` ; DROP TABLE t; --",
+            r"`proj`.`ds`.`mod\` ; DROP TABLE t; --`",
+            id="backtick_injection",
+        ),
+    ),
+)
+def test_qualified_identifier_from_string(path, expected):
+    assert sql.to_sql(sql.qualified_identifier_from_string(path)) == expected

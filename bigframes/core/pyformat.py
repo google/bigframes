@@ -29,6 +29,7 @@ import pandas
 import bigframes.core.local_data
 import bigframes.session
 from bigframes.core import utils
+from bigframes.core.compile.sqlglot import sql as sg_sql
 from bigframes.core.tools import bigquery_schema
 
 _BQ_TABLE_TYPES = Union[
@@ -41,9 +42,11 @@ _BQ_TABLE_TYPES = Union[
 def _table_to_sql(table: _BQ_TABLE_TYPES) -> str:
     # Lakehouse table IDs have 4 parts. BigFrames packs catalog.namespace
     # into the dataset_id.
-    dataset_parts = table.dataset_id.split(".")
-    dataset_sql = ".".join(f"`{part}`" for part in dataset_parts)
-    return f"`{table.project}`.{dataset_sql}.`{table.table_id}`"
+    return sg_sql.to_sql(
+        sg_sql.qualified_identifier(
+            table.project, *table.dataset_id.split("."), table.table_id
+        )
+    )
 
 
 def _pandas_df_to_sql_dry_run(pd_df: pandas.DataFrame) -> str:

@@ -71,6 +71,11 @@ def identifier(id: str) -> sge.Identifier:
     return sge.to_identifier(id, quoted=QUOTED)
 
 
+_LEGACY_PROJECT_DOMAIN_RE = re.compile(
+    r"^([a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+:[a-zA-Z0-9-]+)\.(.*)$"
+)
+
+
 def qualified_identifier(*parts: str) -> sge.Expression:
     """Return a dot-separated SQL expression with each identifier segment quoted."""
     if not parts:
@@ -78,6 +83,19 @@ def qualified_identifier(*parts: str) -> sge.Expression:
     if len(parts) == 1:
         return identifier(parts[0])
     return sge.Dot.build([identifier(part) for part in parts])
+
+
+def qualified_identifier_from_string(path: str) -> sge.Expression:
+    """Split a dotted BigQuery resource path and quote each segment individually.
+
+    Preserves legacy domain-scoped GCP project prefixes (e.g. 'google.com:my-proj').
+    """
+    match = _LEGACY_PROJECT_DOMAIN_RE.match(path)
+    if match:
+        parts = [match.group(1), *match.group(2).split(".")]
+    else:
+        parts = path.split(".")
+    return qualified_identifier(*parts)
 
 
 def _unwrap_scalar(value: typing.Any) -> typing.Any:

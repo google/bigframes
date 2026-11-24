@@ -141,7 +141,7 @@ def test_streaming_dataframe_to_bigtable(session):
         "\nuri = 'https://bigtable.googleapis.com/projects/test-project"
         "/instances/my-instance/tables/my-table'\n"
     ) in query
-    assert f"APPENDS(TABLE `{TABLE_ID}`" in query
+    assert "APPENDS(TABLE `test-project`.`test_dataset`.`test_table`" in query
 
 
 def test_streaming_dataframe_to_pubsub_rejects_invalid_topic(session):

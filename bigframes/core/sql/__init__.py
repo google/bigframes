@@ -19,6 +19,7 @@ Utility functions for SQL construction.
 from __future__ import annotations
 
 import json
+import re
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -30,6 +31,7 @@ from typing import (
     cast,
 )
 
+import bigframes_vendored.sqlglot as sg
 import bigframes_vendored.sqlglot.expressions as sge
 
 from bigframes.core.compile.sqlglot import sql
@@ -74,6 +76,90 @@ def escape_chars(value: str):
         }
     )
     return value.translate(trans_table)
+
+
+# GoogleSQL's rules for unquoted and quoted identifiers:
+# https://cloud.google.com/bigquery/docs/reference/standard-sql/lexical#identifiers
+_UNQUOTED_IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+_QUOTED_IDENTIFIER_RE = re.compile(r"`(?:[^`\\\r\n]|\\[^\r\n])+`")
+
+_ALLOWED_DATA_TYPE_NODES = (
+    sge.DataType,
+    sge.ColumnDef,
+    sge.Identifier,
+    sge.DataTypeParam,
+    sge.Literal,
+    sge.Var,
+)
+
+
+def is_quoted_identifier(text: str) -> bool:
+    """Returns whether text is one backtick-quoted identifier."""
+    return _QUOTED_IDENTIFIER_RE.fullmatch(text) is not None
+
+
+def normalize_option_name(name: object) -> str:
+    """Returns name without surrounding whitespace if it is one identifier.
+
+    Raises:
+        ValueError: If name isn't a plain or backtick-quoted identifier.
+    """
+    name_sql = str(name).strip()
+    if name is None or not (
+        _UNQUOTED_IDENTIFIER_RE.fullmatch(name_sql) or is_quoted_identifier(name_sql)
+    ):
+        raise ValueError(
+            f"Invalid option name {name!r}. Expected an identifier, such as "
+            "'model_type'."
+        )
+    return name_sql
+
+
+def normalize_data_type(data_type: object) -> str:
+    """Returns data_type normalized by sqlglot if it is one BigQuery data type.
+
+    Raises:
+        ValueError: If data_type isn't a single BigQuery data type.
+    """
+    type_sql = str(data_type)
+    # sqlglot's parse_one splits on ';' and returns only the first chunk.
+    if data_type is None or ";" in type_sql:
+        raise ValueError(
+            f"Invalid data type {data_type!r}. Expected a BigQuery data type, "
+            "such as 'STRING' or 'ARRAY<FLOAT64>'."
+        )
+    try:
+        parsed = sg.parse_one(
+            type_sql,
+            read=sql.base.DIALECT,
+            into=sge.DataType,
+            error_level=sg.ErrorLevel.RAISE,
+        )
+    except (sg.ParseError, sg.TokenError) as exc:
+        raise ValueError(
+            f"Invalid data type {data_type!r}. Expected a BigQuery data type, "
+            "such as 'STRING' or 'ARRAY<FLOAT64>'."
+        ) from exc
+    if not isinstance(parsed, sge.DataType) or not _is_allowed_data_type(parsed):
+        raise ValueError(
+            f"Invalid data type {data_type!r}. Expected a BigQuery data type, "
+            "such as 'STRING' or 'ARRAY<FLOAT64>'."
+        )
+    return parsed.sql(dialect=sql.base.DIALECT, comments=False)
+
+
+def _is_allowed_data_type(parsed: sge.DataType) -> bool:
+    for node in parsed.walk():
+        if not isinstance(node, _ALLOWED_DATA_TYPE_NODES):
+            return False
+        if isinstance(node, sge.Identifier) and not node.name:
+            return False
+        if isinstance(node, sge.Literal) and not node.is_int:
+            return False
+        if isinstance(node, sge.Var) and node.name.upper() != "MAX":
+            return False
+    return True
 
 
 def multi_literal(*values: Any):
@@ -183,7 +269,7 @@ def create_vector_index_ddl(
 
     rendered_options = ", ".join(
         [
-            f"{option_name} = {sql.to_sql(sql.literal(option_value))}"
+            f"{normalize_option_name(option_name)} = {sql.to_sql(sql.literal(option_value))}"
             for option_name, option_value in options.items()
         ]
     )

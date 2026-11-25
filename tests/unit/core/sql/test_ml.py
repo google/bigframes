@@ -111,6 +111,75 @@ def test_create_model_hparam_tuning(snapshot):
     snapshot.assert_match(sql, "create_model_hparam_tuning.sql")
 
 
+def test_create_model_remote_quotes_field_names(snapshot):
+    sql = bigframes.core.sql.ml.create_model_ddl(
+        model_name="my_remote_model",
+        connection_name="my_project.us.my_connection",
+        options={"endpoint": "https://example.com/endpoint"},
+        input_schema={
+            "my field": "STRING",
+            "a`b\\c": "STRING",
+            "`already quoted`": "STRING",
+            " padded\n": "STRING",
+        },
+        output_schema={"f1 INT64) OUTPUT (injected": "STRING"},
+    )
+    snapshot.assert_match(sql, "create_model_remote_quotes_field_names.sql")
+
+
+def test_create_model_remote_field_types(snapshot):
+    sql = bigframes.core.sql.ml.create_model_ddl(
+        model_name="my_remote_model",
+        connection_name="my_project.us.my_connection",
+        options={"endpoint": "https://example.com/endpoint"},
+        input_schema={
+            "a": "ARRAY<STRUCT<x INT64, y STRING>>",
+            "b": "NUMERIC(10, 2)",
+            "c": "STRUCT<`my field` INT64>",
+            "e": "STRING(MAX)",
+        },
+        output_schema={"d": "array<float64>"},
+    )
+    snapshot.assert_match(sql, "create_model_remote_field_types.sql")
+
+
+@pytest.mark.parametrize(
+    "schemas",
+    [
+        {"input_schema": {"f": "STRING) OUTPUT (injected STRING"}},
+        {"output_schema": {"f": "STRING, injected INT64"}},
+    ],
+)
+def test_create_model_invalid_field_type_raises(schemas):
+    with pytest.raises(ValueError, match="Invalid data type"):
+        bigframes.core.sql.ml.create_model_ddl(
+            model_name="my_remote_model",
+            connection_name="my_project.us.my_connection",
+            options={"endpoint": "https://example.com/endpoint"},
+            **schemas,
+        )
+
+
+@pytest.mark.parametrize("field_name", [None, "   "])
+def test_create_model_invalid_field_name_raises(field_name):
+    with pytest.raises(ValueError, match="Invalid field name"):
+        bigframes.core.sql.ml.create_model_ddl(
+            model_name="my_remote_model",
+            connection_name="my_project.us.my_connection",
+            options={"endpoint": "https://example.com/endpoint"},
+            input_schema={field_name: "STRING"},
+        )
+
+
+def test_create_model_invalid_option_name_raises():
+    with pytest.raises(ValueError, match="Invalid option name"):
+        bigframes.core.sql.ml.create_model_ddl(
+            model_name="my_model",
+            options={"model_type = 'LINEAR_REG', l2_reg": 1},
+            training_data="SELECT * FROM t",
+        )
+
+
 def test_evaluate_model_basic(snapshot):
     sql = bigframes.core.sql.ml.evaluate(
         model_name="my_project.my_dataset.my_model",

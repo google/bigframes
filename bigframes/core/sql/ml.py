@@ -17,8 +17,29 @@ from __future__ import annotations
 from typing import Any, Dict, List, Mapping, Optional, Union
 
 import bigframes.core.col as col
+import bigframes.core.sql as bf_sql
 from bigframes.core.compile.sqlglot import sql as sg_sql
 from bigframes.core.compile.sqlglot.expression_compiler import expression_compiler
+
+
+def _quote_field_name(name: object) -> str:
+    """Quote a field name, unless it is already a quoted identifier."""
+    name_sql = str(name).strip()
+    if name is None or not name_sql:
+        raise ValueError(
+            f"Invalid field name {name!r}. Expected a non-empty column name."
+        )
+    if bf_sql.is_quoted_identifier(name_sql):
+        return name_sql
+    return sg_sql.to_sql(sg_sql.identifier(name_sql))
+
+
+def _schema_sql(schema: Mapping[str, str]) -> str:
+    """Encode the field list of an INPUT or OUTPUT clause."""
+    return ", ".join(
+        f"{_quote_field_name(name)} {bf_sql.normalize_data_type(data_type)}"
+        for name, data_type in schema.items()
+    )
 
 
 def create_model_ddl(
@@ -56,12 +77,10 @@ def create_model_ddl(
 
     # [INPUT (field_name field_type) OUTPUT (field_name field_type)]
     if input_schema:
-        inputs = [f"{k} {v}" for k, v in input_schema.items()]
-        ddl += f"INPUT ({', '.join(inputs)})\n"
+        ddl += f"INPUT ({_schema_sql(input_schema)})\n"
 
     if output_schema:
-        outputs = [f"{k} {v}" for k, v in output_schema.items()]
-        ddl += f"OUTPUT ({', '.join(outputs)})\n"
+        ddl += f"OUTPUT ({_schema_sql(output_schema)})\n"
 
     # [REMOTE WITH CONNECTION {connection_name | DEFAULT}]
     if connection_name:
@@ -74,6 +93,8 @@ def create_model_ddl(
     if options:
         rendered_options = []
         for option_name, option_value in options.items():
+            name_sql = bf_sql.normalize_option_name(option_name)
+
             if isinstance(option_value, col.Expression):
                 sg_expr = expression_compiler.compile_expression(option_value._value)
                 rendered_val = sg_sql.to_sql(sg_expr)
@@ -85,7 +106,7 @@ def create_model_ddl(
             else:
                 rendered_val = sg_sql.to_sql(sg_sql.literal(option_value))
 
-            rendered_options.append(f"{option_name} = {rendered_val}")
+            rendered_options.append(f"{name_sql} = {rendered_val}")
 
         ddl += f"OPTIONS({', '.join(rendered_options)})\n"
 

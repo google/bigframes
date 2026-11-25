@@ -14,6 +14,7 @@
 
 import datetime
 
+import google.api_core.exceptions
 import pytest
 
 import bigframes.bigquery.ml as ml
@@ -377,3 +378,38 @@ def test_arima_coefficients_xreg_weights(arima_plus_xreg_model):
     }
     assert expected_columns <= set(result.columns)
     assert result["weight"].notnull().any()
+
+
+def test_create_model_input_output_schema_quotes_field_names(dataset_id):
+    model_path = "gs://bigframes-dev-testing/xgboost-testdata/model.bst"
+    model_name = f"{dataset_id}.imported_xgboost_schema_model"
+    result = ml.create_model(
+        model_name=model_name,
+        input_schema={
+            "petal_length": "FLOAT64",
+            "petal_width": "FLOAT64",
+            "sepal_length": "FLOAT64",
+            "sepal_width": "FLOAT64",
+        },
+        output_schema={"predicted_label": "FLOAT64"},
+        options={"model_type": "XGBOOST", "model_path": model_path},
+        replace=True,
+    )
+    assert result["modelType"] == "XGBOOST"
+
+
+def test_create_model_escapes_input_schema_field_name(dataset_id):
+    model_path = "gs://bigframes-dev-testing/xgboost-testdata/model.bst"
+    model_name = f"{dataset_id}.injected_field_name_model"
+    with pytest.raises(google.api_core.exceptions.BadRequest):
+        ml.create_model(
+            model_name=model_name,
+            input_schema={
+                "petal_length": "FLOAT64",
+                "petal_width": "FLOAT64",
+                "sepal_length": "FLOAT64",
+                "sepal_width FLOAT64) OUTPUT (predicted_label": "FLOAT64",
+            },
+            options={"model_type": "XGBOOST", "model_path": model_path},
+            replace=True,
+        )

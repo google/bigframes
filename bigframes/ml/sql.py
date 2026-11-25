@@ -18,17 +18,53 @@ Generates SQL queries needed for BigQuery DataFrames ML
 
 from __future__ import annotations
 
+import math
 from typing import Iterable, Literal, Mapping, Optional, Union
 
 import bigframes_vendored.constants as constants
 import google.cloud.bigquery
+import numpy as np
 
+import bigframes.core.sql as bf_sql
 from bigframes.core.compile.sqlglot import sql as sg_sql
 
 INDENT_STR = "  "
 
 
-# TODO: Add proper escaping logic from core/compile module
+def _encode_string(value: object) -> str:
+    """Encode value as an escaped GoogleSQL STRING literal."""
+    return sg_sql.to_sql(sg_sql.literal(str(value)))
+
+
+def _encode_number(value: object) -> str:
+    """Encode a finite numeric literal for SQL.
+
+    Raises:
+        ValueError: If value isn't a finite int or float.
+    """
+    if isinstance(value, (bool, np.bool_)) or not isinstance(
+        value, (int, float, np.integer, np.floating)
+    ):
+        raise ValueError(f"Expected a number, got {value!r}")
+    if isinstance(value, (int, np.integer)):
+        return str(int(value))
+    num = float(value)
+    if not math.isfinite(num):
+        raise ValueError(f"Expected a number, got {value!r}")
+    return str(num)
+
+
+def _encode_bool(value: object) -> str:
+    """Encode a boolean literal for SQL.
+
+    Raises:
+        ValueError: If value isn't a bool.
+    """
+    if not isinstance(value, (bool, np.bool_)):
+        raise ValueError(f"Expected a boolean, got {value!r}")
+    return str(bool(value))
+
+
 class BaseSqlGenerator:
     """Generate base SQL strings for ML. Model name isn't needed in this class."""
 
@@ -47,20 +83,37 @@ class BaseSqlGenerator:
 
     def build_parameters(self, **kwargs: Union[str, int, float, Iterable[str]]) -> str:
         """Encode a dict of values into a formatted Iterable of key-value pairs for SQL"""
-        param_strs = [f"{k}={self.encode_value(v)}" for k, v in kwargs.items()]
+        param_strs = [
+            f"{bf_sql.normalize_option_name(k)}={self.encode_value(v)}"
+            for k, v in kwargs.items()
+        ]
         return "\n" + INDENT_STR + f",\n{INDENT_STR}".join(param_strs)
 
     def build_named_parameters(
         self, **kwargs: Union[str, int, float, Iterable[str]]
     ) -> str:
-        param_strs = [f"{k} => {self.encode_value(v)}" for k, v in kwargs.items()]
+        param_strs = [
+            f"{bf_sql.normalize_option_name(k)} => {self.encode_value(v)}"
+            for k, v in kwargs.items()
+        ]
         return "\n" + INDENT_STR + f",\n{INDENT_STR}".join(param_strs)
 
     def build_structs(self, **kwargs: Union[int, float, str, Mapping]) -> str:
         """Encode a dict of values into a formatted STRUCT items for SQL"""
         param_strs = []
         for k, v in kwargs.items():
-            v_trans = self.build_schema(**v) if isinstance(v, Mapping) else v
+            if isinstance(v, Mapping):
+                # Emitted inside sg_sql.literal(...) below, so schema strings
+                # like Gemini output_schema descriptions stay safely escaped.
+                schema_items = [
+                    f"{sg_sql.to_sql(sg_sql.identifier(sk))} {sv}"
+                    for sk, sv in v.items()
+                ]
+                v_trans: object = (
+                    "\n" + INDENT_STR + f",\n{INDENT_STR}".join(schema_items)
+                )
+            else:
+                v_trans = v
 
             param_strs.append(
                 f"{sg_sql.to_sql(sg_sql.literal(v_trans))} AS {sg_sql.to_sql(sg_sql.identifier(k))}"
@@ -75,7 +128,8 @@ class BaseSqlGenerator:
     def build_schema(self, **kwargs: str) -> str:
         """Encode a dict of values into a formatted schema type items for SQL"""
         param_strs = [
-            f"{sg_sql.to_sql(sg_sql.identifier(k))} {v}" for k, v in kwargs.items()
+            f"{sg_sql.to_sql(sg_sql.identifier(k))} {bf_sql.normalize_data_type(v)}"
+            for k, v in kwargs.items()
         ]
         return "\n" + INDENT_STR + f",\n{INDENT_STR}".join(param_strs)
 
@@ -132,7 +186,7 @@ class BaseSqlGenerator:
         name: str,
     ) -> str:
         """Encode ML.IMPUTER for BQML"""
-        return f"""ML.IMPUTER({sg_sql.to_sql(sg_sql.identifier(col_name))}, '{strategy}') OVER() AS {sg_sql.to_sql(sg_sql.identifier(name))}"""
+        return f"""ML.IMPUTER({sg_sql.to_sql(sg_sql.identifier(col_name))}, {_encode_string(strategy)}) OVER() AS {sg_sql.to_sql(sg_sql.identifier(name))}"""
 
     def ml_bucketize(
         self,
@@ -142,11 +196,11 @@ class BaseSqlGenerator:
     ) -> str:
         """Encode ML.BUCKETIZE for BQML"""
         # Use Python value rather than Numpy value to serialization.
-        points = [
-            point.item() if hasattr(point, "item") else point
+        points = ", ".join(
+            _encode_number(point.item() if hasattr(point, "item") else point)
             for point in array_split_points
-        ]
-        return f"""ML.BUCKETIZE({sg_sql.to_sql(sg_sql.identifier(input_id))}, {points}, FALSE) AS {sg_sql.to_sql(sg_sql.identifier(output_id))}"""
+        )
+        return f"""ML.BUCKETIZE({sg_sql.to_sql(sg_sql.identifier(input_id))}, [{points}], FALSE) AS {sg_sql.to_sql(sg_sql.identifier(output_id))}"""
 
     def ml_quantile_bucketize(
         self,
@@ -155,7 +209,7 @@ class BaseSqlGenerator:
         name: str,
     ) -> str:
         """Encode ML.QUANTILE_BUCKETIZE for BQML"""
-        return f"""ML.QUANTILE_BUCKETIZE({sg_sql.to_sql(sg_sql.identifier(numeric_expr_sql))}, {num_bucket}) OVER() AS {sg_sql.to_sql(sg_sql.identifier(name))}"""
+        return f"""ML.QUANTILE_BUCKETIZE({sg_sql.to_sql(sg_sql.identifier(numeric_expr_sql))}, {_encode_number(num_bucket)}) OVER() AS {sg_sql.to_sql(sg_sql.identifier(name))}"""
 
     def ml_one_hot_encoder(
         self,
@@ -168,7 +222,7 @@ class BaseSqlGenerator:
         """Encode ML.ONE_HOT_ENCODER for BQML.
         https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-one-hot-encoder for params.
         """
-        return f"""ML.ONE_HOT_ENCODER({sg_sql.to_sql(sg_sql.identifier(numeric_expr_sql))}, '{drop}', {top_k}, {frequency_threshold}) OVER() AS {sg_sql.to_sql(sg_sql.identifier(name))}"""
+        return f"""ML.ONE_HOT_ENCODER({sg_sql.to_sql(sg_sql.identifier(numeric_expr_sql))}, {_encode_string(drop)}, {_encode_number(top_k)}, {_encode_number(frequency_threshold)}) OVER() AS {sg_sql.to_sql(sg_sql.identifier(name))}"""
 
     def ml_label_encoder(
         self,
@@ -180,7 +234,7 @@ class BaseSqlGenerator:
         """Encode ML.LABEL_ENCODER for BQML.
         https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-label-encoder for params.
         """
-        return f"""ML.LABEL_ENCODER({sg_sql.to_sql(sg_sql.identifier(numeric_expr_sql))}, {top_k}, {frequency_threshold}) OVER() AS {sg_sql.to_sql(sg_sql.identifier(name))}"""
+        return f"""ML.LABEL_ENCODER({sg_sql.to_sql(sg_sql.identifier(numeric_expr_sql))}, {_encode_number(top_k)}, {_encode_number(frequency_threshold)}) OVER() AS {sg_sql.to_sql(sg_sql.identifier(name))}"""
 
     def ml_polynomial_expand(
         self, columns: Iterable[str], degree: int, name: str
@@ -188,7 +242,7 @@ class BaseSqlGenerator:
         """Encode ML.POLYNOMIAL_EXPAND.
         https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-polynomial-expand
         """
-        return f"""ML.POLYNOMIAL_EXPAND({self.struct_columns(columns)}, {degree}) AS {sg_sql.to_sql(sg_sql.identifier(name))}"""
+        return f"""ML.POLYNOMIAL_EXPAND({self.struct_columns(columns)}, {_encode_number(degree)}) AS {sg_sql.to_sql(sg_sql.identifier(name))}"""
 
     def ml_distance(
         self,
@@ -201,7 +255,7 @@ class BaseSqlGenerator:
         """Encode ML.DISTANCE for BQML.
         https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-distance
         """
-        return f"""SELECT *, ML.DISTANCE({sg_sql.to_sql(sg_sql.identifier(col_x))}, {sg_sql.to_sql(sg_sql.identifier(col_y))}, '{type}') AS {sg_sql.to_sql(sg_sql.identifier(name))} FROM ({source_sql})"""
+        return f"""SELECT *, ML.DISTANCE({sg_sql.to_sql(sg_sql.identifier(col_x))}, {sg_sql.to_sql(sg_sql.identifier(col_y))}, {_encode_string(type)}) AS {sg_sql.to_sql(sg_sql.identifier(name))} FROM ({source_sql})"""
 
     def ai_forecast(
         self,
@@ -445,13 +499,13 @@ class ModelManipulationSqlGenerator(BaseSqlGenerator):
         """Encode ML.EVALUATE for BQML"""
         # Note: don't need index as evaluate returns a new table
         return f"""SELECT * FROM ML.EVALUATE(MODEL {self._model_ref_sql()},
-            ({source_sql}), STRUCT("{task_type}" AS task_type))"""
+            ({source_sql}), STRUCT({_encode_string(task_type)} AS task_type))"""
 
     # ML evaluation TVFs
     def ml_arima_evaluate(self, show_all_candidate_models: bool = False) -> str:
         """Encode ML.ARMIA_EVALUATE for BQML"""
         return f"""SELECT * FROM ML.ARIMA_EVALUATE(MODEL {self._model_ref_sql()},
-            STRUCT({show_all_candidate_models} AS show_all_candidate_models))"""
+            STRUCT({_encode_bool(show_all_candidate_models)} AS show_all_candidate_models))"""
 
     def ml_centroids(self) -> str:
         """Encode ML.CENTROIDS for BQML"""

@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import typing
+
+import google.api_core.exceptions
 import pandas as pd
+import pytest
 
 from bigframes.ml import impute
 
@@ -87,3 +91,10 @@ def test_simple_imputer_save_load_most_frequent(missing_values_penguins_df, data
     assert isinstance(reloaded_transformer, impute.SimpleImputer)
     assert reloaded_transformer.strategy == transformer.strategy
     assert reloaded_transformer._bqml_model is not None
+
+
+def test_simple_imputer_escapes_strategy(missing_values_penguins_df):
+    payload = "mean') OVER() AS injected, ML.IMPUTER(`culmen_depth_mm`, 'mean"
+    imputer = impute.SimpleImputer(strategy=typing.cast(typing.Any, payload))
+    with pytest.raises(google.api_core.exceptions.BadRequest):
+        imputer.fit(missing_values_penguins_df[["culmen_depth_mm"]])

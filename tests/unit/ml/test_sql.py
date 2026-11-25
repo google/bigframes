@@ -15,6 +15,7 @@
 from unittest import mock
 
 import google.cloud.bigquery as bigquery
+import numpy as np
 import pytest
 
 import bigframes.ml.sql as ml_sql
@@ -357,9 +358,9 @@ def test_create_remote_model_with_params_correct(
         sql
         == """CREATE OR REPLACE MODEL `test-proj`.`_anonXYZ`.`create_remote_model`
 INPUT(
-  `column1` int64)
+  `column1` INT64)
 OUTPUT(
-  `result` array<float64>)
+  `result` ARRAY<FLOAT64>)
 REMOTE WITH CONNECTION `my_project`.`us`.`my_connection`
 OPTIONS(
   option_key1='option_value1',
@@ -408,9 +409,9 @@ def test_create_xgboost_imported_model_produces_correct_sql(
         sql
         == """CREATE OR REPLACE MODEL `test-proj`.`_anonXYZ`.`create_xgboost_imported_model`
 INPUT(
-  `column1` int64)
+  `column1` INT64)
 OUTPUT(
-  `result` array<float64>)
+  `result` ARRAY<FLOAT64>)
 OPTIONS(
   option_key1='option_value1',
   option_key2=2)"""
@@ -454,7 +455,7 @@ def test_ml_llm_evaluate_correct(
     assert (
         sql
         == """SELECT * FROM ML.EVALUATE(MODEL `my_project_id`.`my_dataset_id`.`my_model_id`,
-            (input_X_y_sql), STRUCT("CLASSIFICATION" AS task_type))"""
+            (input_X_y_sql), STRUCT('CLASSIFICATION' AS task_type))"""
     )
 
 
@@ -603,4 +604,170 @@ def test_ml_principal_component_info_correct(
     assert (
         sql
         == """SELECT * FROM ML.PRINCIPAL_COMPONENT_INFO(MODEL `my_project_id`.`my_dataset_id`.`my_model_id`)"""
+    )
+
+
+_STRING_PAYLOAD = "x') OVER() AS a, (SELECT 1) AS b --\n\\"
+_STRING_PAYLOAD_SQL = r"'x\') OVER() AS a, (SELECT 1) AS b --\n\\'"
+
+
+def test_imputer_strategy_is_escaped(base_sql_generator: ml_sql.BaseSqlGenerator):
+    sql = base_sql_generator.ml_imputer("col_a", _STRING_PAYLOAD, "imputer_col_a")
+    assert (
+        sql == f"ML.IMPUTER(`col_a`, {_STRING_PAYLOAD_SQL}) OVER() AS `imputer_col_a`"
+    )
+
+
+def test_one_hot_encoder_drop_is_escaped(base_sql_generator: ml_sql.BaseSqlGenerator):
+    sql = base_sql_generator.ml_one_hot_encoder("col_a", _STRING_PAYLOAD, 9, 2, "out")
+    assert (
+        sql
+        == f"ML.ONE_HOT_ENCODER(`col_a`, {_STRING_PAYLOAD_SQL}, 9, 2) OVER() AS `out`"
+    )
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (5, "5"),
+        (np.int64(5), "5"),
+    ],
+)
+def test_encoders_valid_numbers_unchanged(
+    base_sql_generator: ml_sql.BaseSqlGenerator, value, expected
+):
+    sql = base_sql_generator.ml_label_encoder("c", value, value, "o")
+    assert sql == f"ML.LABEL_ENCODER(`c`, {expected}, {expected}) OVER() AS `o`"
+
+
+def test_bucketize_valid_split_points_unchanged(
+    base_sql_generator: ml_sql.BaseSqlGenerator,
+):
+    sql = base_sql_generator.ml_bucketize("c", [-2, 0.5, np.float64(1e16)], "o")
+    assert sql == "ML.BUCKETIZE(`c`, [-2, 0.5, 1e+16], FALSE) AS `o`"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "5",
+        "1/2",
+        True,
+        np.bool_(True),
+        None,
+        float("nan"),
+        float("inf"),
+    ],
+)
+def test_number_check_rejects_non_numbers(
+    base_sql_generator: ml_sql.BaseSqlGenerator, value
+):
+    with pytest.raises(ValueError, match="Expected a number"):
+        base_sql_generator.ml_quantile_bucketize("c", value, "o")
+
+
+@pytest.mark.parametrize(
+    "build_sql",
+    [
+        lambda gen, value: gen.ml_one_hot_encoder("c", "none", value, 0, "o"),
+        lambda gen, value: gen.ml_one_hot_encoder("c", "none", 10, value, "o"),
+        lambda gen, value: gen.ml_label_encoder("c", value, 0, "o"),
+        lambda gen, value: gen.ml_label_encoder("c", 10, value, "o"),
+        lambda gen, value: gen.ml_quantile_bucketize("c", value, "o"),
+        lambda gen, value: gen.ml_polynomial_expand(["c"], value, "o"),
+        lambda gen, value: gen.ml_bucketize("c", [1, value], "o"),
+    ],
+    ids=[
+        "one_hot_top_k",
+        "one_hot_frequency_threshold",
+        "label_top_k",
+        "label_frequency_threshold",
+        "quantile_num_bucket",
+        "polynomial_degree",
+        "bucketize_split_point",
+    ],
+)
+def test_numeric_arguments_reject_sql(
+    base_sql_generator: ml_sql.BaseSqlGenerator, build_sql
+):
+    with pytest.raises(ValueError, match="Expected a number"):
+        build_sql(base_sql_generator, "0) OVER() AS a, (SELECT 1) AS b -- ")
+
+
+@pytest.mark.parametrize(
+    ("distance_type", "expected"),
+    [
+        ("EUCLIDEAN", "'EUCLIDEAN'"),
+        (_STRING_PAYLOAD, _STRING_PAYLOAD_SQL),
+    ],
+)
+def test_distance_type_is_escaped(
+    base_sql_generator: ml_sql.BaseSqlGenerator, distance_type, expected
+):
+    sql = base_sql_generator.ml_distance("x", "y", distance_type, "SELECT 1", "d")
+    assert sql == f"SELECT *, ML.DISTANCE(`x`, `y`, {expected}) AS `d` FROM (SELECT 1)"
+
+
+_INVALID_NAME = "model_type='x') AS SELECT 1 -- "
+
+
+def test_options_reject_invalid_name(base_sql_generator: ml_sql.BaseSqlGenerator):
+    with pytest.raises(ValueError, match="Invalid option name"):
+        base_sql_generator.options(**{_INVALID_NAME: 1})
+
+
+def test_named_parameters_reject_invalid_name(
+    base_sql_generator: ml_sql.BaseSqlGenerator,
+):
+    with pytest.raises(ValueError, match="Invalid option name"):
+        base_sql_generator.ai_forecast("SELECT 1", {_INVALID_NAME: 1})
+
+
+def test_ml_llm_evaluate_task_type_is_escaped(
+    model_manipulation_sql_generator: ml_sql.ModelManipulationSqlGenerator,
+):
+    sql = model_manipulation_sql_generator.ml_llm_evaluate("SELECT 1", _STRING_PAYLOAD)
+    assert (
+        sql
+        == f"""SELECT * FROM ML.EVALUATE(MODEL `my_project_id`.`my_dataset_id`.`my_model_id`,
+            (SELECT 1), STRUCT({_STRING_PAYLOAD_SQL} AS task_type))"""
+    )
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"), [(False, "False"), (np.bool_(True), "True")]
+)
+def test_ml_arima_evaluate_valid_bool_unchanged(
+    model_manipulation_sql_generator: ml_sql.ModelManipulationSqlGenerator,
+    value,
+    expected,
+):
+    sql = model_manipulation_sql_generator.ml_arima_evaluate(value)
+    assert sql.endswith(f"STRUCT({expected} AS show_all_candidate_models))")
+
+
+@pytest.mark.parametrize("value", ["TRUE AS x)) UNION ALL SELECT 1 -- ", "true", 1])
+def test_ml_arima_evaluate_rejects_non_boolean(
+    model_manipulation_sql_generator: ml_sql.ModelManipulationSqlGenerator, value
+):
+    with pytest.raises(ValueError, match="Expected a boolean"):
+        model_manipulation_sql_generator.ml_arima_evaluate(value)
+
+
+def test_build_schema_invalid_type_raises(
+    base_sql_generator: ml_sql.BaseSqlGenerator,
+):
+    with pytest.raises(ValueError, match="Invalid data type"):
+        base_sql_generator.build_schema(c="STRING) OUTPUT (injected INT64")
+
+
+def test_build_structs_escapes_schema_mapping(
+    base_sql_generator: ml_sql.BaseSqlGenerator,
+):
+    sql = base_sql_generator.build_structs(
+        output_schema={"summary": "STRING OPTIONS(description = 'one line')"}
+    )
+    assert sql == (
+        "\n  "
+        r"'\n  `summary` STRING OPTIONS(description = \'one line\')' AS `output_schema`"
     )

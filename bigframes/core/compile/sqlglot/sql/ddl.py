@@ -57,7 +57,7 @@ def load_data(
 
     sge_from_files = sge.Tuple(
         expressions=[
-            sge.Property(this=base.identifier(k), value=base.literal(v))
+            sge.Property(this=_get_sge_option_name(k), value=base.literal(v))
             for k, v in from_files_options.items()
         ]
     )
@@ -131,6 +131,13 @@ def _get_sge_schema(
     )
 
 
+def _get_sge_option_name(name: str) -> sge.Var:
+    # Imported here because bigframes.core.sql imports this package.
+    import bigframes.core.sql as bf_sql
+
+    return sge.var(bf_sql.normalize_option_name(name))
+
+
 def _get_sge_properties(
     options: Optional[Mapping[str, Union[str, int, float, bool, list]]] = None,
 ) -> Optional[sge.Properties]:
@@ -139,7 +146,7 @@ def _get_sge_properties(
 
     return sge.Properties(
         expressions=[
-            sge.Property(this=base.identifier(k), value=base.literal(v))
+            sge.Property(this=_get_sge_option_name(k), value=base.literal(v))
             for k, v in options.items()
         ]
     )

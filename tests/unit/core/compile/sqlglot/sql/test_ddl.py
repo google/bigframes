@@ -85,3 +85,28 @@ def test_create_external_table_if_not_exists(snapshot):
         options={"format": "CSV", "uris": ["gs://bucket/path*"]},
     )
     snapshot.assert_match(sql.to_sql(expr), "out.sql")
+
+
+def test_load_data_quoted_option_names(snapshot):
+    expr = sql.load_data(
+        "my-project.my_dataset.my_table",
+        table_options={"`description`": "my table"},
+        from_files_options={"`format`": "CSV", "uris": ["gs://bucket/path*"]},
+    )
+    snapshot.assert_match(sql.to_sql(expr), "out.sql")
+
+
+@pytest.mark.parametrize(
+    "build_expr",
+    [
+        lambda name: sql.load_data("my_table", from_files_options={name: 1}),
+        lambda name: sql.create_external_table("my_table", options={name: 1}),
+    ],
+    ids=[
+        "load_data_from_files_options",
+        "create_external_table_options",
+    ],
+)
+def test_invalid_option_name_raises(build_expr):
+    with pytest.raises(ValueError, match="Invalid option name"):
+        build_expr("format = 'CSV', uris = ['gs://bucket/path*'], x")

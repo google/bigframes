@@ -4,6 +4,38 @@
 
 [1]: https://pypi.org/project/bigframes/#history
 
+## [2.54.0](https://github.com/google/bigframes/compare/v2.53.0...v2.54.0) (2026-11-25)
+
+
+### Features
+
+* add datetime functions to bigframes.bigquery module ([1d56e86](https://github.com/google/bigframes/commit/1d56e86303368ca69197abc72018046ce6e20974))
+
+
+### Bug Fixes
+
+* **deps:** increase minimum version of jupyter-core ([8a00608](https://github.com/google/bigframes/commit/8a00608931eb7815cf7bcb63974a51e2c2e2caf7))
+* **deps:** increase minimum version of nbconvert ([691b9a3](https://github.com/google/bigframes/commit/691b9a3fc0649eb129f68b46cd852be82254fcc6))
+* **deps:** increase minimum version of opentelemetry-api ([68c243c](https://github.com/google/bigframes/commit/68c243c338069d500e3b6963b8be70f19c03a7bc))
+* **deps:** increase minimum version of pillow ([5198998](https://github.com/google/bigframes/commit/51989984797b0a3242e94e7b28cbcdd390347fa3))
+* **deps:** increase minimum version of setuptools ([72da1c6](https://github.com/google/bigframes/commit/72da1c6da812e767031399f8e410c4078d2d3433))
+* **deps:** increase minimum version of urlib3 ([f9d053d](https://github.com/google/bigframes/commit/f9d053da079f68a14705521a6c46aa77f6938322))
+* **deps:** increase minimum version of zipp ([74550d1](https://github.com/google/bigframes/commit/74550d1cc83ece8fc91fa8426e5fe335f13e8b83))
+* escape backslashes and backticks in quoted identifiers ([43f374b](https://github.com/google/bigframes/commit/43f374b00992e825b23ce520f4ab678a46d8b0f2))
+* escape error messages in the anywidget table widget ([d3f579d](https://github.com/google/bigframes/commit/d3f579d09dfbaa0f71e517a5fc2120baf431f6a9))
+* escape names and check types in bigquery.ml.create_model ([5f2fcfc](https://github.com/google/bigframes/commit/5f2fcfc1b8690c6e6aaefb8990652b81aa1d7f4b))
+* escape values in bigframes.ml SQL and check option names ([62b9b50](https://github.com/google/bigframes/commit/62b9b50c6eab56be480c508c83188ffcce238f6c))
+* propagate kms_key_name in BQML and fix connection skip ([82952b1](https://github.com/google/bigframes/commit/82952b141b61d066e7d2c2601cc468fe38c9f44f))
+* properly handle remote function name collisions ([db4bf5a](https://github.com/google/bigframes/commit/db4bf5a0d87c02d2dd0fab79d2ada86ed2f143d0))
+* sanitize UDF inputs ([5b917ee](https://github.com/google/bigframes/commit/5b917eefda529ca2411c810da1b218cc18b149c5))
+* validate date parts and hex-encode bytes literals ([4f5ce1f](https://github.com/google/bigframes/commit/4f5ce1f4b238f4429105cfae4c92153137ea0e8b))
+* validate resource names in to_bigtable and to_pubsub ([8db7c55](https://github.com/google/bigframes/commit/8db7c55a806471d969c415b2055c1fad5b715f15))
+
+
+### Documentation
+
+* mention BigLake Lakehouse table names in the read_gbq docstring ([b428f83](https://github.com/google/bigframes/commit/b428f833a04acebb0246069642a05fae5393af73))
+
 ## [2.53.0](https://github.com/google/bigframes/compare/v2.52.0...v2.53.0) (2026-11-11)
 
 
